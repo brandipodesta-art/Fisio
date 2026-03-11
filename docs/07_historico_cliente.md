@@ -1,6 +1,6 @@
 # 📊 HistoricoCliente.tsx — Histórico Completo do Cliente
 
-> **Arquivo:** `HistoricoCliente.tsx` · **Linhas:** 329 · **Tamanho:** 11.517 bytes
+> **Arquivo:** `src/components/HistoricoCliente.tsx` · **Linhas:** 329
 
 ---
 

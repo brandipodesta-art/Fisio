@@ -119,7 +119,7 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold;

@@ -8,13 +8,13 @@
 
 | Tecnologia | Uso |
 |---|---|
-| **React + TypeScript (TSX)** | Biblioteca principal de UI |
-| **Vite** | Bundler / Dev Server |
-| **TailwindCSS v4** | Framework CSS utilitário |
+| **Next.js 15 (App Router)** | Framework React com SSR/SSG e deploy na Vercel |
+| **React 19 + TypeScript (TSX)** | Biblioteca principal de UI |
+| **TailwindCSS v4** | Framework CSS utilitário (via PostCSS) |
 | **shadcn/ui** | Componentes de UI (Button, Input, Card, Tabs, Select, Dialog, etc.) |
 | **Lucide React** | Biblioteca de ícones |
 | **Sonner** | Biblioteca de toasts/notificações |
-| **Geist Sans** | Tipografia principal (Google Fonts) |
+| **Geist Sans** | Tipografia principal (via `next/font/google`) |
 
 ---
 
@@ -22,14 +22,29 @@
 
 ```
 Fisio/
-├── index.html              # Ponto de entrada HTML
-├── index.css               # Estilos globais + Design Tokens (TailwindCSS)
-├── Home.tsx                # Página principal (rota raiz)
-├── CadastroLayout.tsx      # Layout com abas (Cadastro / Evolução / Histórico)
-├── CadastroForm.tsx        # Formulário completo de cadastro de pacientes
-├── EvolucaoField.tsx       # Campo de evolução clínica com histórico
-├── HistoricoCliente.tsx    # Histórico do cliente (Exames, Frequência, Financeiro, Evolução)
-└── docs/                   # 📂 Documentação detalhada de cada componente
+├── next.config.ts          # Configuração Next.js
+├── postcss.config.mjs      # PostCSS + TailwindCSS v4
+├── tsconfig.json           # TypeScript config
+├── package.json            # Dependências e scripts
+├── src/
+│   ├── app/
+│   │   ├── layout.tsx      # Root Layout (metadata, font, Toaster)
+│   │   ├── page.tsx        # Página principal ("use client")
+│   │   └── globals.css     # Design Tokens (TailwindCSS)
+│   ├── components/
+│   │   ├── CadastroLayout.tsx  # Layout com abas (4 seções)
+│   │   ├── CadastroForm.tsx    # Formulário de cadastro de pacientes
+│   │   ├── EvolucaoField.tsx   # Campo de evolução clínica
+│   │   ├── HistoricoCliente.tsx # Histórico do cliente
+│   │   ├── AgendaPage.tsx      # Agenda estilo Google Calendar
+│   │   ├── AgendaEventCard.tsx # Card de evento da agenda
+│   │   ├── AgendaNewEventDialog.tsx # Modal de novo agendamento
+│   │   ├── agendaTypes.ts      # Types do módulo Agenda
+│   │   ├── agendaData.ts       # Dados e helpers do módulo Agenda
+│   │   └── ui/                 # Componentes shadcn/ui
+│   └── lib/
+│       └── utils.ts            # Utilitário cn() (clsx + tailwind-merge)
+└── docs/                       # 📂 Documentação detalhada
 ```
 
 ---
@@ -38,12 +53,14 @@ Fisio/
 
 ```mermaid
 graph TD
-    A["index.html"] --> B["main.tsx"]
-    B --> C["Home.tsx"]
-    C --> D["CadastroLayout.tsx"]
-    D --> E["CadastroForm.tsx"]
-    D --> F["EvolucaoField.tsx"]
-    D --> G["HistoricoCliente.tsx"]
+    A["layout.tsx (Server)"] --> B["page.tsx (Client)"]
+    B --> C["CadastroLayout.tsx"]
+    C --> D["CadastroForm.tsx"]
+    C --> E["EvolucaoField.tsx"]
+    C --> F["HistoricoCliente.tsx"]
+    C --> G["AgendaPage.tsx"]
+    G --> H["AgendaEventCard.tsx"]
+    G --> I["AgendaNewEventDialog.tsx"]
 ```
 
 ---
@@ -72,14 +89,24 @@ graph TD
 
 ---
 
+## Deploy
+
+- **Plataforma:** Vercel
+- **Build command:** `next build`
+- **Output:** `.next/` (gerado automaticamente)
+- **Dev command:** `next dev` → `http://localhost:3000`
+
+---
+
 ## Índice da Documentação
 
 | # | Arquivo | Documentação |
 |---|---|---|
-| 1 | `index.html` | [01_index_html.md](./01_index_html.md) |
-| 2 | `index.css` | [02_index_css.md](./02_index_css.md) |
-| 3 | `Home.tsx` | [03_home.md](./03_home.md) |
+| 1 | `layout.tsx` | [01_layout.md](./01_layout.md) |
+| 2 | `globals.css` | [02_globals_css.md](./02_globals_css.md) |
+| 3 | `page.tsx` | [03_page.md](./03_page.md) |
 | 4 | `CadastroLayout.tsx` | [04_cadastro_layout.md](./04_cadastro_layout.md) |
 | 5 | `CadastroForm.tsx` | [05_cadastro_form.md](./05_cadastro_form.md) |
 | 6 | `EvolucaoField.tsx` | [06_evolucao_field.md](./06_evolucao_field.md) |
 | 7 | `HistoricoCliente.tsx` | [07_historico_cliente.md](./07_historico_cliente.md) |
+| 8 | `AgendaPage.tsx` | [08_agenda_page.md](./08_agenda_page.md) |

@@ -1,6 +1,6 @@
 # 📅 AgendaPage.tsx — Página de Agendamento (Google Calendar Style)
 
-> **Arquivos:** `AgendaPage.tsx` + `AgendaEventCard.tsx` + `AgendaNewEventDialog.tsx` + `agendaTypes.ts` + `agendaData.ts`
+> **Arquivos:** `src/components/AgendaPage.tsx` (`"use client"`) + `AgendaEventCard.tsx` + `AgendaNewEventDialog.tsx` (`"use client"`) + `agendaTypes.ts` + `agendaData.ts`
 
 ---
 

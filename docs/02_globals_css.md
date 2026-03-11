@@ -1,12 +1,12 @@
-# 🎨 index.css — Design Tokens e Estilos Globais
+# 🎨 globals.css — Design Tokens e Estilos Globais
 
-> **Arquivo:** `index.css` · **Linhas:** 185 · **Tamanho:** 6.033 bytes
+> **Arquivo:** `src/app/globals.css` · **Linhas:** 185 · **Tamanho:** 6.033 bytes
 
 ---
 
 ## Propósito
 
-Define o design system completo da aplicação: importações do TailwindCSS, variáveis CSS (design tokens) para modo claro e escuro, estilos de base e componentes customizados.
+Define o design system completo da aplicação: importações do TailwindCSS, variáveis CSS (design tokens) para modo claro e escuro, estilos de base e componentes customizados. Este arquivo foi migrado de `src/index.css` (Vite) para `src/app/globals.css` (Next.js App Router).
 
 ---
 
@@ -17,8 +17,10 @@ Define o design system completo da aplicação: importações do TailwindCSS, va
 @import "tw-animate-css";
 ```
 
-- `tailwindcss` — Framework CSS utilitário (v4)
+- `tailwindcss` — Framework CSS utilitário (v4, via PostCSS com `@tailwindcss/postcss`)
 - `tw-animate-css` — Animações CSS para Tailwind
+
+> **Nota:** No Vite usava-se `@tailwindcss/vite` como plugin. No Next.js, usa-se `@tailwindcss/postcss` configurado em `postcss.config.mjs`.
 
 ---
 
@@ -101,15 +103,14 @@ Mapeia variáveis CSS customizadas para tokens do Tailwind:
   * { @apply border-border outline-ring/50; }
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: 'Geist Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
   h1..h6 { @apply font-semibold; }
   /* Elementos interativos: cursor-pointer quando não disabled */
-  button, [role="button"], a[href], select, input[checkbox], input[radio] {
-    @apply cursor-pointer;
-  }
 }
 ```
+
+> **Diferença do Vite:** O `font-family` agora usa `var(--font-geist-sans)` — a CSS variable injetada pelo `next/font` em `layout.tsx`, em vez de referenciar `'Geist Sans'` diretamente.
 
 ---
 
@@ -150,3 +151,4 @@ Card base com fundo branco, borda, cantos arredondados, sombra sutil e padding i
 - O `--radius` base de `0.5rem` é usado para calcular `sm`, `md`, `lg` e `xl`
 - Os tokens `--chart-1..5` são todos iguais no modo claro — diferenciar para melhor visualização em gráficos
 - A classe `.container` sobreescreve o container padrão do Tailwind
+- TailwindCSS v4 no Next.js usa `@tailwindcss/postcss` (diferente do Vite que usava `@tailwindcss/vite`)

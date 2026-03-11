@@ -1,6 +1,6 @@
 # 📈 EvolucaoField.tsx — Campo de Evolução Clínica
 
-> **Arquivo:** `EvolucaoField.tsx` · **Linhas:** 178 · **Tamanho:** 6.029 bytes
+> **Arquivo:** `src/components/EvolucaoField.tsx` · **Diretiva:** `"use client"` · **Linhas:** 178
 
 ---
 

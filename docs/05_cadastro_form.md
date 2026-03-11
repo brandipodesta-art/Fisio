@@ -1,6 +1,6 @@
 # 📝 CadastroForm.tsx — Formulário de Cadastro de Pacientes
 
-> **Arquivo:** `CadastroForm.tsx` · **Linhas:** 939 · **Tamanho:** 31.333 bytes
+> **Arquivo:** `src/components/CadastroForm.tsx` · **Diretiva:** `"use client"` · **Linhas:** 939
 
 ---
 
