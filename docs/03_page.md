@@ -1,12 +1,12 @@
 # 🏠 page.tsx — Página Principal (Next.js App Router)
 
-> **Arquivo:** `src/app/page.tsx` · **Linhas:** 18 · **Tipo:** Client Component (`"use client"`)
+> **Arquivo:** `src/app/page.tsx` · **Tipo:** Client Component (`"use client"`)
 
 ---
 
 ## Propósito
 
-Página principal (rota raiz `/`) da aplicação. Equivale ao antigo `Home.tsx` do Vite. Serve como wrapper que renderiza o `CadastroLayout`, o qual contém todo o sistema de abas. Marcado com `"use client"` porque renderiza componentes que usam hooks React.
+Página principal (rota raiz `/`) da aplicação. Gerencia a navegação entre as 3 seções do sistema via estado `activePage`. Renderiza a `TopBar` no topo e o conteúdo da seção ativa abaixo.
 
 ---
 
@@ -14,16 +14,19 @@ Página principal (rota raiz `/`) da aplicação. Equivale ao antigo `Home.tsx` 
 
 | Import | Origem |
 |---|---|
+| `useState` | `react` |
+| `TopBar` | `@/components/TopBar` |
 | `CadastroLayout` | `@/components/CadastroLayout` |
+| `AgendaPage` | `@/components/AgendaPage` |
+| `FinanceiroPage` | `@/components/FinanceiroPage` |
 
 ---
 
-## Componente: `Page`
+## Estado Interno
 
-- **Tipo:** Componente funcional (function component)
-- **Diretiva:** `"use client"` — necessária porque `CadastroLayout` usa `useState`
-- **Props:** Nenhuma
-- **Export:** `default`
+| Estado | Tipo | Valor Inicial | Descrição |
+|---|---|---|---|
+| `activePage` | `string` | `"cadastro"` | Seção da Top Bar atualmente ativa |
 
 ---
 
@@ -31,12 +34,20 @@ Página principal (rota raiz `/`) da aplicação. Equivale ao antigo `Home.tsx` 
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  <div>  min-h-screen  flex  flex-col             │
+│  <div>  min-h-screen  flex  flex-col              │
+│  bg-gradient-to-br from-slate-50 to-slate-100     │
 │  ┌────────────────────────────────────────────┐   │
-│  │  <main>                                    │   │
+│  │  <TopBar />  (sticky no topo)              │   │
+│  └────────────────────────────────────────────┘   │
+│  ┌────────────────────────────────────────────┐   │
+│  │  <main>  flex-1                            │   │
 │  │  ┌──────────────────────────────────────┐  │   │
-│  │  │  <CadastroLayout />                  │  │   │
-│  │  │  (todo o conteúdo está aqui)         │  │   │
+│  │  │  activePage === "cadastro"           │  │   │
+│  │  │    → <CadastroLayout />              │  │   │
+│  │  │  activePage === "agenda"             │  │   │
+│  │  │    → <AgendaPage /> (com header)     │  │   │
+│  │  │  activePage === "financeiro"         │  │   │
+│  │  │    → <FinanceiroPage />              │  │   │
 │  │  └──────────────────────────────────────┘  │   │
 │  └────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────┘
@@ -44,40 +55,18 @@ Página principal (rota raiz `/`) da aplicação. Equivale ao antigo `Home.tsx` 
 
 ---
 
-## Estilização CSS/Tailwind
+## Navegação por Estado
 
-| Elemento | Classes | Efeito |
-|---|---|---|
-| `<div>` wrapper | `min-h-screen flex flex-col` | Ocupa 100% da viewport, layout vertical flexível |
-| `<main>` | *(sem classes)* | Container semântico HTML5 |
-
----
-
-## Diferenças em relação ao antigo Home.tsx
-
-| Aspecto | Antes (Vite) | Agora (Next.js) |
-|---|---|---|
-| Arquivo | `src/pages/Home.tsx` | `src/app/page.tsx` |
-| Roteamento | Sem roteamento (SPA única) | App Router (rota `/` automática) |
-| Diretiva | Nenhuma | `"use client"` obrigatória |
-| Nome export | `Home` | `Page` |
-| Toaster | Renderizado no `main.tsx` | Renderizado no `layout.tsx` |
-
----
-
-## UI Renderizada
-
-A página em si é apenas um container transparente. Todo o visual vem do `CadastroLayout`:
-
-1. **Header** com título "Cadastro de Pacientes"
-2. **Tabs** com 4 abas: Cadastro, Evolução, Histórico, Agenda
-3. **Conteúdo** da aba ativa
+| `activePage` | Componente Renderizado |
+|---|---|
+| `"cadastro"` | `<CadastroLayout />` — abas internas (Cadastro, Evolução, Histórico) |
+| `"agenda"` | `<AgendaPage />` | com header próprio em largura expandida (mas limitada a `1600px` com margens) |
+| `"financeiro"` | `<FinanceiroPage />` — placeholder com cards resumo |
 
 ---
 
 ## Notas para Edição Futura
 
-- Para adicionar **novas rotas**, crie novos arquivos/pastas em `src/app/` (App Router)
-- Para adicionar um **navbar/sidebar**, crie no `layout.tsx` (aparecerá em todas as páginas)
-- Para um **layout com sidebar**, modifique o `layout.tsx` para incluir a estrutura desejada
-- O `flex-col` permite que o `<main>` cresça verticalmente com `flex-1` se necessário
+- Para adicionar **novas seções**, crie o componente e adicione uma condição em `page.tsx` + um item no `menuItems` do `TopBar`
+- O gradiente de fundo agora está no `page.tsx` (antes estava no `CadastroLayout`)
+- Para **roteamento real** (URLs diferentes), migre para App Router com pastas em `src/app/`
