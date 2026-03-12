@@ -29,16 +29,18 @@ Fisio/
 ├── src/
 │   ├── app/
 │   │   ├── layout.tsx      # Root Layout (metadata, font, Toaster)
-│   │   ├── page.tsx        # Página principal ("use client")
+│   │   ├── page.tsx        # Página principal (TopBar + navegação)
 │   │   └── globals.css     # Design Tokens (TailwindCSS)
 │   ├── components/
-│   │   ├── CadastroLayout.tsx  # Layout com abas (4 seções)
+│   │   ├── TopBar.tsx         # Barra de navegação superior
+│   │   ├── CadastroLayout.tsx  # Layout com abas (3 seções)
 │   │   ├── CadastroForm.tsx    # Formulário de cadastro de pacientes
 │   │   ├── EvolucaoField.tsx   # Campo de evolução clínica
 │   │   ├── HistoricoCliente.tsx # Histórico do cliente
 │   │   ├── AgendaPage.tsx      # Agenda estilo Google Calendar
 │   │   ├── AgendaEventCard.tsx # Card de evento da agenda
 │   │   ├── AgendaNewEventDialog.tsx # Modal de novo agendamento
+│   │   ├── FinanceiroPage.tsx  # Módulo financeiro (placeholder)
 │   │   ├── agendaTypes.ts      # Types do módulo Agenda
 │   │   ├── agendaData.ts       # Dados e helpers do módulo Agenda
 │   │   └── ui/                 # Componentes shadcn/ui
@@ -54,11 +56,13 @@ Fisio/
 ```mermaid
 graph TD
     A["layout.tsx (Server)"] --> B["page.tsx (Client)"]
+    B --> T["TopBar.tsx"]
     B --> C["CadastroLayout.tsx"]
+    B --> G["AgendaPage.tsx"]
+    B --> FP["FinanceiroPage.tsx"]
     C --> D["CadastroForm.tsx"]
     C --> E["EvolucaoField.tsx"]
     C --> F["HistoricoCliente.tsx"]
-    C --> G["AgendaPage.tsx"]
     G --> H["AgendaEventCard.tsx"]
     G --> I["AgendaNewEventDialog.tsx"]
 ```
@@ -110,3 +114,5 @@ graph TD
 | 6 | `EvolucaoField.tsx` | [06_evolucao_field.md](./06_evolucao_field.md) |
 | 7 | `HistoricoCliente.tsx` | [07_historico_cliente.md](./07_historico_cliente.md) |
 | 8 | `AgendaPage.tsx` | [08_agenda_page.md](./08_agenda_page.md) |
+| 9 | `TopBar.tsx` | [09_topbar.md](./09_topbar.md) |
+| 10 | `FinanceiroPage.tsx` | [10_financeiro_page.md](./10_financeiro_page.md) |

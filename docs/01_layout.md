@@ -41,9 +41,15 @@ const geistSans = Geist({
 | `title` | `Clínica de Fisioterapia - Sistema de Cadastro` |
 | `description` | Sistema de cadastro de pacientes, evolução clínica, histórico e agenda |
 
+### HTML Tag
+
+- `lang="pt-BR"` — idioma português brasileiro
+- `suppressHydrationWarning` — evita erros de hidratação causados por extensões do navegador que injetam atributos no `<html>` antes do React carregar
+
 ### Body
 
 - Classes: `${geistSans.variable} antialiased`
+- `suppressHydrationWarning` — mesma proteção contra extensões do navegador
 - Filhos: `{children}` (conteúdo da página) + `<Toaster richColors position="top-right" />`
 
 ---
