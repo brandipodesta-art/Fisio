@@ -1,6 +1,4 @@
-"use client";
-
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,13 +18,20 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, Search } from "lucide-react";
 import { toast } from "sonner";
 
 /**
  * CadastroForm - Formulário completo de cadastro de pacientes
  * Design: Healthcare Minimal - Campos organizados em seções, validações em tempo real
- * Validações: CPF, CEP, CNPJ, Data de Nascimento
+ *
+ * Melhorias implementadas:
+ * - CPF: validação com mensagem de erro em vermelho e ícone de alerta
+ * - Data de Nascimento: validação real de dia/mês/ano (inclusive ano bissexto)
+ * - Telefone Fixo: formato (00) 0000-0000 — 10 dígitos
+ * - Telefone Celular: formato (00) 00000-0000 — 11 dígitos
+ * - CEP: busca automática ao digitar 8 dígitos (sem botão Buscar)
+ *        preenche Rua, Bairro e Cidade automaticamente via ViaCEP
  */
 
 interface FormData {
@@ -57,6 +62,12 @@ interface FormData {
   nfComplemento: string;
   nfCidade: string;
   nfTelefonCel: string;
+}
+
+interface FieldErrors {
+  cpf?: string;
+  dataNascimento?: string;
+  cep?: string;
 }
 
 export default function CadastroForm() {
@@ -96,42 +107,75 @@ export default function CadastroForm() {
     cep: false,
   });
 
-  // Validar CPF
+  // Erros de campo exibidos abaixo dos inputs
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  // Estados de carregamento do CEP
+  const [cepLoading, setCepLoading] = useState(false);
+  const [nfCepLoading, setNfCepLoading] = useState(false);
+
+  // Refs para debounce da busca automática de CEP
+  const cepDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nfCepDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // ─────────────────────────────────────────────
+  // Funções de validação
+  // ─────────────────────────────────────────────
+
+  /**
+   * Valida CPF com algoritmo oficial dos dígitos verificadores.
+   * Rejeita sequências repetidas (000.000.000-00, 111.111.111-11, etc.)
+   */
   const validateCPF = (cpf: string): boolean => {
-    const cleanCPF = cpf.replace(/\D/g, "");
-    if (cleanCPF.length !== 11) return false;
+    const clean = cpf.replace(/\D/g, "");
+    if (clean.length !== 11) return false;
+    if (/^(\d)\1{10}$/.test(clean)) return false;
 
     let sum = 0;
-    let remainder;
-
-    for (let i = 1; i <= 9; i++) {
-      sum += parseInt(cleanCPF.substring(i - 1, i)) * (11 - i);
-    }
-
-    remainder = (sum * 10) % 11;
-    if (remainder === 10 || remainder === 11) remainder = 0;
-    if (remainder !== parseInt(cleanCPF.substring(9, 10))) return false;
+    for (let i = 1; i <= 9; i++) sum += parseInt(clean[i - 1]) * (11 - i);
+    let rem = (sum * 10) % 11;
+    if (rem === 10 || rem === 11) rem = 0;
+    if (rem !== parseInt(clean[9])) return false;
 
     sum = 0;
-    for (let i = 1; i <= 10; i++) {
-      sum += parseInt(cleanCPF.substring(i - 1, i)) * (12 - i);
-    }
+    for (let i = 1; i <= 10; i++) sum += parseInt(clean[i - 1]) * (12 - i);
+    rem = (sum * 10) % 11;
+    if (rem === 10 || rem === 11) rem = 0;
+    return rem === parseInt(clean[10]);
+  };
 
-    remainder = (sum * 10) % 11;
-    if (remainder === 10 || remainder === 11) remainder = 0;
-    if (remainder !== parseInt(cleanCPF.substring(10, 11))) return false;
-
+  /**
+   * Valida data no formato DD/MM/AAAA.
+   * Verifica dias máximos por mês e ano bissexto.
+   */
+  const validateDate = (date: string): boolean => {
+    if (date.length !== 10) return false;
+    const parts = date.split("/");
+    if (parts.length !== 3) return false;
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+    if (isNaN(day) || isNaN(month) || isNaN(year)) return false;
+    if (month < 1 || month > 12) return false;
+    if (day < 1) return false;
+    if (year < 1900 || year > new Date().getFullYear()) return false;
+    // getDate(0) retorna o último dia do mês anterior, ou seja, o máximo do mês atual
+    const maxDays = new Date(year, month, 0).getDate();
+    if (day > maxDays) return false;
     return true;
   };
 
-  // Validar CNPJ
+  /**
+   * Valida CNPJ com algoritmo oficial dos dígitos verificadores.
+   */
   const validateCNPJ = (cnpj: string): boolean => {
-    const cleanCNPJ = cnpj.replace(/\D/g, "");
-    if (cleanCNPJ.length !== 14) return false;
+    const clean = cnpj.replace(/\D/g, "");
+    if (clean.length !== 14) return false;
+    if (/^(\d)\1{13}$/.test(clean)) return false;
 
-    let size = cleanCNPJ.length - 2;
-    let numbers = cleanCNPJ.substring(0, size);
-    let digits = cleanCNPJ.substring(size);
+    let size = clean.length - 2;
+    let numbers = clean.substring(0, size);
+    const digits = clean.substring(size);
     let sum = 0;
     let pos = size - 7;
 
@@ -143,8 +187,8 @@ export default function CadastroForm() {
     let result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
     if (result !== parseInt(digits.charAt(0))) return false;
 
-    size = size + 1;
-    numbers = cleanCNPJ.substring(0, size);
+    size += 1;
+    numbers = clean.substring(0, size);
     sum = 0;
     pos = size - 7;
 
@@ -154,43 +198,69 @@ export default function CadastroForm() {
     }
 
     result = sum % 11 < 2 ? 0 : 11 - (sum % 11);
-    if (result !== parseInt(digits.charAt(1))) return false;
-
-    return true;
+    return result === parseInt(digits.charAt(1));
   };
 
-  // Buscar CEP
-  const buscarCEP = async (cep: string) => {
-    const cleanCEP = cep.replace(/\D/g, "");
-    if (cleanCEP.length !== 8) {
-      toast.error("CEP deve ter 8 dígitos");
-      return;
-    }
+  // ─────────────────────────────────────────────
+  // Busca de endereço via ViaCEP
+  // ─────────────────────────────────────────────
+
+  /**
+   * Consulta a API ViaCEP e preenche os campos de endereço automaticamente.
+   * @param cep  CEP limpo (somente dígitos) ou formatado
+   * @param isNF true para preencher os campos da Nota Fiscal
+   */
+  const buscarCEP = async (cep: string, isNF = false) => {
+    const clean = cep.replace(/\D/g, "");
+    if (clean.length !== 8) return;
+
+    if (isNF) setNfCepLoading(true);
+    else setCepLoading(true);
 
     try {
-      const response = await fetch(`https://viacep.com.br/ws/${cleanCEP}/json/`);
+      const response = await fetch(`https://viacep.com.br/ws/${clean}/json/`);
       const data = await response.json();
 
       if (data.erro) {
+        if (!isNF) {
+          setFieldErrors((prev) => ({
+            ...prev,
+            cep: "CEP não encontrado nos Correios",
+          }));
+          setValidations((prev) => ({ ...prev, cep: false }));
+        }
         toast.error("CEP não encontrado");
         return;
       }
 
-      setFormData((prev) => ({
-        ...prev,
-        rua: data.logradouro || "",
-        bairro: data.bairro || "",
-        cidade: data.localidade || "",
-      }));
-
-      setValidations((prev) => ({ ...prev, cep: true }));
-      toast.success("CEP preenchido com sucesso");
-    } catch (error) {
-      toast.error("Erro ao buscar CEP");
+      if (isNF) {
+        setFormData((prev) => ({
+          ...prev,
+          nfRua: data.logradouro || "",
+          nfBairro: data.bairro || "",
+          nfCidade: data.localidade || "",
+        }));
+        toast.success("Endereço da NF preenchido automaticamente");
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          rua: data.logradouro || "",
+          bairro: data.bairro || "",
+          cidade: data.localidade || "",
+        }));
+        setValidations((prev) => ({ ...prev, cep: true }));
+        setFieldErrors((prev) => ({ ...prev, cep: undefined }));
+        toast.success("Endereço preenchido automaticamente");
+      }
+    } catch {
+      toast.error("Erro ao consultar CEP. Verifique sua conexão.");
+    } finally {
+      if (isNF) setNfCepLoading(false);
+      else setCepLoading(false);
     }
   };
 
-  // Buscar CNPJ
+  // Busca de dados do CNPJ via ReceitaWS
   const buscarCNPJ = async (cnpj: string) => {
     if (!validateCNPJ(cnpj)) {
       toast.error("CNPJ inválido");
@@ -198,9 +268,9 @@ export default function CadastroForm() {
     }
 
     try {
-      const cleanCNPJ = cnpj.replace(/\D/g, "");
+      const clean = cnpj.replace(/\D/g, "");
       const response = await fetch(
-        `https://www.receitaws.com.br/v1/cnpj/${cleanCNPJ}`
+        `https://www.receitaws.com.br/v1/cnpj/${clean}`
       );
       const data = await response.json();
 
@@ -221,115 +291,204 @@ export default function CadastroForm() {
 
       setValidations((prev) => ({ ...prev, cnpj: true }));
       toast.success("Dados do CNPJ preenchidos com sucesso");
-    } catch (error) {
+    } catch {
       toast.error("Erro ao buscar CNPJ");
     }
   };
 
+  // ─────────────────────────────────────────────
+  // Handlers de formatação dos campos
+  // ─────────────────────────────────────────────
+
+  /** CPF: formata para 000.000.000-00 e valida ao completar 11 dígitos */
   const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, "");
-    let formatted = value
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 11);
+    const formatted = digits
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d)/, "$1.$2")
       .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 
     setFormData((prev) => ({ ...prev, cpf: formatted }));
 
-    if (value.length === 11) {
-      setValidations((prev) => ({
+    if (digits.length === 11) {
+      const valid = validateCPF(digits);
+      setValidations((prev) => ({ ...prev, cpf: valid }));
+      setFieldErrors((prev) => ({
         ...prev,
-        cpf: validateCPF(value),
+        cpf: valid
+          ? undefined
+          : "CPF inválido. Verifique os dígitos digitados.",
       }));
+    } else {
+      // Limpar feedback enquanto o usuário ainda está digitando
+      setValidations((prev) => ({ ...prev, cpf: false }));
+      setFieldErrors((prev) => ({ ...prev, cpf: undefined }));
     }
   };
 
+  /**
+   * Data de Nascimento: formata automaticamente para DD/MM/AAAA
+   * e valida ao completar os 10 caracteres.
+   */
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, "");
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
+    let formatted = digits;
 
-    if (value.length >= 2) {
-      value = value.substring(0, 2) + "/" + value.substring(2);
-    }
-    if (value.length >= 5) {
-      value = value.substring(0, 5) + "/" + value.substring(5, 9);
-    }
+    if (digits.length > 2) formatted = digits.slice(0, 2) + "/" + digits.slice(2);
+    if (digits.length > 4)
+      formatted = formatted.slice(0, 5) + "/" + digits.slice(4);
 
-    setFormData((prev) => ({ ...prev, dataNascimento: value }));
+    setFormData((prev) => ({ ...prev, dataNascimento: formatted }));
+
+    if (formatted.length === 10) {
+      const valid = validateDate(formatted);
+      setFieldErrors((prev) => ({
+        ...prev,
+        dataNascimento: valid
+          ? undefined
+          : "Data inválida. Verifique dia, mês e ano.",
+      }));
+    } else {
+      setFieldErrors((prev) => ({ ...prev, dataNascimento: undefined }));
+    }
   };
 
+  /**
+   * Telefones:
+   *  - Fixo:    (00) 0000-0000  → máx. 10 dígitos
+   *  - Celular: (00) 00000-0000 → máx. 11 dígitos
+   */
   const handlePhoneChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     field: "telefonFixo" | "telefonCel" | "nfTelefonCel"
   ) => {
-    let value = e.target.value.replace(/\D/g, "");
+    const isFixo = field === "telefonFixo";
+    const maxDigits = isFixo ? 10 : 11;
+    const digits = e.target.value.replace(/\D/g, "").slice(0, maxDigits);
 
-    if (field === "telefonFixo" && value.length <= 10) {
-      if (value.length >= 2) {
-        value = "(" + value.substring(0, 2) + ") " + value.substring(2);
-      }
-      if (value.length >= 9) {
-        value = value.substring(0, 9) + "-" + value.substring(9, 10);
-      }
-    } else if ((field === "telefonCel" || field === "nfTelefonCel") && value.length <= 11) {
-      if (value.length >= 2) {
-        value = "(" + value.substring(0, 2) + ") " + value.substring(2);
-      }
-      if (value.length >= 10) {
-        value = value.substring(0, 10) + "-" + value.substring(10, 11);
+    let formatted = digits;
+    if (digits.length > 0) {
+      if (digits.length <= 2) {
+        formatted = `(${digits}`;
+      } else if (isFixo) {
+        // Fixo: (00) 0000-0000
+        const ddd = digits.slice(0, 2);
+        const part1 = digits.slice(2, 6);
+        const part2 = digits.slice(6, 10);
+        formatted = `(${ddd}) ${part1}${part2 ? "-" + part2 : ""}`;
+      } else {
+        // Celular: (00) 00000-0000
+        const ddd = digits.slice(0, 2);
+        const part1 = digits.slice(2, 7);
+        const part2 = digits.slice(7, 11);
+        formatted = `(${ddd}) ${part1}${part2 ? "-" + part2 : ""}`;
       }
     }
 
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: formatted }));
   };
 
+  /**
+   * CEP principal: formata para 00000-000 e dispara busca automática
+   * via debounce de 400ms ao completar 8 dígitos.
+   */
   const handleCEPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, "");
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
+    const formatted =
+      digits.length > 5
+        ? digits.slice(0, 5) + "-" + digits.slice(5)
+        : digits;
 
-    if (value.length <= 8) {
-      if (value.length >= 5) {
-        value = value.substring(0, 5) + "-" + value.substring(5, 8);
-      }
+    setFormData((prev) => ({ ...prev, cep: formatted }));
+
+    if (digits.length < 8) {
+      setValidations((prev) => ({ ...prev, cep: false }));
+      setFieldErrors((prev) => ({ ...prev, cep: undefined }));
     }
 
-    setFormData((prev) => ({ ...prev, cep: value }));
+    // Busca automática com debounce
+    if (cepDebounceRef.current) clearTimeout(cepDebounceRef.current);
+    if (digits.length === 8) {
+      cepDebounceRef.current = setTimeout(() => {
+        buscarCEP(digits);
+      }, 400);
+    }
   };
 
-  const handleNFCpfCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, "");
+  /**
+   * CEP da Nota Fiscal: mesma lógica de busca automática.
+   */
+  const handleNFCepChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 8);
+    const formatted =
+      digits.length > 5
+        ? digits.slice(0, 5) + "-" + digits.slice(5)
+        : digits;
 
-    if (value.length <= 11) {
+    setFormData((prev) => ({ ...prev, nfCep: formatted }));
+
+    if (nfCepDebounceRef.current) clearTimeout(nfCepDebounceRef.current);
+    if (digits.length === 8) {
+      nfCepDebounceRef.current = setTimeout(() => {
+        buscarCEP(digits, true);
+      }, 400);
+    }
+  };
+
+  /** CPF/CNPJ da NF: detecta automaticamente o tipo pelo número de dígitos */
+  const handleNFCpfCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const digits = e.target.value.replace(/\D/g, "").slice(0, 14);
+
+    let formatted = digits;
+    if (digits.length <= 11) {
       // CPF
-      let formatted = value
+      formatted = digits
         .replace(/(\d{3})(\d)/, "$1.$2")
         .replace(/(\d{3})(\d)/, "$1.$2")
         .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-      setFormData((prev) => ({ ...prev, nfCpfCnpj: formatted }));
-    } else if (value.length <= 14) {
+    } else {
       // CNPJ
-      let formatted = value
+      formatted = digits
         .replace(/(\d{2})(\d)/, "$1.$2")
         .replace(/(\d{3})(\d)/, "$1.$2")
         .replace(/(\d{3})(\d)/, "$1/$2")
         .replace(/(\d{4})(\d{1,2})$/, "$1-$2");
-      setFormData((prev) => ({ ...prev, nfCpfCnpj: formatted }));
     }
+
+    setFormData((prev) => ({ ...prev, nfCpfCnpj: formatted }));
   };
+
+  // ─────────────────────────────────────────────
+  // Submissão do formulário
+  // ─────────────────────────────────────────────
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.nomeCompleto || !formData.cpf) {
-      toast.error("Preencha os campos obrigatórios");
+      toast.error("Preencha os campos obrigatórios: Nome Completo e CPF");
       return;
     }
 
     if (!validations.cpf) {
-      toast.error("CPF inválido");
+      toast.error("CPF inválido. Corrija antes de salvar.");
+      return;
+    }
+
+    if (formData.dataNascimento && !validateDate(formData.dataNascimento)) {
+      toast.error(
+        "Data de Nascimento inválida. Verifique o formato DD/MM/AAAA."
+      );
       return;
     }
 
     toast.success("Cadastro salvo com sucesso!");
     console.log("Form Data:", formData);
   };
+
+  // ─────────────────────────────────────────────
+  // Render
+  // ─────────────────────────────────────────────
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -340,12 +499,18 @@ export default function CadastroForm() {
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <Label htmlFor="tipoUsuario" className="text-sm font-medium text-slate-700">
+            <Label
+              htmlFor="tipoUsuario"
+              className="text-sm font-medium text-slate-700"
+            >
               Selecione o tipo de usuário *
             </Label>
-            <Select value={formData.tipoUsuario} onValueChange={(value) =>
-              setFormData((prev) => ({ ...prev, tipoUsuario: value }))
-            }>
+            <Select
+              value={formData.tipoUsuario}
+              onValueChange={(value) =>
+                setFormData((prev) => ({ ...prev, tipoUsuario: value }))
+              }
+            >
               <SelectTrigger id="tipoUsuario" className="mt-2">
                 <SelectValue placeholder="Escolha uma opção" />
               </SelectTrigger>
@@ -358,14 +523,23 @@ export default function CadastroForm() {
             </Select>
           </div>
           <div>
-            <Label htmlFor="profissionalResponsavel" className="text-sm font-medium text-slate-700">
+            <Label
+              htmlFor="profissionalResponsavel"
+              className="text-sm font-medium text-slate-700"
+            >
               Profissional Responsável *
             </Label>
-            <Select value={formData.profissionalResponsavel} onValueChange={(value) =>
-              setFormData((prev) => ({ ...prev, profissionalResponsavel: value }))
-            }>
+            <Select
+              value={formData.profissionalResponsavel}
+              onValueChange={(value) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  profissionalResponsavel: value,
+                }))
+              }
+            >
               <SelectTrigger id="profissionalResponsavel" className="mt-2">
-                <SelectValue placeholder="Selecione o profissional" />
+                <SelectValue placeholder="Selecione o profissional responsável por este cliente" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="ana-carolina">Ana Carolina</SelectItem>
@@ -385,7 +559,10 @@ export default function CadastroForm() {
         <div className="space-y-4">
           {/* Nome Completo */}
           <div>
-            <Label htmlFor="nomeCompleto" className="text-sm font-medium text-slate-700">
+            <Label
+              htmlFor="nomeCompleto"
+              className="text-sm font-medium text-slate-700"
+            >
               Nome Completo *
             </Label>
             <Input
@@ -405,7 +582,10 @@ export default function CadastroForm() {
           {/* CPF e RG */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="cpf" className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor="cpf"
+                className="text-sm font-medium text-slate-700"
+              >
                 CPF *
               </Label>
               <div className="relative mt-2">
@@ -415,14 +595,36 @@ export default function CadastroForm() {
                   value={formData.cpf}
                   onChange={handleCPFChange}
                   maxLength={14}
+                  className={
+                    fieldErrors.cpf
+                      ? "border-red-400 focus-visible:ring-red-400 pr-10"
+                      : validations.cpf
+                      ? "border-emerald-400 pr-10"
+                      : ""
+                  }
                 />
+                {/* Ícone de sucesso */}
                 {validations.cpf && (
-                  <CheckCircle2 className="absolute right-3 top-3 w-5 h-5 text-emerald-600" />
+                  <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-600 pointer-events-none" />
+                )}
+                {/* Ícone de erro */}
+                {fieldErrors.cpf && (
+                  <AlertCircle className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-red-500 pointer-events-none" />
                 )}
               </div>
+              {/* Mensagem de erro abaixo do campo */}
+              {fieldErrors.cpf && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  {fieldErrors.cpf}
+                </p>
+              )}
             </div>
             <div>
-              <Label htmlFor="rg" className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor="rg"
+                className="text-sm font-medium text-slate-700"
+              >
                 RG
               </Label>
               <Input
@@ -440,7 +642,10 @@ export default function CadastroForm() {
           {/* Data de Nascimento e Estado Civil */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="dataNascimento" className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor="dataNascimento"
+                className="text-sm font-medium text-slate-700"
+              >
                 Data de Nascimento
               </Label>
               <Input
@@ -449,16 +654,35 @@ export default function CadastroForm() {
                 value={formData.dataNascimento}
                 onChange={handleDateChange}
                 maxLength={10}
-                className="mt-2"
+                className={`mt-2 ${
+                  fieldErrors.dataNascimento
+                    ? "border-red-400 focus-visible:ring-red-400"
+                    : formData.dataNascimento.length === 10 &&
+                      !fieldErrors.dataNascimento
+                    ? "border-emerald-400"
+                    : ""
+                }`}
               />
+              {fieldErrors.dataNascimento && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  {fieldErrors.dataNascimento}
+                </p>
+              )}
             </div>
             <div>
-              <Label htmlFor="estadoCivil" className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor="estadoCivil"
+                className="text-sm font-medium text-slate-700"
+              >
                 Estado Civil
               </Label>
-              <Select value={formData.estadoCivil} onValueChange={(value) =>
-                setFormData((prev) => ({ ...prev, estadoCivil: value }))
-              }>
+              <Select
+                value={formData.estadoCivil}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({ ...prev, estadoCivil: value }))
+                }
+              >
                 <SelectTrigger id="estadoCivil" className="mt-2">
                   <SelectValue placeholder="Escolha uma opção" />
                 </SelectTrigger>
@@ -474,7 +698,10 @@ export default function CadastroForm() {
 
           {/* Profissão */}
           <div>
-            <Label htmlFor="profissao" className="text-sm font-medium text-slate-700">
+            <Label
+              htmlFor="profissao"
+              className="text-sm font-medium text-slate-700"
+            >
               Profissão
             </Label>
             <Input
@@ -482,7 +709,10 @@ export default function CadastroForm() {
               placeholder="Digite sua profissão"
               value={formData.profissao}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, profissao: e.target.value }))
+                setFormData((prev) => ({
+                  ...prev,
+                  profissao: e.target.value,
+                }))
               }
               className="mt-2"
             />
@@ -492,14 +722,15 @@ export default function CadastroForm() {
 
       {/* Seção 3: Contato */}
       <Card className="p-6 border-slate-200 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">
-          Contato
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Contato</h2>
         <div className="space-y-4">
           {/* Telefones */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="telefonFixo" className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor="telefonFixo"
+                className="text-sm font-medium text-slate-700"
+              >
                 Telefone Fixo
               </Label>
               <Input
@@ -510,9 +741,15 @@ export default function CadastroForm() {
                 maxLength={14}
                 className="mt-2"
               />
+              <p className="mt-1 text-xs text-slate-400">
+                Formato: (DDD) 0000-0000
+              </p>
             </div>
             <div>
-              <Label htmlFor="telefonCel" className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor="telefonCel"
+                className="text-sm font-medium text-slate-700"
+              >
                 Telefone Celular
               </Label>
               <Input
@@ -523,17 +760,26 @@ export default function CadastroForm() {
                 maxLength={15}
                 className="mt-2"
               />
+              <p className="mt-1 text-xs text-slate-400">
+                Formato: (DDD) 00000-0000
+              </p>
             </div>
           </div>
 
           {/* Como Ficou Sabendo */}
           <div>
-            <Label htmlFor="comoFicouSabendo" className="text-sm font-medium text-slate-700">
+            <Label
+              htmlFor="comoFicouSabendo"
+              className="text-sm font-medium text-slate-700"
+            >
               Como ficou sabendo da nossa clínica?
             </Label>
-            <Select value={formData.comoFicouSabendo} onValueChange={(value) =>
-              setFormData((prev) => ({ ...prev, comoFicouSabendo: value }))
-            }>
+            <Select
+              value={formData.comoFicouSabendo}
+              onValueChange={(value) =>
+                setFormData((prev) => ({ ...prev, comoFicouSabendo: value }))
+              }
+            >
               <SelectTrigger id="comoFicouSabendo" className="mt-2">
                 <SelectValue placeholder="Escolha uma opção" />
               </SelectTrigger>
@@ -550,53 +796,80 @@ export default function CadastroForm() {
 
       {/* Seção 4: Endereço */}
       <Card className="p-6 border-slate-200 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">
-          Endereço
-        </h2>
+        <h2 className="text-lg font-semibold text-slate-900 mb-4">Endereço</h2>
         <div className="space-y-4">
-          {/* CEP */}
+          {/* CEP — busca automática ao completar 8 dígitos (sem botão Buscar) */}
           <div>
-            <Label htmlFor="cep" className="text-sm font-medium text-slate-700">
+            <Label
+              htmlFor="cep"
+              className="text-sm font-medium text-slate-700"
+            >
               CEP
             </Label>
-            <div className="flex gap-2 mt-2">
+            <div className="relative mt-2">
               <Input
                 id="cep"
                 placeholder="00000-000"
                 value={formData.cep}
                 onChange={handleCEPChange}
                 maxLength={9}
-                className="flex-1"
+                className={`pr-10 ${
+                  fieldErrors.cep
+                    ? "border-red-400 focus-visible:ring-red-400"
+                    : validations.cep
+                    ? "border-emerald-400"
+                    : ""
+                }`}
               />
-              <Button
-                type="button"
-                onClick={() => buscarCEP(formData.cep)}
-                variant="outline"
-                className="px-6"
-              >
-                Buscar
-              </Button>
+              {/* Ícone de status do CEP */}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                {cepLoading ? (
+                  <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                ) : validations.cep ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                ) : fieldErrors.cep ? (
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                ) : (
+                  <Search className="w-4 h-4 text-slate-300" />
+                )}
+              </div>
             </div>
+            {fieldErrors.cep ? (
+              <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                {fieldErrors.cep}
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-slate-400">
+                Endereço preenchido automaticamente ao digitar o CEP completo
+              </p>
+            )}
           </div>
 
-          {/* Rua, Número, Bairro */}
+          {/* Rua e Número */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
-              <Label htmlFor="rua" className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor="rua"
+                className="text-sm font-medium text-slate-700"
+              >
                 Rua
               </Label>
               <Input
                 id="rua"
-                placeholder="Digite a rua"
+                placeholder="Preenchido automaticamente pelo CEP"
                 value={formData.rua}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, rua: e.target.value }))
                 }
-                className="mt-2"
+                className="mt-2 bg-slate-50"
               />
             </div>
             <div>
-              <Label htmlFor="numero" className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor="numero"
+                className="text-sm font-medium text-slate-700"
+              >
                 Número
               </Label>
               <Input
@@ -614,21 +887,27 @@ export default function CadastroForm() {
           {/* Bairro e Complemento */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="bairro" className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor="bairro"
+                className="text-sm font-medium text-slate-700"
+              >
                 Bairro
               </Label>
               <Input
                 id="bairro"
-                placeholder="Digite o bairro"
+                placeholder="Preenchido automaticamente pelo CEP"
                 value={formData.bairro}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, bairro: e.target.value }))
                 }
-                className="mt-2"
+                className="mt-2 bg-slate-50"
               />
             </div>
             <div>
-              <Label htmlFor="complemento" className="text-sm font-medium text-slate-700">
+              <Label
+                htmlFor="complemento"
+                className="text-sm font-medium text-slate-700"
+              >
                 Complemento
               </Label>
               <Input
@@ -648,17 +927,20 @@ export default function CadastroForm() {
 
           {/* Cidade */}
           <div>
-            <Label htmlFor="cidade" className="text-sm font-medium text-slate-700">
+            <Label
+              htmlFor="cidade"
+              className="text-sm font-medium text-slate-700"
+            >
               Cidade
             </Label>
             <Input
               id="cidade"
-              placeholder="Digite a cidade"
+              placeholder="Preenchido automaticamente pelo CEP"
               value={formData.cidade}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, cidade: e.target.value }))
               }
-              className="mt-2"
+              className="mt-2 bg-slate-50"
             />
           </div>
         </div>
@@ -687,7 +969,7 @@ export default function CadastroForm() {
                       emitirNF: e.target.value,
                     }))
                   }
-                  className="w-4 h-4"
+                  className="w-4 h-4 accent-emerald-600"
                 />
                 <span className="text-sm text-slate-700">Não</span>
               </label>
@@ -703,7 +985,7 @@ export default function CadastroForm() {
                       emitirNF: e.target.value,
                     }))
                   }
-                  className="w-4 h-4"
+                  className="w-4 h-4 accent-emerald-600"
                 />
                 <span className="text-sm text-slate-700">Sim</span>
               </label>
@@ -726,10 +1008,13 @@ export default function CadastroForm() {
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4 max-h-96 overflow-y-auto">
+                <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
                   {/* CPF ou CNPJ */}
                   <div>
-                    <Label htmlFor="nfCpfCnpj" className="text-sm font-medium text-slate-700">
+                    <Label
+                      htmlFor="nfCpfCnpj"
+                      className="text-sm font-medium text-slate-700"
+                    >
                       CPF ou CNPJ *
                     </Label>
                     <div className="flex gap-2 mt-2">
@@ -750,11 +1035,18 @@ export default function CadastroForm() {
                         Buscar
                       </Button>
                     </div>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Para CNPJ, clique em Buscar para preencher os dados
+                      automaticamente
+                    </p>
                   </div>
 
                   {/* Nome Completo */}
                   <div>
-                    <Label htmlFor="nfNomeCompleto" className="text-sm font-medium text-slate-700">
+                    <Label
+                      htmlFor="nfNomeCompleto"
+                      className="text-sm font-medium text-slate-700"
+                    >
                       Nome Completo *
                     </Label>
                     <Input
@@ -771,46 +1063,49 @@ export default function CadastroForm() {
                     />
                   </div>
 
-                  {/* CEP */}
+                  {/* CEP da NF — busca automática */}
                   <div>
-                    <Label htmlFor="nfCep" className="text-sm font-medium text-slate-700">
+                    <Label
+                      htmlFor="nfCep"
+                      className="text-sm font-medium text-slate-700"
+                    >
                       CEP
                     </Label>
-                    <div className="flex gap-2 mt-2">
+                    <div className="relative mt-2">
                       <Input
                         id="nfCep"
                         placeholder="00000-000"
                         value={formData.nfCep}
-                        onChange={(e) => {
-                          let val = e.target.value.replace(/\D/g, "");
-                          if (val.length >= 5) {
-                            val = val.substring(0, 5) + "-" + val.substring(5, 8);
-                          }
-                          setFormData((prev) => ({ ...prev, nfCep: val }));
-                        }}
+                        onChange={handleNFCepChange}
                         maxLength={9}
-                        className="flex-1"
+                        className="pr-10"
                       />
-                      <Button
-                        type="button"
-                        onClick={() => buscarCEP(formData.nfCep)}
-                        variant="outline"
-                        className="px-6"
-                      >
-                        Buscar
-                      </Button>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        {nfCepLoading ? (
+                          <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                        ) : (
+                          <Search className="w-4 h-4 text-slate-300" />
+                        )}
+                      </div>
                     </div>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Endereço preenchido automaticamente ao digitar o CEP
+                      completo
+                    </p>
                   </div>
 
-                  {/* Rua, Número, Bairro */}
+                  {/* Rua e Número */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="md:col-span-2">
-                      <Label htmlFor="nfRua" className="text-sm font-medium text-slate-700">
+                      <Label
+                        htmlFor="nfRua"
+                        className="text-sm font-medium text-slate-700"
+                      >
                         Rua
                       </Label>
                       <Input
                         id="nfRua"
-                        placeholder="Digite a rua"
+                        placeholder="Preenchido automaticamente pelo CEP"
                         value={formData.nfRua}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -818,11 +1113,14 @@ export default function CadastroForm() {
                             nfRua: e.target.value,
                           }))
                         }
-                        className="mt-2"
+                        className="mt-2 bg-slate-50"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="nfNumero" className="text-sm font-medium text-slate-700">
+                      <Label
+                        htmlFor="nfNumero"
+                        className="text-sm font-medium text-slate-700"
+                      >
                         Número
                       </Label>
                       <Input
@@ -843,12 +1141,15 @@ export default function CadastroForm() {
                   {/* Bairro e Complemento */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="nfBairro" className="text-sm font-medium text-slate-700">
+                      <Label
+                        htmlFor="nfBairro"
+                        className="text-sm font-medium text-slate-700"
+                      >
                         Bairro
                       </Label>
                       <Input
                         id="nfBairro"
-                        placeholder="Digite o bairro"
+                        placeholder="Preenchido automaticamente pelo CEP"
                         value={formData.nfBairro}
                         onChange={(e) =>
                           setFormData((prev) => ({
@@ -856,11 +1157,14 @@ export default function CadastroForm() {
                             nfBairro: e.target.value,
                           }))
                         }
-                        className="mt-2"
+                        className="mt-2 bg-slate-50"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="nfComplemento" className="text-sm font-medium text-slate-700">
+                      <Label
+                        htmlFor="nfComplemento"
+                        className="text-sm font-medium text-slate-700"
+                      >
                         Complemento
                       </Label>
                       <Input
@@ -880,12 +1184,15 @@ export default function CadastroForm() {
 
                   {/* Cidade */}
                   <div>
-                    <Label htmlFor="nfCidade" className="text-sm font-medium text-slate-700">
+                    <Label
+                      htmlFor="nfCidade"
+                      className="text-sm font-medium text-slate-700"
+                    >
                       Cidade
                     </Label>
                     <Input
                       id="nfCidade"
-                      placeholder="Digite a cidade"
+                      placeholder="Preenchido automaticamente pelo CEP"
                       value={formData.nfCidade}
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -893,13 +1200,16 @@ export default function CadastroForm() {
                           nfCidade: e.target.value,
                         }))
                       }
-                      className="mt-2"
+                      className="mt-2 bg-slate-50"
                     />
                   </div>
 
                   {/* Telefone Celular */}
                   <div>
-                    <Label htmlFor="nfTelefonCel" className="text-sm font-medium text-slate-700">
+                    <Label
+                      htmlFor="nfTelefonCel"
+                      className="text-sm font-medium text-slate-700"
+                    >
                       Telefone Celular
                     </Label>
                     <Input
@@ -927,7 +1237,9 @@ export default function CadastroForm() {
 
       {/* Botões de Ação */}
       <div className="flex gap-3 justify-end">
-        <Button variant="outline">Cancelar</Button>
+        <Button variant="outline" type="button">
+          Cancelar
+        </Button>
         <Button
           type="submit"
           className="bg-emerald-600 hover:bg-emerald-700 text-white"
