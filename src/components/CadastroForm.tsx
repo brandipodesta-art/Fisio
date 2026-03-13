@@ -18,7 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, AlertCircle, Loader2, Search } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, Search, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 /**
@@ -68,6 +68,7 @@ interface FieldErrors {
   cpf?: string;
   dataNascimento?: string;
   cep?: string;
+  nfCpfCnpj?: string;
 }
 
 export default function CadastroForm() {
@@ -114,9 +115,14 @@ export default function CadastroForm() {
   const [cepLoading, setCepLoading] = useState(false);
   const [nfCepLoading, setNfCepLoading] = useState(false);
 
+  // Estado de carregamento e validação do CPF/CNPJ da NF
+  const [nfCnpjLoading, setNfCnpjLoading] = useState(false);
+  const [nfCpfCnpjValid, setNfCpfCnpjValid] = useState<boolean | null>(null);
+
   // Refs para debounce da busca automática de CEP
   const cepDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nfCepDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nfCnpjDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ─────────────────────────────────────────────
   // Funções de validação
@@ -260,39 +266,63 @@ export default function CadastroForm() {
     }
   };
 
-  // Busca de dados do CNPJ via ReceitaWS
+  // Busca de dados do CNPJ via API pública (BrasilAPI)
   const buscarCNPJ = async (cnpj: string) => {
-    if (!validateCNPJ(cnpj)) {
-      toast.error("CNPJ inválido");
+    const clean = cnpj.replace(/\D/g, "");
+    if (!validateCNPJ(clean)) {
+      setNfCpfCnpjValid(false);
+      setFieldErrors((prev) => ({
+        ...prev,
+        nfCpfCnpj: "CNPJ inválido. Verifique os dígitos digitados.",
+      }));
       return;
     }
 
+    setNfCnpjLoading(true);
+    setNfCpfCnpjValid(null);
+    setFieldErrors((prev) => ({ ...prev, nfCpfCnpj: undefined }));
+
     try {
-      const clean = cnpj.replace(/\D/g, "");
+      // Tenta BrasilAPI primeiro (sem limitação de requisições)
       const response = await fetch(
-        `https://www.receitaws.com.br/v1/cnpj/${clean}`
+        `https://brasilapi.com.br/api/cnpj/v1/${clean}`
       );
+
+      if (!response.ok) {
+        throw new Error("CNPJ não encontrado");
+      }
+
       const data = await response.json();
 
-      if (data.status === "ERROR") {
-        toast.error("CNPJ não encontrado");
-        return;
-      }
+      // Formata o CEP retornado para 00000-000
+      const cepRaw = (data.cep || "").replace(/\D/g, "");
+      const cepFormatted =
+        cepRaw.length === 8
+          ? cepRaw.slice(0, 5) + "-" + cepRaw.slice(5)
+          : cepRaw;
 
       setFormData((prev) => ({
         ...prev,
-        nfNomeCompleto: data.nome || "",
+        nfNomeCompleto: data.razao_social || data.nome_fantasia || "",
         nfRua: data.logradouro || "",
         nfNumero: data.numero || "",
         nfBairro: data.bairro || "",
         nfCidade: data.municipio || "",
-        nfCep: data.cep || "",
+        nfCep: cepFormatted,
       }));
 
+      setNfCpfCnpjValid(true);
       setValidations((prev) => ({ ...prev, cnpj: true }));
-      toast.success("Dados do CNPJ preenchidos com sucesso");
+      toast.success("Dados do CNPJ preenchidos automaticamente!");
     } catch {
-      toast.error("Erro ao buscar CNPJ");
+      setNfCpfCnpjValid(false);
+      setFieldErrors((prev) => ({
+        ...prev,
+        nfCpfCnpj: "CNPJ não encontrado na base da Receita Federal.",
+      }));
+      toast.error("CNPJ não encontrado na base da Receita Federal.");
+    } finally {
+      setNfCnpjLoading(false);
     }
   };
 
@@ -435,7 +465,10 @@ export default function CadastroForm() {
     }
   };
 
-  /** CPF/CNPJ da NF: detecta automaticamente o tipo pelo número de dígitos */
+  /** CPF/CNPJ da NF: detecta automaticamente o tipo pelo número de dígitos.
+   *  - CPF (11 dígitos): valida imediatamente ao completar
+   *  - CNPJ (14 dígitos): valida e busca dados automaticamente via API
+   */
   const handleNFCpfCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const digits = e.target.value.replace(/\D/g, "").slice(0, 14);
 
@@ -456,6 +489,28 @@ export default function CadastroForm() {
     }
 
     setFormData((prev) => ({ ...prev, nfCpfCnpj: formatted }));
+
+    // Limpar estados ao editar
+    setNfCpfCnpjValid(null);
+    setFieldErrors((prev) => ({ ...prev, nfCpfCnpj: undefined }));
+
+    if (digits.length === 11) {
+      // Validação de CPF
+      const valid = validateCPF(digits);
+      setNfCpfCnpjValid(valid);
+      if (!valid) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          nfCpfCnpj: "CPF inválido. Verifique os dígitos digitados.",
+        }));
+      }
+    } else if (digits.length === 14) {
+      // Validação e busca automática de CNPJ com debounce de 600ms
+      if (nfCnpjDebounceRef.current) clearTimeout(nfCnpjDebounceRef.current);
+      nfCnpjDebounceRef.current = setTimeout(() => {
+        buscarCNPJ(digits);
+      }, 600);
+    }
   };
 
   // ─────────────────────────────────────────────
@@ -1017,28 +1072,43 @@ export default function CadastroForm() {
                     >
                       CPF ou CNPJ *
                     </Label>
-                    <div className="flex gap-2 mt-2">
+                    <div className="relative mt-2">
                       <Input
                         id="nfCpfCnpj"
                         placeholder="000.000.000-00 ou 00.000.000/0000-00"
                         value={formData.nfCpfCnpj}
                         onChange={handleNFCpfCnpjChange}
                         maxLength={18}
-                        className="flex-1"
+                        className={`pr-10 ${
+                          fieldErrors.nfCpfCnpj
+                            ? "border-red-400 focus-visible:ring-red-400"
+                            : nfCpfCnpjValid === true
+                            ? "border-emerald-400"
+                            : ""
+                        }`}
                       />
-                      <Button
-                        type="button"
-                        onClick={() => buscarCNPJ(formData.nfCpfCnpj)}
-                        variant="outline"
-                        className="px-6"
-                      >
-                        Buscar
-                      </Button>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        {nfCnpjLoading ? (
+                          <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
+                        ) : nfCpfCnpjValid === true ? (
+                          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        ) : fieldErrors.nfCpfCnpj ? (
+                          <XCircle className="w-5 h-5 text-red-500" />
+                        ) : null}
+                      </div>
                     </div>
-                    <p className="mt-1 text-xs text-slate-400">
-                      Para CNPJ, clique em Buscar para preencher os dados
-                      automaticamente
-                    </p>
+                    {fieldErrors.nfCpfCnpj ? (
+                      <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 shrink-0" />
+                        {fieldErrors.nfCpfCnpj}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-slate-400">
+                        {formData.nfCpfCnpj.replace(/\D/g, "").length < 12
+                          ? "CPF: validado automaticamente ao digitar 11 dígitos"
+                          : "CNPJ: dados preenchidos automaticamente ao digitar 14 dígitos"}
+                      </p>
+                    )}
                   </div>
 
                   {/* Nome Completo */}
