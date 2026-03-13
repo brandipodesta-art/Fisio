@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,6 +102,9 @@ export default function CadastroForm() {
     nfCidade: "",
     nfTelefonCel: "",
   });
+
+  const supabase = createClient();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [validations, setValidations] = useState({
     cpf: false,
@@ -517,7 +521,7 @@ export default function CadastroForm() {
   // Submissão do formulário
   // ─────────────────────────────────────────────
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.nomeCompleto || !formData.cpf) {
@@ -537,8 +541,59 @@ export default function CadastroForm() {
       return;
     }
 
-    toast.success("Cadastro salvo com sucesso!");
-    console.log("Form Data:", formData);
+    setIsSubmitting(true);
+    toast.loading("Salvando cadastro...");
+
+    try {
+      const { error } = await supabase.from('pacientes').insert({
+        tipo_usuario: formData.tipoUsuario,
+        profissional_responsavel: formData.profissionalResponsavel,
+        nome_completo: formData.nomeCompleto,
+        cpf: formData.cpf,
+        rg: formData.rg,
+        data_nascimento: formData.dataNascimento,
+        estado_civil: formData.estadoCivil,
+        profissao: formData.profissao,
+        telefone_fixo: formData.telefonFixo,
+        telefone_cel: formData.telefonCel,
+        como_ficou_sabendo: formData.comoFicouSabendo,
+        cep: formData.cep,
+        rua: formData.rua,
+        numero: formData.numero,
+        bairro: formData.bairro,
+        complemento: formData.complemento,
+        cidade: formData.cidade,
+        emitir_nf: formData.emitirNF,
+        nf_cpf_cnpj: formData.nfCpfCnpj,
+        nf_nome_completo: formData.nfNomeCompleto,
+        nf_cep: formData.nfCep,
+        nf_rua: formData.nfRua,
+        nf_numero: formData.nfNumero,
+        nf_bairro: formData.nfBairro,
+        nf_complemento: formData.nfComplemento,
+        nf_cidade: formData.nfCidade,
+        nf_telefone_cel: formData.nfTelefonCel
+      });
+
+      if (error) {
+        if (error.code === '23505') {
+          throw new Error('Paciente com este CPF já cadastrado no sistema.');
+        }
+        throw error;
+      }
+
+      toast.dismiss();
+      toast.success("Cadastro salvo com sucesso no banco de dados!");
+      console.log("Form Data Salva:", formData);
+      
+      // Opcional: resetar form (comentado para demo imediata manter dados na tela)
+    } catch (err: any) {
+      toast.dismiss();
+      console.error(err);
+      toast.error(err.message || "Erro ao salvar cadastro. Tente novamente.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // ─────────────────────────────────────────────

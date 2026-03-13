@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,6 +25,31 @@ export default function EvolucaoField() {
   const [evolucoes, setEvolucoes] = useState<Evolucao[]>([]);
   const [textoAtual, setTextoAtual] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function fetchEvolucoes() {
+      const { data, error } = await supabase
+        .from('evolucoes')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error("Erro ao carregar evoluções:", error);
+      } else if (data) {
+        setEvolucoes(data.map(e => ({
+          id: e.id,
+          texto: e.texto,
+          dataSalva: e.data_salva,
+          horaSalva: e.hora_salva
+        })));
+      }
+      setIsLoading(false);
+    }
+    fetchEvolucoes();
+  }, [supabase]);
 
   const formatarDataHora = (): { data: string; hora: string } => {
     const agora = new Date();
@@ -40,29 +66,58 @@ export default function EvolucaoField() {
     };
   };
 
-  const handleSalvarEvolucao = () => {
+  const handleSalvarEvolucao = async () => {
     if (!textoAtual.trim()) {
       toast.error("Por favor, descreva a evolução do paciente");
       return;
     }
 
     const { data, hora } = formatarDataHora();
+    const tempId = Date.now().toString();
     const novaEvolucao: Evolucao = {
-      id: Date.now().toString(),
+      id: tempId,
       texto: textoAtual,
       dataSalva: data,
       horaSalva: hora,
     };
 
+    // Atualiza otimisticamente
     setEvolucoes([novaEvolucao, ...evolucoes]);
     setTextoAtual("");
     setShowForm(false);
-    toast.success("Evolução salva com sucesso!");
+    toast.loading("Salvando evolução...", { id: "save-evo" });
+
+    const { data: insertedData, error } = await supabase
+      .from('evolucoes')
+      .insert({
+        texto: textoAtual,
+        data_salva: data,
+        hora_salva: hora,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error(error);
+      toast.error("Erro ao salvar evolução.", { id: "save-evo" });
+      setEvolucoes((prev) => prev.filter(e => e.id !== tempId));
+    } else {
+      toast.success("Evolução salva com sucesso!", { id: "save-evo" });
+      setEvolucoes((prev) => prev.map(e => e.id === tempId ? { ...novaEvolucao, id: insertedData.id } : e));
+    }
   };
 
-  const handleDeletarEvolucao = (id: string) => {
+  const handleDeletarEvolucao = async (id: string) => {
+    const backup = [...evolucoes];
     setEvolucoes(evolucoes.filter((e) => e.id !== id));
-    toast.success("Evolução removida");
+    
+    const { error } = await supabase.from('evolucoes').delete().eq('id', id);
+    if (error) {
+       toast.error("Erro ao deletar");
+       setEvolucoes(backup);
+    } else {
+       toast.success("Evolução removida");
+    }
   };
 
   return (
@@ -125,7 +180,13 @@ export default function EvolucaoField() {
           Histórico de Evoluções ({evolucoes.length})
         </h3>
 
-        {evolucoes.length === 0 ? (
+        {isLoading ? (
+          <Card className="p-6 border-slate-200 shadow-sm text-center">
+            <p className="text-slate-500">
+              Carregando evoluções...
+            </p>
+          </Card>
+        ) : evolucoes.length === 0 ? (
           <Card className="p-6 border-slate-200 shadow-sm text-center">
             <p className="text-slate-500">
               Nenhuma evolução registrada ainda. Clique em "Adicionar Nova

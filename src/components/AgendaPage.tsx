@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Plus, Calendar } from "lucide-react";
@@ -26,7 +27,7 @@ import AgendaNewEventDialog from "./AgendaNewEventDialog";
 export default function AgendaPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("day");
-  const [appointments, setAppointments] = useState<Appointment[]>(getMockAppointments());
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>(
     PROFESSIONALS.map((p) => p.id)
   );
@@ -35,6 +36,32 @@ export default function AgendaPage() {
     date?: string;
     time?: string;
   }>({});
+  const [isLoading, setIsLoading] = useState(true);
+
+  const supabase = createClient();
+
+  useEffect(() => {
+    async function fetchAppointments() {
+      const { data, error } = await supabase.from('agendamentos').select('*');
+      
+      if (data) {
+        const mapped: Appointment[] = data.map((d: any) => ({
+          id: d.id,
+          patientName: d.patient_name,
+          professionalId: d.professional_id,
+          date: d.date,
+          startTime: d.start_time,
+          endTime: d.end_time,
+          duration: d.duration,
+          status: d.status,
+          notes: d.notes
+        }));
+        setAppointments(mapped);
+      }
+      setIsLoading(false);
+    }
+    fetchAppointments();
+  }, [supabase]);
 
   // Navigation
   const goToday = () => setCurrentDate(new Date());
@@ -94,8 +121,31 @@ export default function AgendaPage() {
   };
 
   // Save new appointment
-  const handleSaveAppointment = (apt: Appointment) => {
+  const handleSaveAppointment = async (apt: Appointment) => {
+    const backup = [...appointments];
     setAppointments((prev) => [...prev, apt]);
+    
+    // Insert without the mock ID so generated one is used, or use apt.id if that's UUID
+    const { id, ...aptData } = apt;
+    
+    const { error } = await supabase.from('agendamentos').insert({
+      patient_name: aptData.patientName,
+      professional_id: aptData.professionalId,
+      date: aptData.date,
+      start_time: aptData.startTime,
+      end_time: aptData.endTime,
+      duration: aptData.duration,
+      status: aptData.status,
+      notes: aptData.notes,
+    });
+
+    if (error) {
+      console.error(error);
+      setAppointments(backup);
+    } else {
+      // Refresh to get actual UUID from Supabase, or we would return the inserted ID 
+      // but for MVP updating UI is fine until reload
+    }
   };
 
   // Get professional by ID
@@ -267,7 +317,12 @@ export default function AgendaPage() {
           )}
 
           {/* Time grid */}
-          <div className="overflow-y-auto max-h-[calc(100vh-320px)]">
+          <div className="overflow-y-auto max-h-[calc(100vh-320px)] relative">
+            {isLoading && (
+              <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
+                <span className="text-sm font-medium text-slate-500">Carregando agenda...</span>
+              </div>
+            )}
             {TIME_SLOTS.map((slot) => (
               <div
                 key={slot.hour}

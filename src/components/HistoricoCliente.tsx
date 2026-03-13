@@ -1,3 +1,7 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { createClient } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Activity, DollarSign, Calendar, FileText } from "lucide-react";
@@ -36,66 +40,48 @@ interface Evolucao {
 }
 
 export default function HistoricoCliente() {
-  // Dados de exemplo
-  const exames: Exame[] = [
-    {
-      id: "1",
-      tipo: "Avaliação Inicial",
-      data: "15/02/2026",
-      resultado: "Paciente com limitação de movimento no ombro direito",
-    },
-    {
-      id: "2",
-      tipo: "Ressonância Magnética",
-      data: "10/02/2026",
-      resultado: "Inflamação leve no tendão",
-    },
-  ];
+  const [exames, setExames] = useState<Exame[]>([]);
+  const [frequencia, setFrequencia] = useState<Frequencia[]>([]);
+  const [financeiro, setFinanceiro] = useState<Financeiro[]>([]);
+  const [evolucoes, setEvolucoes] = useState<Evolucao[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const frequencia: Frequencia[] = [
-    { mes: "Fevereiro/2026", presencas: 8, faltas: 2 },
-    { mes: "Janeiro/2026", presencas: 10, faltas: 0 },
-    { mes: "Dezembro/2025", presencas: 9, faltas: 1 },
-  ];
+  const supabase = createClient();
 
-  const financeiro: Financeiro[] = [
-    {
-      id: "1",
-      descricao: "Sessão de Fisioterapia",
-      valor: 150.0,
-      data: "15/02/2026",
-      status: "pago",
-    },
-    {
-      id: "2",
-      descricao: "Avaliação Inicial",
-      valor: 200.0,
-      data: "10/02/2026",
-      status: "pago",
-    },
-    {
-      id: "3",
-      descricao: "Sessão de Fisioterapia",
-      valor: 150.0,
-      data: "08/02/2026",
-      status: "pendente",
-    },
-  ];
+  useEffect(() => {
+    async function fetchData() {
+      const [resExames, resFrequencia, resFinanceiro, resEvolucoes] = await Promise.all([
+        supabase.from('exames').select('*'),
+        supabase.from('frequencias').select('*'),
+        supabase.from('financeiro_paciente').select('*'),
+        supabase.from('evolucoes').select('*').order('created_at', { ascending: false })
+      ]);
 
-  const evolucoes: Evolucao[] = [
-    {
-      id: "1",
-      data: "15/02/2026",
-      descricao:
-        "Paciente apresentou melhora significativa na amplitude de movimento. Redução de 40% da dor reportada.",
-    },
-    {
-      id: "2",
-      data: "12/02/2026",
-      descricao:
-        "Iniciado programa de fortalecimento. Paciente tolerou bem os exercícios.",
-    },
-  ];
+      if (resExames.data) {
+        setExames(resExames.data.map((e: any) => ({
+          id: e.id, tipo: e.tipo, data: e.data, resultado: e.resultado
+        })));
+      }
+      if (resFrequencia.data) {
+        setFrequencia(resFrequencia.data.map((f: any) => ({
+          mes: f.mes, presencas: f.presencas, faltas: f.faltas
+        })));
+      }
+      if (resFinanceiro.data) {
+        setFinanceiro(resFinanceiro.data.map((f: any) => ({
+          id: f.id, descricao: f.descricao, valor: Number(f.valor), data: f.data, status: f.status
+        })));
+      }
+      if (resEvolucoes.data) {
+        setEvolucoes(resEvolucoes.data.map((e: any) => ({
+          id: e.id, data: e.data_salva, descricao: e.texto
+        })));
+      }
+      
+      setIsLoading(false);
+    }
+    fetchData();
+  }, [supabase]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -157,7 +143,11 @@ export default function HistoricoCliente() {
 
         {/* Tab: Exames */}
         <TabsContent value="exames" className="space-y-4">
-          {exames.length === 0 ? (
+          {isLoading ? (
+            <Card className="p-6 border-slate-200 shadow-sm text-center">
+              <p className="text-slate-500">Carregando exames...</p>
+            </Card>
+          ) : exames.length === 0 ? (
             <Card className="p-6 border-slate-200 shadow-sm text-center">
               <p className="text-slate-500">Nenhum exame registrado</p>
             </Card>
@@ -183,7 +173,11 @@ export default function HistoricoCliente() {
 
         {/* Tab: Frequência */}
         <TabsContent value="frequencia" className="space-y-4">
-          {frequencia.length === 0 ? (
+          {isLoading ? (
+            <Card className="p-6 border-slate-200 shadow-sm text-center">
+              <p className="text-slate-500">Carregando frequência...</p>
+            </Card>
+          ) : frequencia.length === 0 ? (
             <Card className="p-6 border-slate-200 shadow-sm text-center">
               <p className="text-slate-500">Nenhum registro de frequência</p>
             </Card>
@@ -229,7 +223,11 @@ export default function HistoricoCliente() {
 
         {/* Tab: Financeiro */}
         <TabsContent value="financeiro" className="space-y-4">
-          {financeiro.length === 0 ? (
+          {isLoading ? (
+            <Card className="p-6 border-slate-200 shadow-sm text-center">
+              <p className="text-slate-500">Carregando financeiro...</p>
+            </Card>
+          ) : financeiro.length === 0 ? (
             <Card className="p-6 border-slate-200 shadow-sm text-center">
               <p className="text-slate-500">Nenhum registro financeiro</p>
             </Card>
@@ -303,7 +301,11 @@ export default function HistoricoCliente() {
 
         {/* Tab: Evolução */}
         <TabsContent value="evolucao" className="space-y-4">
-          {evolucoes.length === 0 ? (
+          {isLoading ? (
+            <Card className="p-6 border-slate-200 shadow-sm text-center">
+              <p className="text-slate-500">Carregando evolução...</p>
+            </Card>
+          ) : evolucoes.length === 0 ? (
             <Card className="p-6 border-slate-200 shadow-sm text-center">
               <p className="text-slate-500">Nenhuma evolução registrada</p>
             </Card>
