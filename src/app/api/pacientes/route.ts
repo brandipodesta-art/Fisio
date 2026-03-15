@@ -7,7 +7,8 @@ import type { PacienteInsert } from "@/lib/types/paciente";
  * Retorna a lista de pacientes com suporte a filtros via query params:
  *   - nome: busca parcial por nome_completo (case-insensitive)
  *   - cpf:  busca parcial por cpf
- *   - tipo: filtra por tipo_usuario exato
+ *   - tipo:        filtra por tipo_usuario exato
+ *   - profissional: busca parcial por profissional_responsavel (case-insensitive)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -17,6 +18,7 @@ export async function GET(request: NextRequest) {
     const nome = searchParams.get("nome") ?? "";
     const cpf = searchParams.get("cpf") ?? "";
     const tipo = searchParams.get("tipo") ?? "";
+    const profissional = searchParams.get("profissional") ?? "";
 
     let query = supabase
       .from("pacientes")
@@ -38,6 +40,10 @@ export async function GET(request: NextRequest) {
 
     if (tipo && tipo !== "todos") {
       query = query.eq("tipo_usuario", tipo);
+    }
+
+    if (profissional.trim()) {
+      query = query.ilike("profissional_responsavel", `%${profissional.trim()}%`);
     }
 
     const { data, error } = await query;
