@@ -20,12 +20,21 @@ import {
   Calendar,
   Users,
   UserCheck,
-  ChevronRight,
   Filter,
   Loader2,
   AlertCircle,
   RefreshCw,
+  MoreVertical,
+  Pencil,
+  Eye,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { PacienteResumo } from "@/lib/types/paciente";
 import { TIPO_USUARIO_LABEL, TIPO_USUARIO_COLOR } from "@/lib/types/paciente";
 
@@ -52,11 +61,13 @@ function formatarData(iso: string): string {
 interface ClientesListagemProps {
   onNovoCadastro?: () => void;
   onEditarCliente?: (cliente: PacienteResumo) => void;
+  onVisualizarCliente?: (cliente: PacienteResumo) => void;
 }
 
 export default function ClientesListagem({
   onNovoCadastro,
   onEditarCliente,
+  onVisualizarCliente,
 }: ClientesListagemProps) {
   // ── Estado ────────────────────────────────────────────
   const [clientes, setClientes] = useState<PacienteResumo[]>([]);
@@ -344,14 +355,38 @@ export default function ClientesListagem({
           {clientes.map((cliente) => (
             <Card
               key={cliente.id}
-              className="border-slate-200 shadow-sm hover:shadow-md hover:border-emerald-200 transition-all duration-150 cursor-pointer group"
-              onClick={() => onEditarCliente?.(cliente)}
+              className="border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-150"
             >
               <div className="p-4 flex items-center gap-4">
-                {/* Avatar */}
-                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-                  <UserRound className="w-5 h-5 text-emerald-600" />
-                </div>
+                {/* Menu de ações */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 hover:bg-emerald-200 transition-colors relative group/avatar"
+                      title="Ações"
+                    >
+                      <UserRound className="w-5 h-5 text-emerald-600 group-hover/avatar:opacity-0 transition-opacity" />
+                      <MoreVertical className="w-4 h-4 text-emerald-700 absolute opacity-0 group-hover/avatar:opacity-100 transition-opacity" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="w-44">
+                    <DropdownMenuItem
+                      className="gap-2 cursor-pointer text-slate-700 focus:text-emerald-700 focus:bg-emerald-50"
+                      onClick={() => onVisualizarCliente?.(cliente)}
+                    >
+                      <Eye className="w-4 h-4" />
+                      Visualizar
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="gap-2 cursor-pointer text-slate-700 focus:text-blue-700 focus:bg-blue-50"
+                      onClick={() => onEditarCliente?.(cliente)}
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Editar
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 {/* Dados principais */}
                 <div className="flex-1 min-w-0">
@@ -406,8 +441,6 @@ export default function ClientesListagem({
                     </span>
                   )}
                 </div>
-
-                <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 transition-colors shrink-0" />
               </div>
             </Card>
           ))}
