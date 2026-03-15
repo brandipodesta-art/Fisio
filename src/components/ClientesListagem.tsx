@@ -27,6 +27,8 @@ import {
   MoreVertical,
   Pencil,
   Eye,
+  PowerOff,
+  Power,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -73,20 +75,41 @@ export default function ClientesListagem({
   const [clientes, setClientes] = useState<PacienteResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [totalGeral, setTotalGeral] = useState(0);
+   const [totalGeral, setTotalGeral] = useState(0);
 
-  // ── Filtros ───────────────────────────────────────────
+  // ── Filtros ──────────────────────────────────────────────────────
   const [filtroNome, setFiltroNome] = useState("");
   const [filtroCpf, setFiltroCpf] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [filtroProfissional, setFiltroProfissional] = useState("todos");
+  const [filtroStatus, setFiltroStatus] = useState("todos");
 
   // Refs para debounce dos filtros de texto
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Busca de dados ────────────────────────────────────
+  // ── Busca de dados ──────────────────────────────────
+  // ── Alternar status ativo/inativo ────────────────────────────────────
+  const alternarStatus = async (cliente: PacienteResumo) => {
+    try {
+      const res = await fetch(`/api/pacientes/${cliente.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ativo: !cliente.ativo }),
+      });
+      if (!res.ok) throw new Error("Erro ao atualizar status");
+      // Atualiza localmente sem recarregar tudo
+      setClientes((prev) =>
+        prev.map((c) =>
+          c.id === cliente.id ? { ...c, ativo: !cliente.ativo } : c
+        )
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const buscarClientes = useCallback(
-    async (nome: string, cpf: string, tipo: string, profissional: string) => {
+    async (nome: string, cpf: string, tipo: string, profissional: string, status: string = "todos") => {
       setLoading(true);
       setErro(null);
       try {
@@ -95,6 +118,7 @@ export default function ClientesListagem({
         if (cpf.trim()) params.set("cpf", cpf.replace(/\D/g, ""));
         if (tipo && tipo !== "todos") params.set("tipo", tipo);
         if (profissional && profissional !== "todos") params.set("profissional", profissional);
+        if (status && status !== "todos") params.set("status", status);
 
         const res = await fetch(`/api/pacientes?${params.toString()}`);
         if (!res.ok) {
@@ -105,7 +129,7 @@ export default function ClientesListagem({
         setClientes(data);
 
         // Atualiza o total geral apenas quando não há filtros ativos
-        if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos") && (!profissional || profissional === "todos")) {
+        if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos") && (!profissional || profissional === "todos") && (!status || status === "todos")) {
           setTotalGeral(data.length);
         }
       } catch (e: unknown) {
@@ -119,19 +143,19 @@ export default function ClientesListagem({
 
   // Busca inicial (sem filtros) para obter o total
   useEffect(() => {
-    buscarClientes("", "", "todos", "");
+    buscarClientes("", "", "todos", "", "todos");
   }, [buscarClientes]);
 
-  // Dispara nova busca com debounce ao alterar filtros de texto
+  // Dispara nova busca com debounce ao alterar filtros
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroProfissional);
+      buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroProfissional, filtroStatus);
     }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [filtroNome, filtroCpf, filtroTipo, filtroProfissional, buscarClientes]);
+  }, [filtroNome, filtroCpf, filtroTipo, filtroProfissional, filtroStatus, buscarClientes]);
 
   // ── Handlers ──────────────────────────────────────────
   const limparFiltros = () => {
@@ -139,6 +163,7 @@ export default function ClientesListagem({
     setFiltroCpf("");
     setFiltroTipo("todos");
     setFiltroProfissional("todos");
+    setFiltroStatus("todos");
   };
 
   const handleFiltroCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,7 +176,7 @@ export default function ClientesListagem({
   };
 
   const filtrosAtivos =
-    filtroNome !== "" || filtroCpf !== "" || filtroTipo !== "todos" || filtroProfissional !== "todos";
+    filtroNome !== "" || filtroCpf !== "" || filtroTipo !== "todos" || filtroProfissional !== "todos" || filtroStatus !== "todos";
 
   // ── Render ────────────────────────────────────────────
   return (
@@ -215,7 +240,7 @@ export default function ClientesListagem({
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Filtro: Nome Completo */}
           <div>
             <Label className="text-xs font-medium text-slate-600 mb-1.5 block">
@@ -301,6 +326,23 @@ export default function ClientesListagem({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Filtro: Status */}
+          <div>
+            <Label className="text-xs font-medium text-slate-600 mb-1.5 block">
+              Status
+            </Label>
+            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <SelectTrigger className="text-sm">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos</SelectItem>
+                <SelectItem value="ativo">Ativos</SelectItem>
+                <SelectItem value="inativo">Inativos</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </Card>
 
@@ -376,21 +418,33 @@ export default function ClientesListagem({
           {clientes.map((cliente) => (
             <Card
               key={cliente.id}
-              className="border-slate-200 shadow-sm hover:shadow-md hover:border-slate-300 transition-all duration-150"
+              className={`shadow-sm hover:shadow-md transition-all duration-150 ${
+                cliente.ativo
+                  ? "border-slate-200 hover:border-slate-300"
+                  : "border-slate-200 bg-slate-50 opacity-75 hover:border-slate-300"
+              }`}
             >
               <div className="p-4 flex items-center gap-4">
                 {/* Menu de ações */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
-                      className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shrink-0 hover:bg-emerald-200 transition-colors relative group/avatar"
+                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors relative group/avatar ${
+                        cliente.ativo
+                          ? "bg-emerald-100 hover:bg-emerald-200"
+                          : "bg-slate-200 hover:bg-slate-300"
+                      }`}
                       title="Ações"
                     >
-                      <UserRound className="w-5 h-5 text-emerald-600 group-hover/avatar:opacity-0 transition-opacity" />
-                      <MoreVertical className="w-4 h-4 text-emerald-700 absolute opacity-0 group-hover/avatar:opacity-100 transition-opacity" />
+                      <UserRound
+                        className={`w-5 h-5 group-hover/avatar:opacity-0 transition-opacity ${
+                          cliente.ativo ? "text-emerald-600" : "text-slate-400"
+                        }`}
+                      />
+                      <MoreVertical className="w-4 h-4 text-slate-600 absolute opacity-0 group-hover/avatar:opacity-100 transition-opacity" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-44">
+                  <DropdownMenuContent align="start" className="w-48">
                     <DropdownMenuItem
                       className="gap-2 cursor-pointer text-slate-700 focus:text-emerald-700 focus:bg-emerald-50"
                       onClick={() => onVisualizarCliente?.(cliente)}
@@ -406,15 +460,37 @@ export default function ClientesListagem({
                       <Pencil className="w-4 h-4" />
                       Editar
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className={`gap-2 cursor-pointer ${
+                        cliente.ativo
+                          ? "text-red-600 focus:text-red-700 focus:bg-red-50"
+                          : "text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50"
+                      }`}
+                      onClick={() => alternarStatus(cliente)}
+                    >
+                      {cliente.ativo ? (
+                        <><PowerOff className="w-4 h-4" /> Desativar</>
+                      ) : (
+                        <><Power className="w-4 h-4" /> Ativar</>
+                      )}
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 
                 {/* Dados principais */}
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="font-semibold text-slate-900 truncate">
+                    <span className={`font-semibold truncate ${
+                      cliente.ativo ? "text-slate-900" : "text-slate-400"
+                    }`}>
                       {cliente.nome_completo}
                     </span>
+                    {!cliente.ativo && (
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">
+                        Inativo
+                      </span>
+                    )}
                     <span
                       className={`text-xs font-medium px-2 py-0.5 rounded-full ${
                         TIPO_USUARIO_COLOR[cliente.tipo_usuario] ??

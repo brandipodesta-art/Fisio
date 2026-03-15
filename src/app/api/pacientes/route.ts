@@ -9,6 +9,7 @@ import type { PacienteInsert } from "@/lib/types/paciente";
  *   - cpf:  busca parcial por cpf
  *   - tipo:        filtra por tipo_usuario exato
  *   - profissional: busca parcial por profissional_responsavel (case-insensitive)
+ *   - status:       'ativo', 'inativo' ou 'todos' (default: 'todos')
  */
 export async function GET(request: NextRequest) {
   try {
@@ -19,11 +20,12 @@ export async function GET(request: NextRequest) {
     const cpf = searchParams.get("cpf") ?? "";
     const tipo = searchParams.get("tipo") ?? "";
     const profissional = searchParams.get("profissional") ?? "";
+    const status = searchParams.get("status") ?? "todos";
 
     let query = supabase
       .from("pacientes")
       .select(
-        "id, created_at, tipo_usuario, profissional_responsavel, nome_completo, cpf, telefone_cel, data_nascimento, cidade"
+        "id, created_at, tipo_usuario, profissional_responsavel, nome_completo, cpf, telefone_cel, data_nascimento, cidade, ativo"
       )
       .order("nome_completo", { ascending: true });
 
@@ -44,6 +46,12 @@ export async function GET(request: NextRequest) {
 
     if (profissional.trim()) {
       query = query.ilike("profissional_responsavel", `%${profissional.trim()}%`);
+    }
+
+    if (status === "ativo") {
+      query = query.eq("ativo", true);
+    } else if (status === "inativo") {
+      query = query.eq("ativo", false);
     }
 
     const { data, error } = await query;

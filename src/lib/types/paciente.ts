@@ -34,6 +34,7 @@ export interface PacienteDB {
   nf_complemento: string;
   nf_cidade: string;
   nf_telefone_cel: string;
+  ativo: boolean;
 }
 
 /** Payload para criação de um novo paciente (sem id e created_at) */
@@ -53,6 +54,7 @@ export interface PacienteResumo {
   data_nascimento: string;
   cidade: string;
   created_at: string;
+  ativo: boolean;
 }
 
 /** Mapa de labels para tipo de usuário */

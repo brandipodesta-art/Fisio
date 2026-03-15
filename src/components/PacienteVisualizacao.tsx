@@ -16,6 +16,8 @@ import {
   Receipt,
   Loader2,
   AlertCircle,
+  Power,
+  PowerOff,
 } from "lucide-react";
 import type { PacienteDB } from "@/lib/types/paciente";
 import { TIPO_USUARIO_LABEL, TIPO_USUARIO_COLOR } from "@/lib/types/paciente";
@@ -129,6 +131,26 @@ export default function PacienteVisualizacao({
   const [paciente, setPaciente] = useState<PacienteDB | null>(null);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  const [alterandoStatus, setAlterandoStatus] = useState(false);
+
+  const alternarStatus = async () => {
+    if (!paciente) return;
+    setAlterandoStatus(true);
+    try {
+      const res = await fetch(`/api/pacientes/${paciente.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ativo: !paciente.ativo }),
+      });
+      if (!res.ok) throw new Error("Erro ao atualizar status");
+      const atualizado = await res.json();
+      setPaciente((prev) => prev ? { ...prev, ativo: atualizado.ativo } : prev);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setAlterandoStatus(false);
+    }
+  };
 
   useEffect(() => {
     async function carregar() {
@@ -177,7 +199,7 @@ export default function PacienteVisualizacao({
 
   return (
     <div className="space-y-4">
-      {/* ── Cabeçalho ─────────────────────────────────── */}
+      {/* ── Cabeçalho ─────────────────────────────────────────────── */}
       <div className="flex items-start justify-between gap-4">
         <div className="flex items-center gap-3">
           <Button
@@ -190,32 +212,67 @@ export default function PacienteVisualizacao({
             Voltar
           </Button>
         </div>
-        <Button
-          onClick={onEditar}
-          size="sm"
-          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
-        >
-          <Pencil className="w-4 h-4" />
-          Editar Cadastro
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={alternarStatus}
+            disabled={alterandoStatus}
+            className={`gap-2 ${
+              paciente.ativo
+                ? "border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
+                : "border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300"
+            }`}
+          >
+            {alterandoStatus ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : paciente.ativo ? (
+              <><PowerOff className="w-4 h-4" /> Desativar Cliente</>
+            ) : (
+              <><Power className="w-4 h-4" /> Ativar Cliente</>
+            )}
+          </Button>
+          <Button
+            onClick={onEditar}
+            size="sm"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+          >
+            <Pencil className="w-4 h-4" />
+            Editar Cadastro
+          </Button>
+        </div>
       </div>
 
-      {/* ── Banner de identificação ───────────────────── */}
-      <Card className="border-slate-200 shadow-sm bg-gradient-to-r from-emerald-50 to-white">
+      {/* ── Banner de identificação ─────────────────────────────────────────────── */}
+      <Card className={`shadow-sm ${
+        paciente.ativo
+          ? "border-slate-200 bg-gradient-to-r from-emerald-50 to-white"
+          : "border-slate-300 bg-gradient-to-r from-slate-100 to-white"
+      }`}>
         <div className="p-5 flex items-center gap-4">
-          <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center shrink-0">
-            <UserRound className="w-7 h-7 text-emerald-600" />
+          <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${
+            paciente.ativo ? "bg-emerald-100" : "bg-slate-200"
+          }`}>
+            <UserRound className={`w-7 h-7 ${
+              paciente.ativo ? "text-emerald-600" : "text-slate-400"
+            }`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-1">
-              <h2 className="text-xl font-bold text-slate-900 truncate">
+              <h2 className={`text-xl font-bold truncate ${
+                paciente.ativo ? "text-slate-900" : "text-slate-500"
+              }`}>
                 {paciente.nome_completo}
               </h2>
               <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${tipoCor}`}>
                 {tipoLabel}
               </span>
-            </div>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+              {!paciente.ativo && (
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">
+                  Inativo
+                </span>
+              )}
+            </div>   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
               <span className="font-mono">CPF: {vazio(paciente.cpf)}</span>
               {paciente.telefone_cel && (
                 <span className="flex items-center gap-1">

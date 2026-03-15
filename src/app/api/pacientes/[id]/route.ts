@@ -104,6 +104,54 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 }
 
 /**
+ * PATCH /api/pacientes/[id]
+ * Alterna ou define o status ativo/inativo do paciente.
+ * Body: { ativo: boolean }
+ */
+export async function PATCH(request: NextRequest, context: RouteContext) {
+  try {
+    const { id } = await context.params;
+    const supabase = await createClient();
+    const body: { ativo: boolean } = await request.json();
+
+    if (typeof body.ativo !== "boolean") {
+      return NextResponse.json(
+        { error: "O campo 'ativo' deve ser um boolean" },
+        { status: 400 }
+      );
+    }
+
+    const { data, error } = await supabase
+      .from("pacientes")
+      .update({ ativo: body.ativo })
+      .eq("id", id)
+      .select("id, nome_completo, ativo")
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") {
+        return NextResponse.json(
+          { error: "Paciente não encontrado" },
+          { status: 404 }
+        );
+      }
+      return NextResponse.json(
+        { error: "Erro ao atualizar status", details: error.message },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    return NextResponse.json(
+      { error: "Erro interno do servidor" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
  * DELETE /api/pacientes/[id]
  * Remove um paciente do banco de dados.
  */
