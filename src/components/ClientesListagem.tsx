@@ -79,7 +79,7 @@ export default function ClientesListagem({
   const [filtroNome, setFiltroNome] = useState("");
   const [filtroCpf, setFiltroCpf] = useState("");
   const [filtroTipo, setFiltroTipo] = useState("todos");
-  const [filtroProfissional, setFiltroProfissional] = useState("");
+  const [filtroProfissional, setFiltroProfissional] = useState("todos");
 
   // Refs para debounce dos filtros de texto
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -94,7 +94,7 @@ export default function ClientesListagem({
         if (nome.trim()) params.set("nome", nome.trim());
         if (cpf.trim()) params.set("cpf", cpf.replace(/\D/g, ""));
         if (tipo && tipo !== "todos") params.set("tipo", tipo);
-        if (profissional.trim()) params.set("profissional", profissional.trim());
+        if (profissional && profissional !== "todos") params.set("profissional", profissional);
 
         const res = await fetch(`/api/pacientes?${params.toString()}`);
         if (!res.ok) {
@@ -105,7 +105,7 @@ export default function ClientesListagem({
         setClientes(data);
 
         // Atualiza o total geral apenas quando não há filtros ativos
-        if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos") && !profissional.trim()) {
+        if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos") && (!profissional || profissional === "todos")) {
           setTotalGeral(data.length);
         }
       } catch (e: unknown) {
@@ -138,7 +138,7 @@ export default function ClientesListagem({
     setFiltroNome("");
     setFiltroCpf("");
     setFiltroTipo("todos");
-    setFiltroProfissional("");
+    setFiltroProfissional("todos");
   };
 
   const handleFiltroCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,7 +151,7 @@ export default function ClientesListagem({
   };
 
   const filtrosAtivos =
-    filtroNome !== "" || filtroCpf !== "" || filtroTipo !== "todos" || filtroProfissional !== "";
+    filtroNome !== "" || filtroCpf !== "" || filtroTipo !== "todos" || filtroProfissional !== "todos";
 
   // ── Render ────────────────────────────────────────────
   return (
@@ -289,23 +289,17 @@ export default function ClientesListagem({
             <Label className="text-xs font-medium text-slate-600 mb-1.5 block">
               Profissional Responsável
             </Label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-              <Input
-                placeholder="Buscar por profissional..."
-                value={filtroProfissional}
-                onChange={(e) => setFiltroProfissional(e.target.value)}
-                className="pl-9 text-sm"
-              />
-              {filtroProfissional && (
-                <button
-                  onClick={() => setFiltroProfissional("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
+            <Select value={filtroProfissional} onValueChange={setFiltroProfissional}>
+              <SelectTrigger className="text-sm">
+                <SelectValue placeholder="Todos os profissionais" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os profissionais</SelectItem>
+                <SelectItem value="ana-carolina">Ana Carolina</SelectItem>
+                <SelectItem value="amanda-augusta">Amanda Augusta</SelectItem>
+                <SelectItem value="aline-pereira">Aline Pereira</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </Card>
