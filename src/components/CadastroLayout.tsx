@@ -8,6 +8,7 @@ import CadastroForm from "./CadastroForm";
 import EvolucaoField from "./EvolucaoField";
 import HistoricoCliente from "./HistoricoCliente";
 import ClientesListagem from "./ClientesListagem";
+import PacienteVisualizacao from "./PacienteVisualizacao";
 import type { PacienteResumo } from "@/lib/types/paciente";
 
 /**
@@ -16,11 +17,20 @@ import type { PacienteResumo } from "@/lib/types/paciente";
  *
  * Abas visíveis: Clientes | Evolução | Histórico
  *
- * O formulário de cadastro/edição não é uma aba — ele é exibido como
- * um painel que substitui o conteúdo da aba Clientes quando:
- *  - O usuário clica em "Novo Cadastro"
- *  - O usuário clica em um card de paciente para editar
+ * O formulário e a visualização não são abas — são painéis que substituem
+ * o conteúdo da aba Clientes conforme o modo ativo:
+ *
+ *  modo = "listagem"     → listagem normal
+ *  modo = "novo"         → formulário de criação
+ *  modo = "editar:uuid"  → formulário de edição
+ *  modo = "ver:uuid"     → visualização somente leitura
  */
+
+type Modo =
+  | { tipo: "listagem" }
+  | { tipo: "novo" }
+  | { tipo: "editar"; id: string }
+  | { tipo: "ver"; id: string };
 
 interface CadastroLayoutProps {
   onTabChange?: (tab: string) => void;
@@ -28,42 +38,31 @@ interface CadastroLayoutProps {
 
 export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
   const [activeTab, setActiveTab] = useState("clientes");
-
-  /**
-   * null     → listagem visível (modo normal)
-   * ""       → formulário de novo cadastro
-   * "uuid"   → formulário de edição do paciente com esse ID
-   */
-  const [modoFormulario, setModoFormulario] = useState<string | null>(null);
+  const [modo, setModo] = useState<Modo>({ tipo: "listagem" });
 
   const handleTabChange = (value: string) => {
-    // Ao trocar de aba, fecha o formulário
-    setModoFormulario(null);
+    setModo({ tipo: "listagem" });
     setActiveTab(value);
     onTabChange?.(value);
   };
 
-  /** Abre o formulário em modo de criação */
-  const handleNovoCadastro = () => {
-    setModoFormulario("");
-  };
+  const handleNovoCadastro = () => setModo({ tipo: "novo" });
 
-  /** Abre o formulário em modo de edição */
-  const handleEditarCliente = (cliente: PacienteResumo) => {
-    setModoFormulario(cliente.id);
-  };
+  const handleEditarCliente = (cliente: PacienteResumo) =>
+    setModo({ tipo: "editar", id: cliente.id });
 
-  /** Após salvar, fecha o formulário e volta para a listagem */
-  const handleSalvoComSucesso = () => {
-    setModoFormulario(null);
-  };
+  const handleVisualizarCliente = (cliente: PacienteResumo) =>
+    setModo({ tipo: "ver", id: cliente.id });
 
-  /** Ao cancelar, fecha o formulário sem salvar */
-  const handleCancelar = () => {
-    setModoFormulario(null);
-  };
+  const handleSalvoComSucesso = () => setModo({ tipo: "listagem" });
+  const handleCancelar = () => setModo({ tipo: "listagem" });
+  const handleVoltarDaVisualizacao = () => setModo({ tipo: "listagem" });
 
-  const exibirFormulario = modoFormulario !== null;
+  const handleEditarDaVisualizacao = () => {
+    if (modo.tipo === "ver") {
+      setModo({ tipo: "editar", id: modo.id });
+    }
+  };
 
   return (
     <div className="py-8">
@@ -115,18 +114,27 @@ export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
 
           {/* ── Tab Content: Clientes ── */}
           <TabsContent value="clientes" className="space-y-6">
-            {exibirFormulario ? (
-              /* Formulário de cadastro / edição (substitui a listagem) */
-              <CadastroForm
-                pacienteId={modoFormulario || null}
-                onSalvoComSucesso={handleSalvoComSucesso}
-                onCancelar={handleCancelar}
-              />
-            ) : (
-              /* Listagem normal */
+            {modo.tipo === "listagem" && (
               <ClientesListagem
                 onNovoCadastro={handleNovoCadastro}
                 onEditarCliente={handleEditarCliente}
+                onVisualizarCliente={handleVisualizarCliente}
+              />
+            )}
+
+            {(modo.tipo === "novo" || modo.tipo === "editar") && (
+              <CadastroForm
+                pacienteId={modo.tipo === "editar" ? modo.id : null}
+                onSalvoComSucesso={handleSalvoComSucesso}
+                onCancelar={handleCancelar}
+              />
+            )}
+
+            {modo.tipo === "ver" && (
+              <PacienteVisualizacao
+                pacienteId={modo.id}
+                onVoltar={handleVoltarDaVisualizacao}
+                onEditar={handleEditarDaVisualizacao}
               />
             )}
           </TabsContent>
