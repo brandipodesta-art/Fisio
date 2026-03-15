@@ -1,4 +1,5 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import type { PacienteDB } from "@/lib/types/paciente";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,7 +73,21 @@ interface FieldErrors {
   nfCpfCnpj?: string;
 }
 
-export default function CadastroForm() {
+interface CadastroFormProps {
+  /** Quando fornecido, o formulário entra em modo de edição */
+  pacienteId?: string | null;
+  /** Callback chamado após salvar com sucesso (novo ou edição) */
+  onSalvoComSucesso?: () => void;
+  /** Callback chamado ao clicar em Cancelar */
+  onCancelar?: () => void;
+}
+
+export default function CadastroForm({
+  pacienteId,
+  onSalvoComSucesso,
+  onCancelar,
+}: CadastroFormProps = {}) {
+  const modoEdicao = Boolean(pacienteId);
   const [formData, setFormData] = useState<FormData>({
     tipoUsuario: "",
     profissionalResponsavel: "",
@@ -105,6 +120,66 @@ export default function CadastroForm() {
 
   const supabase = createClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingPaciente, setLoadingPaciente] = useState(false);
+
+  // ─────────────────────────────────────────────
+  // Pré-carregamento dos dados no modo de edição
+  // ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!pacienteId) return;
+
+    const carregarPaciente = async () => {
+      setLoadingPaciente(true);
+      try {
+        const res = await fetch(`/api/pacientes/${pacienteId}`);
+        if (!res.ok) throw new Error("Paciente não encontrado");
+        const p: PacienteDB = await res.json();
+
+        setFormData({
+          tipoUsuario: p.tipo_usuario ?? "",
+          profissionalResponsavel: p.profissional_responsavel ?? "",
+          nomeCompleto: p.nome_completo ?? "",
+          cpf: p.cpf ?? "",
+          rg: p.rg ?? "",
+          dataNascimento: p.data_nascimento ?? "",
+          estadoCivil: p.estado_civil ?? "",
+          profissao: p.profissao ?? "",
+          telefonFixo: p.telefone_fixo ?? "",
+          telefonCel: p.telefone_cel ?? "",
+          comoFicouSabendo: p.como_ficou_sabendo ?? "",
+          cep: p.cep ?? "",
+          rua: p.rua ?? "",
+          numero: p.numero ?? "",
+          bairro: p.bairro ?? "",
+          complemento: p.complemento ?? "",
+          cidade: p.cidade ?? "",
+          emitirNF: p.emitir_nf ?? "nao",
+          nfCpfCnpj: p.nf_cpf_cnpj ?? "",
+          nfNomeCompleto: p.nf_nome_completo ?? "",
+          nfCep: p.nf_cep ?? "",
+          nfRua: p.nf_rua ?? "",
+          nfNumero: p.nf_numero ?? "",
+          nfBairro: p.nf_bairro ?? "",
+          nfComplemento: p.nf_complemento ?? "",
+          nfCidade: p.nf_cidade ?? "",
+          nfTelefonCel: p.nf_telefone_cel ?? "",
+        });
+
+        // Marcar CPF como válido (já estava salvo)
+        if (p.cpf) {
+          setValidations((prev) => ({ ...prev, cpf: true }));
+        }
+      } catch (err) {
+        toast.error("Erro ao carregar dados do paciente.");
+        console.error(err);
+      } finally {
+        setLoadingPaciente(false);
+      }
+    };
+
+    carregarPaciente();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pacienteId]);
 
   const [validations, setValidations] = useState({
     cpf: false,
@@ -542,9 +617,57 @@ export default function CadastroForm() {
     }
 
     setIsSubmitting(true);
-    toast.loading("Salvando cadastro...");
+    toast.loading(modoEdicao ? "Atualizando cadastro..." : "Salvando cadastro...");
+
+    const payload = {
+      tipo_usuario: formData.tipoUsuario,
+      profissional_responsavel: formData.profissionalResponsavel,
+      nome_completo: formData.nomeCompleto,
+      cpf: formData.cpf,
+      rg: formData.rg,
+      data_nascimento: formData.dataNascimento,
+      estado_civil: formData.estadoCivil,
+      profissao: formData.profissao,
+      telefone_fixo: formData.telefonFixo,
+      telefone_cel: formData.telefonCel,
+      como_ficou_sabendo: formData.comoFicouSabendo,
+      cep: formData.cep,
+      rua: formData.rua,
+      numero: formData.numero,
+      bairro: formData.bairro,
+      complemento: formData.complemento,
+      cidade: formData.cidade,
+      emitir_nf: formData.emitirNF,
+      nf_cpf_cnpj: formData.nfCpfCnpj,
+      nf_nome_completo: formData.nfNomeCompleto,
+      nf_cep: formData.nfCep,
+      nf_rua: formData.nfRua,
+      nf_numero: formData.nfNumero,
+      nf_bairro: formData.nfBairro,
+      nf_complemento: formData.nfComplemento,
+      nf_cidade: formData.nfCidade,
+      nf_telefone_cel: formData.nfTelefonCel,
+    };
 
     try {
+      if (modoEdicao) {
+        // ── Modo edição: PUT /api/pacientes/[id] ──
+        const res = await fetch(`/api/pacientes/${pacienteId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const result = await res.json();
+        if (!res.ok) {
+          throw new Error(result.error ?? "Erro ao atualizar cadastro.");
+        }
+        toast.dismiss();
+        toast.success("Cadastro atualizado com sucesso!");
+        onSalvoComSucesso?.();
+        return;
+      }
+
+      // ── Modo criação: INSERT via Supabase client ──
       const { error } = await supabase.from('pacientes').insert({
         tipo_usuario: formData.tipoUsuario,
         profissional_responsavel: formData.profissionalResponsavel,
@@ -572,7 +695,7 @@ export default function CadastroForm() {
         nf_bairro: formData.nfBairro,
         nf_complemento: formData.nfComplemento,
         nf_cidade: formData.nfCidade,
-        nf_telefone_cel: formData.nfTelefonCel
+        nf_telefone_cel: formData.nfTelefonCel,
       });
 
       if (error) {
@@ -584,9 +707,7 @@ export default function CadastroForm() {
 
       toast.dismiss();
       toast.success("Cadastro salvo com sucesso no banco de dados!");
-      console.log("Form Data Salva:", formData);
-      
-      // Opcional: resetar form (comentado para demo imediata manter dados na tela)
+      onSalvoComSucesso?.();
     } catch (err: any) {
       toast.dismiss();
       console.error(err);
@@ -600,8 +721,26 @@ export default function CadastroForm() {
   // Render
   // ─────────────────────────────────────────────
 
+  if (loadingPaciente) {
+    return (
+      <div className="flex items-center justify-center py-24">
+        <div className="flex flex-col items-center gap-3 text-slate-500">
+          <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+          <span className="text-sm">Carregando dados do paciente...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Banner de modo edição */}
+      {modoEdicao && (
+        <div className="flex items-center gap-3 px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-sm">
+          <AlertCircle className="w-4 h-4 shrink-0 text-amber-500" />
+          <span>Você está <strong>editando</strong> um cadastro existente. As alterações serão salvas no banco de dados.</span>
+        </div>
+      )}
       {/* Seção 1: Tipo de Usuário e Profissional */}
       <Card className="p-6 border-slate-200 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900 mb-4">
@@ -1362,14 +1501,20 @@ export default function CadastroForm() {
 
       {/* Botões de Ação */}
       <div className="flex gap-3 justify-end">
-        <Button variant="outline" type="button">
-          Cancelar
+        <Button
+          variant="outline"
+          type="button"
+          onClick={onCancelar}
+        >
+          {modoEdicao ? "← Voltar para Listagem" : "Cancelar"}
         </Button>
         <Button
           type="submit"
-          className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          disabled={isSubmitting}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
         >
-          Salvar Cadastro
+          {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+          {modoEdicao ? "Salvar Alterações" : "Salvar Cadastro"}
         </Button>
       </div>
     </form>

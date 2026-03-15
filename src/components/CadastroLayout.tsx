@@ -8,11 +8,18 @@ import CadastroForm from "./CadastroForm";
 import EvolucaoField from "./EvolucaoField";
 import HistoricoCliente from "./HistoricoCliente";
 import ClientesListagem from "./ClientesListagem";
+import type { PacienteResumo } from "@/lib/types/paciente";
 
 /**
  * CadastroLayout - Componente principal que organiza o cadastro em abas
  * Design: Healthcare Minimal - Cards com abas, layout responsivo
- * Tipografia: Geist Sans com hierarquia clara
+ *
+ * Fluxo de edição:
+ *  1. Usuário clica em um card na aba "Clientes"
+ *  2. CadastroLayout armazena o pacienteId selecionado
+ *  3. Navega para a aba "Cadastro" passando o pacienteId ao CadastroForm
+ *  4. CadastroForm carrega os dados via GET /api/pacientes/[id] e entra em modo edição
+ *  5. Ao salvar, volta automaticamente para a aba "Clientes"
  */
 
 interface CadastroLayoutProps {
@@ -20,12 +27,42 @@ interface CadastroLayoutProps {
 }
 
 export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
-  // Inicia na listagem de clientes cadastrados
   const [activeTab, setActiveTab] = useState("clientes");
+
+  /**
+   * ID do paciente sendo editado.
+   * null  → modo de criação (novo cadastro)
+   * string → modo de edição
+   */
+  const [pacienteEditandoId, setPacienteEditandoId] = useState<string | null>(null);
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
     onTabChange?.(value);
+  };
+
+  /** Abre o formulário em modo de criação */
+  const handleNovoCadastro = () => {
+    setPacienteEditandoId(null);
+    handleTabChange("cadastro");
+  };
+
+  /** Abre o formulário em modo de edição com os dados do paciente selecionado */
+  const handleEditarCliente = (cliente: PacienteResumo) => {
+    setPacienteEditandoId(cliente.id);
+    handleTabChange("cadastro");
+  };
+
+  /** Após salvar com sucesso, volta para a listagem */
+  const handleSalvoComSucesso = () => {
+    setPacienteEditandoId(null);
+    handleTabChange("clientes");
+  };
+
+  /** Ao cancelar, volta para a listagem sem limpar o ID (permite re-editar) */
+  const handleCancelar = () => {
+    setPacienteEditandoId(null);
+    handleTabChange("clientes");
   };
 
   return (
@@ -44,7 +81,11 @@ export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
         {/* Tabs Navigation */}
         <Tabs
           value={activeTab}
-          onValueChange={handleTabChange}
+          onValueChange={(val) => {
+            // Ao navegar manualmente para a aba Cadastro, reseta o modo de edição
+            if (val === "cadastro") setPacienteEditandoId(null);
+            handleTabChange(val);
+          }}
           className="w-full"
         >
           <TabsList className="grid w-full grid-cols-4 mb-6 bg-white border border-slate-200 rounded-lg p-1">
@@ -63,8 +104,11 @@ export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
               className="flex items-center gap-2 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700"
             >
               <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">Cadastro</span>
+              <span className="hidden sm:inline">
+                {pacienteEditandoId ? "Editar" : "Cadastro"}
+              </span>
             </TabsTrigger>
+
             <TabsTrigger
               value="evolucao"
               className="flex items-center gap-2 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700"
@@ -72,6 +116,7 @@ export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
               <FileText className="w-4 h-4" />
               <span className="hidden sm:inline">Evolução</span>
             </TabsTrigger>
+
             <TabsTrigger
               value="historico"
               className="flex items-center gap-2 data-[state=active]:bg-emerald-50 data-[state=active]:text-emerald-700"
@@ -84,18 +129,18 @@ export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
           {/* ── Tab Content: Clientes (listagem) ── */}
           <TabsContent value="clientes" className="space-y-6">
             <ClientesListagem
-              onNovoCadastro={() => handleTabChange("cadastro")}
-              onEditarCliente={(cliente) => {
-                // Futuramente: pré-carregar dados do cliente no formulário
-                console.log("Editar cliente:", cliente.id);
-                handleTabChange("cadastro");
-              }}
+              onNovoCadastro={handleNovoCadastro}
+              onEditarCliente={handleEditarCliente}
             />
           </TabsContent>
 
-          {/* ── Tab Content: Cadastro (formulário) ── */}
+          {/* ── Tab Content: Cadastro / Edição ── */}
           <TabsContent value="cadastro" className="space-y-6">
-            <CadastroForm />
+            <CadastroForm
+              pacienteId={pacienteEditandoId}
+              onSalvoComSucesso={handleSalvoComSucesso}
+              onCancelar={handleCancelar}
+            />
           </TabsContent>
 
           {/* Tab Content - Evolução */}
@@ -112,7 +157,6 @@ export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
           <TabsContent value="historico" className="space-y-6">
             <HistoricoCliente />
           </TabsContent>
-
         </Tabs>
       </div>
     </div>
