@@ -171,10 +171,15 @@ function AutocompletePaciente({
 // ─── Formulário Modal ─────────────────────────────────────────────────────────
 
 function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
+  // Extrai o procedimento base removendo numeração de parcelas: "Acupuntura (2/4)" → "Acupuntura"
+  const procedimentoBase = inicial?.descricao
+    ? inicial.descricao.replace(/\s*\(\d+\/\d+\)$/, "").trim()
+    : "";
+
   const [form, setForm] = useState<RecebimentoInput>({
     paciente_id:      inicial?.paciente_id      ?? null,
     paciente_nome:    inicial?.paciente_nome    ?? "",
-    descricao:        inicial?.descricao        ?? "",
+    descricao:        procedimentoBase,
     valor:            inicial?.valor            ?? 0,
     data_vencimento:  inicial?.data_vencimento  ?? "",
     data_pagamento:   inicial?.data_pagamento   ?? null,
@@ -777,7 +782,14 @@ export default function FinanceiroRecebimentos() {
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-1">Procedimento</p>
-                  <p className="text-sm text-slate-900">{visualizando.descricao}</p>
+                  <p className="text-sm text-slate-900">
+                    {visualizando.descricao.replace(/\s*\(\d+\/\d+\)$/, "").trim()}
+                    {/\(\d+\/\d+\)$/.test(visualizando.descricao) && (
+                      <span className="ml-1.5 text-xs text-slate-400 font-normal">
+                        {visualizando.descricao.match(/(\(\d+\/\d+\))$/)?.[1]}
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-1">Valor</p>
