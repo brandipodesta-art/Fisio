@@ -14,6 +14,19 @@ import {
 import type { Recebimento, RecebimentoInput, FormaPagamento } from "@/lib/types/financeiro";
 import { FORMA_PAGAMENTO_LABEL } from "@/lib/types/financeiro";
 
+const PROCEDIMENTOS = [
+  "Pilates",
+  "Fisioterapia",
+  "Limpeza de pele",
+  "Acupuntura",
+  "Massagem relaxante",
+  "Drenagem linfática",
+  "Liberação miofascial",
+  "Quiropraxia",
+  "Pelling de diamante",
+  "Laserterapia",
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(valor: number) {
@@ -200,15 +213,19 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
               onChange={(nome, id) => setForm(f => ({ ...f, paciente_nome: nome, paciente_id: id }))}
             />
           </div>
-          {/* Descrição */}
+          {/* Procedimento */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Descrição *</label>
-            <Input
-              required
-              value={form.descricao}
-              onChange={e => set("descricao", e.target.value)}
-              placeholder="Ex: Sessão de fisioterapia — março"
-            />
+            <label className="block text-xs font-medium text-slate-600 mb-1">Procedimento *</label>
+            <Select value={form.descricao} onValueChange={v => set("descricao", v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o procedimento..." />
+              </SelectTrigger>
+              <SelectContent>
+                {PROCEDIMENTOS.map(p => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {/* Valor + Vencimento */}
           <div className="grid grid-cols-2 gap-3">
