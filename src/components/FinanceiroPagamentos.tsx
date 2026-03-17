@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
-  AlertCircle, XCircle, Pencil, Trash2, Check, Eye,
+  AlertCircle, XCircle, Pencil, Trash2, Check, Eye, TriangleAlert,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -206,6 +206,10 @@ export default function FinanceiroPagamentos() {
   const [salvando, setSalvando]       = useState(false);
   const [excluindo, setExcluindo]     = useState<string | null>(null);
 
+  // Controle de duplicidade
+  const [duplicatas, setDuplicatas]   = useState<Pagamento[]>([]);
+  const [dadosPendentes, setDadosPendentes] = useState<PagamentoInput | null>(null);
+
   // Filtros
   const [filtroStatus,    setFiltroStatus]    = useState("todos");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
@@ -239,6 +243,26 @@ export default function FinanceiroPagamentos() {
   useEffect(() => { buscar(); }, [buscar]);
 
   async function salvar(dados: PagamentoInput) {
+    // Verificar duplicidade apenas ao criar novo registro
+    if (!editando && dados.categoria && dados.data_vencimento) {
+      // Buscar todos os pagamentos sem filtro para checar duplicidade
+      const resAll = await fetch("/api/pagamentos");
+      const todos: Pagamento[] = resAll.ok ? await resAll.json() : [];
+      const encontrados = todos.filter(
+        p =>
+          p.categoria === dados.categoria &&
+          p.data_vencimento === dados.data_vencimento
+      );
+      if (encontrados.length > 0) {
+        setDuplicatas(encontrados);
+        setDadosPendentes(dados);
+        return; // Aguarda confirmação do usuário
+      }
+    }
+    await _persistirSalvar(dados);
+  }
+
+  async function _persistirSalvar(dados: PagamentoInput) {
     setSalvando(true);
     try {
       const url    = editando ? `/api/pagamentos/${editando.id}` : "/api/pagamentos";
@@ -251,6 +275,8 @@ export default function FinanceiroPagamentos() {
       if (!res.ok) throw new Error("Erro ao salvar");
       setModalAberto(false);
       setEditando(null);
+      setDuplicatas([]);
+      setDadosPendentes(null);
       buscar();
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : "Erro ao salvar");
@@ -440,6 +466,72 @@ export default function FinanceiroPagamentos() {
           onFechar={() => { setModalAberto(false); setEditando(null); }}
           salvando={salvando}
         />
+      )}
+
+      {/* Modal de Alerta de Duplicidade */}
+      {duplicatas.length > 0 && dadosPendentes && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            {/* Header */}
+            <div className="flex items-center gap-3 p-5 border-b border-amber-100 bg-amber-50 rounded-t-xl">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                <TriangleAlert className="w-5 h-5 text-amber-600" />
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-slate-900">Possível Duplicidade</h2>
+                <p className="text-xs text-slate-500 mt-0.5">Já existe um pagamento com a mesma categoria e data</p>
+              </div>
+            </div>
+            {/* Corpo */}
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-slate-600">
+                Encontramos <strong>{duplicatas.length}</strong> registro(s) com a categoria
+                {" "}<strong className="text-slate-900">&ldquo;{dadosPendentes.categoria}&rdquo;</strong>{" "}
+                e vencimento em{" "}
+                <strong className="text-slate-900">{fmtDate(dadosPendentes.data_vencimento)}</strong>:
+              </p>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {duplicatas.map(d => {
+                  const cfg = STATUS_CONFIG[d.status];
+                  const Icon = cfg.icon;
+                  return (
+                    <div key={d.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{d.descricao}</p>
+                        <p className="text-xs text-slate-400">{d.fornecedor ?? "—"} &middot; Venc.: {fmtDate(d.data_vencimento)}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.cor}`}>
+                          <Icon className="w-3 h-3" />{cfg.label}
+                        </span>
+                        <span className="text-sm font-semibold text-slate-700">{fmt(Number(d.valor))}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 border border-amber-100">
+                Deseja salvar mesmo assim ou cancelar o registro?
+              </p>
+            </div>
+            {/* Rodapé */}
+            <div className="flex justify-end gap-3 p-5 border-t border-slate-100">
+              <Button
+                variant="outline"
+                onClick={() => { setDuplicatas([]); setDadosPendentes(null); }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="bg-amber-500 hover:bg-amber-600 text-white gap-2"
+                disabled={salvando}
+                onClick={() => _persistirSalvar(dadosPendentes)}
+              >
+                {salvando ? "Salvando..." : "Salvar mesmo assim"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal de Visualização */}
