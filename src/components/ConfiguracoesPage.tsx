@@ -1121,16 +1121,15 @@ export default function ConfiguracoesPage() {
         </div>
       </div>
 
-      {/* Linha completa: Profissionais */}
+      {/* Linha completa: Notificações */}
       <div className="mb-8">
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Profissionais</h2>
-        <SecaoProfissionais />
-      </div>
-
-      {/* Linha completa: Alertas */}
-      <div>
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Notificações</h2>
         <SecaoAlertasEmail />
+      </div>
+      {/* Linha completa: Profissionais */}
+      <div>
+        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Profissionais</h2>
+        <SecaoProfissionais />
       </div>
     </div>
   );
