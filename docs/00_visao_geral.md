@@ -15,6 +15,7 @@
 | **Lucide React** | Biblioteca de ícones |
 | **Sonner** | Biblioteca de toasts/notificações |
 | **Geist Sans** | Tipografia principal (via `next/font/google`) |
+| **Supabase** | Banco de dados PostgreSQL (BaaS) e Autenticação |
 
 ---
 
@@ -28,43 +29,28 @@ Fisio/
 ├── package.json            # Dependências e scripts
 ├── src/
 │   ├── app/
+│   │   ├── api/            # Endpoints da API (Pacientes, Recebimentos, Pagamentos)
 │   │   ├── layout.tsx      # Root Layout (metadata, font, Toaster)
 │   │   ├── page.tsx        # Página principal (TopBar + navegação)
 │   │   └── globals.css     # Design Tokens (TailwindCSS)
 │   ├── components/
-│   │   ├── TopBar.tsx         # Barra de navegação superior
-│   │   ├── CadastroLayout.tsx  # Layout com abas (3 seções)
-│   │   ├── CadastroForm.tsx    # Formulário de cadastro de pacientes
-│   │   ├── EvolucaoField.tsx   # Campo de evolução clínica
-│   │   ├── HistoricoCliente.tsx # Histórico do cliente
-│   │   ├── AgendaPage.tsx      # Agenda estilo Google Calendar
-│   │   ├── AgendaEventCard.tsx # Card de evento da agenda
-│   │   ├── AgendaNewEventDialog.tsx # Modal de novo agendamento
-│   │   ├── FinanceiroPage.tsx  # Módulo financeiro (placeholder)
-│   │   ├── agendaTypes.ts      # Types do módulo Agenda
-│   │   ├── agendaData.ts       # Dados e helpers do módulo Agenda
-│   │   └── ui/                 # Componentes shadcn/ui
+│   │   ├── TopBar.tsx              # Barra de navegação superior
+│   │   ├── CadastroLayout.tsx      # Layout com abas (Listagem, Cadastro, Histórico)
+│   │   ├── ClientesListagem.tsx    # Listagem de pacientes com busca
+│   │   ├── CadastroForm.tsx        # Formulário de cadastro de pacientes
+│   │   ├── EvolucaoField.tsx       # Campo de evolução clínica
+│   │   ├── HistoricoCliente.tsx    # Prontuário e histórico do cliente
+│   │   ├── AgendaPage.tsx          # Agenda estilo Google Calendar
+│   │   ├── FinanceiroPage.tsx      # Layout do módulo financeiro (Abas)
+│   │   ├── FinanceiroResumo.tsx    # Dashboard financeiro (KPIs e Gráficos)
+│   │   ├── FinanceiroRecebimentos.tsx # Gestão de receitas
+│   │   ├── FinanceiroPagamentos.tsx   # Gestão de despesas e contas a pagar
+│   │   └── ui/                     # Componentes shadcn/ui
 │   └── lib/
-│       └── utils.ts            # Utilitário cn() (clsx + tailwind-merge)
-└── docs/                       # 📂 Documentação detalhada
-```
-
----
-
-## Hierarquia de Componentes
-
-```mermaid
-graph TD
-    A["layout.tsx (Server)"] --> B["page.tsx (Client)"]
-    B --> T["TopBar.tsx"]
-    B --> C["CadastroLayout.tsx"]
-    B --> G["AgendaPage.tsx"]
-    B --> FP["FinanceiroPage.tsx"]
-    C --> D["CadastroForm.tsx"]
-    C --> E["EvolucaoField.tsx"]
-    C --> F["HistoricoCliente.tsx"]
-    G --> H["AgendaEventCard.tsx"]
-    G --> I["AgendaNewEventDialog.tsx"]
+│       ├── supabase/               # Clientes do Supabase (Server e Browser)
+│       ├── types/                  # Interfaces TS (paciente.ts, financeiro.ts)
+│       └── utils.ts                # Utilitário cn() (clsx + tailwind-merge)
+└── docs/                           # 📂 Documentação detalhada
 ```
 
 ---
@@ -116,3 +102,8 @@ graph TD
 | 8 | `AgendaPage.tsx` | [08_agenda_page.md](./08_agenda_page.md) |
 | 9 | `TopBar.tsx` | [09_topbar.md](./09_topbar.md) |
 | 10 | `FinanceiroPage.tsx` | [10_financeiro_page.md](./10_financeiro_page.md) |
+| 11 | `Supabase` | [11_supabase_setup.md](./11_supabase_setup.md) |
+| 12 | `FinanceiroRecebimentos.tsx` | [12_financeiro_recebimentos.md](./12_financeiro_recebimentos.md) |
+| 13 | `FinanceiroPagamentos.tsx` | [13_financeiro_pagamentos.md](./13_financeiro_pagamentos.md) |
+| 14 | `FinanceiroResumo.tsx` | [14_financeiro_resumo.md](./14_financeiro_resumo.md) |
+| 15 | `ClientesListagem.tsx` | [15_clientes_listagem.md](./15_clientes_listagem.md) |
