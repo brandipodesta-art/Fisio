@@ -16,8 +16,13 @@ import type { Recebimento, RecebimentoInput, FormaPagamento } from "@/lib/types/
 import { FORMA_PAGAMENTO_LABEL } from "@/lib/types/financeiro";
 
 /** Hook para buscar procedimentos dinamicamente do Supabase */
+interface ProcedimentoOpcao {
+  nome: string;
+  valor_padrao: number | null;
+}
+
 function useProcedimentos() {
-  const [procedimentos, setProcedimentos] = useState<string[]>([]);
+  const [procedimentos, setProcedimentos] = useState<ProcedimentoOpcao[]>([]);
   const [carregando, setCarregando] = useState(true);
   const supabase = useMemo(() => createClient(), []);
 
@@ -26,10 +31,13 @@ function useProcedimentos() {
       try {
         const { data } = await supabase
           .from("procedimentos")
-          .select("nome")
+          .select("nome, valor_padrao")
           .eq("ativo", true)
           .order("nome");
-        if (data) setProcedimentos(data.map((p: { nome: string }) => p.nome));
+        if (data) setProcedimentos(data.map((p: { nome: string; valor_padrao: number | null }) => ({
+          nome: p.nome,
+          valor_padrao: p.valor_padrao ?? null,
+        })));
       } finally {
         setCarregando(false);
       }
@@ -254,7 +262,17 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
           {/* Procedimento */}
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Procedimento *</label>
-            <Select value={form.descricao} onValueChange={v => set("descricao", v)}>
+            <Select
+              value={form.descricao}
+              onValueChange={v => {
+                set("descricao", v);
+                // Preenche o valor automaticamente com o valor_padrao do procedimento
+                const proc = procedimentos.find(p => p.nome === v);
+                if (proc && proc.valor_padrao !== null && proc.valor_padrao > 0) {
+                  set("valor", proc.valor_padrao);
+                }
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o procedimento..." />
               </SelectTrigger>
@@ -265,7 +283,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
                   <SelectItem value="__empty" disabled>Nenhum procedimento cadastrado</SelectItem>
                 ) : (
                   procedimentos.map(p => (
-                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                    <SelectItem key={p.nome} value={p.nome}>{p.nome}</SelectItem>
                   ))
                 )}
               </SelectContent>
@@ -610,7 +628,7 @@ export default function FinanceiroRecebimentos() {
               <SelectContent>
                 <SelectItem value="todos">Todos os procedimentos</SelectItem>
                 {procedimentos.map(p => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                  <SelectItem key={p.nome} value={p.nome}>{p.nome}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
