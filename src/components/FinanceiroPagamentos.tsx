@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
-  AlertCircle, XCircle, Pencil, Trash2, Check, Eye, TriangleAlert,
+  AlertCircle, XCircle, Pencil, Trash2, Check, Eye, TriangleAlert, Repeat2, CalendarDays,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,7 +37,7 @@ const STATUS_CONFIG = {
 
 interface FormModalProps {
   inicial?: Pagamento | null;
-  onSalvar: (dados: PagamentoInput) => Promise<void>;
+  onSalvar: (dados: PagamentoInput, recorrencia?: { meses: number }) => Promise<void>;
   onFechar: () => void;
   salvando: boolean;
 }
@@ -54,14 +54,32 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
     fornecedor:      inicial?.fornecedor      ?? null,
     observacoes:     inicial?.observacoes     ?? null,
   });
+  const [repete, setRepete]   = useState(false);
+  const [meses, setMeses]     = useState(3);
 
   function set(campo: keyof PagamentoInput, valor: unknown) {
     setForm(f => ({ ...f, [campo]: valor }));
   }
 
+  // Pré-visualização das datas futuras
+  function datasPreview(): string[] {
+    if (!form.data_vencimento || !repete) return [];
+    const datas: string[] = [];
+    const [y, m, d] = form.data_vencimento.split("-").map(Number);
+    for (let i = 1; i <= meses; i++) {
+      let nm = m + i;
+      let ny = y;
+      while (nm > 12) { nm -= 12; ny++; }
+      const maxDia = new Date(ny, nm, 0).getDate();
+      const dia = Math.min(d, maxDia);
+      datas.push(`${String(ny).padStart(4,"0")}-${String(nm).padStart(2,"0")}-${String(dia).padStart(2,"0")}`);
+    }
+    return datas;
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    await onSalvar(form);
+    await onSalvar(form, repete ? { meses } : undefined);
   }
 
   return (
@@ -161,6 +179,55 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
               </Select>
             </div>
           </div>
+          {/* Recorrência mensal — só na criação */}
+          {!inicial && (
+            <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50">
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={repete}
+                    onChange={e => setRepete(e.target.checked)}
+                    className="w-4 h-4 accent-emerald-600"
+                  />
+                  <Repeat2 className="w-4 h-4 text-slate-400" />
+                  Repete mensalmente
+                </label>
+                {repete && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500">Gerar mais</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={24}
+                      value={meses}
+                      onChange={e => setMeses(Math.max(1, Math.min(24, Number(e.target.value))))}
+                      className="w-16 border border-slate-200 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                    <span className="text-xs text-slate-500">mes(es)</span>
+                  </div>
+                )}
+              </div>
+              {repete && datasPreview().length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1.5 flex items-center gap-1">
+                    <CalendarDays className="w-3.5 h-3.5" /> Datas que serão criadas:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {datasPreview().map((d, i) => {
+                      const [y, mo, di] = d.split("-");
+                      return (
+                        <span key={i} className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+                          {di}/{mo}/{y}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Data de Pagamento */}
           <div>
             <label className="block text-xs font-medium text-slate-600 mb-1">Data do Pagamento</label>
@@ -185,7 +252,13 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onFechar}>Cancelar</Button>
             <Button type="submit" disabled={salvando} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-              {salvando ? "Salvando..." : inicial ? "Salvar Alterações" : "Registrar"}
+              {salvando
+                ? "Salvando..."
+                : inicial
+                  ? "Salvar Alterações"
+                  : repete
+                    ? `Registrar + ${meses} parcela(s)`
+                    : "Registrar"}
             </Button>
           </div>
         </form>
@@ -242,7 +315,22 @@ export default function FinanceiroPagamentos() {
 
   useEffect(() => { buscar(); }, [buscar]);
 
-  async function salvar(dados: PagamentoInput) {
+  // Gera lista de datas mensais futuras a partir de uma data base
+  function gerarDatasRecorrentes(base: string, qtd: number): string[] {
+    const [y, m, d] = base.split("-").map(Number);
+    const datas: string[] = [];
+    for (let i = 1; i <= qtd; i++) {
+      let nm = m + i;
+      let ny = y;
+      while (nm > 12) { nm -= 12; ny++; }
+      const maxDia = new Date(ny, nm, 0).getDate();
+      const dia = Math.min(d, maxDia);
+      datas.push(`${String(ny).padStart(4,"0")}-${String(nm).padStart(2,"0")}-${String(dia).padStart(2,"0")}`);
+    }
+    return datas;
+  }
+
+  async function salvar(dados: PagamentoInput, recorrencia?: { meses: number }) {
     // Verificar duplicidade tanto na criação quanto na edição
     if (dados.categoria && dados.data_vencimento) {
       const resAll = await fetch("/api/pagamentos");
@@ -251,19 +339,18 @@ export default function FinanceiroPagamentos() {
         p =>
           p.categoria === dados.categoria &&
           p.data_vencimento === dados.data_vencimento &&
-          // Ao editar, excluir o próprio registro da comparação
           p.id !== editando?.id
       );
       if (encontrados.length > 0) {
         setDuplicatas(encontrados);
         setDadosPendentes(dados);
-        return; // Aguarda confirmação do usuário
+        return;
       }
     }
-    await _persistirSalvar(dados);
+    await _persistirSalvar(dados, recorrencia);
   }
 
-  async function _persistirSalvar(dados: PagamentoInput) {
+  async function _persistirSalvar(dados: PagamentoInput, recorrencia?: { meses: number }) {
     setSalvando(true);
     try {
       const url    = editando ? `/api/pagamentos/${editando.id}` : "/api/pagamentos";
@@ -274,6 +361,29 @@ export default function FinanceiroPagamentos() {
         body: JSON.stringify(dados),
       });
       if (!res.ok) throw new Error("Erro ao salvar");
+
+      // Criar parcelas recorrentes (somente na criação)
+      if (!editando && recorrencia && recorrencia.meses > 0 && dados.data_vencimento) {
+        const datas = gerarDatasRecorrentes(dados.data_vencimento, recorrencia.meses);
+        await Promise.all(
+          datas.map((data, idx) =>
+            fetch("/api/pagamentos", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...dados,
+                data_vencimento: data,
+                // Limpar data de pagamento nas parcelas futuras
+                data_pagamento: null,
+                status: "pendente",
+                // Numerar a descrição automaticamente
+                descricao: `${dados.descricao} (${idx + 2}/${recorrencia.meses + 1})`,
+              }),
+            })
+          )
+        );
+      }
+
       setModalAberto(false);
       setEditando(null);
       setDuplicatas([]);
