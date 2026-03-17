@@ -109,3 +109,4 @@ Fisio/
 | 15 | `ClientesListagem.tsx` | [15_clientes_listagem.md](./15_clientes_listagem.md) |
 | 16 | `ClientesListagem.tsx` — Atualização de Ações | [16_clientes_listagem_atualizacao.md](./16_clientes_listagem_atualizacao.md) |
 | 17 | `HistoricoCliente.tsx` — Correção Financeiro | [17_historico_cliente_financeiro_fix.md](./17_historico_cliente_financeiro_fix.md) |
+| 18 | `ClientesListagem.tsx` — Histórico Consolidado | [18_clientes_cadastrados_alteracoes.md](./18_clientes_cadastrados_alteracoes.md) |
