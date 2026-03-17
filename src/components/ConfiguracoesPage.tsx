@@ -30,8 +30,12 @@ interface CategoriaPagamentoConfig {
 }
 interface Profissional {
   id: string;
-  nome: string;
-  ativo: boolean;
+  name: string;
+  short_name?: string;
+  color?: string;
+  bg_color?: string;
+  border_color?: string;
+  text_color?: string;
 }
 interface ComissaoProfissional {
   id: string;
@@ -486,11 +490,11 @@ function SecaoFormasPagamentoDespesa() {
 
 // ─── Seção: Profissionais e Comissões ─────────────────────────────────────────
 function SecaoProfissionais() {
-  const { itens: profissionais, carregando: carregandoProf, erro: erroProf, inserir: inserirProf, atualizar: atualizarProf, excluir: excluirProf } = useCrud<Profissional>("profissionais", "*", "nome");
+  const { itens: profissionais, carregando: carregandoProf, erro: erroProf, inserir: inserirProf, atualizar: atualizarProf, excluir: excluirProf } = useCrud<Profissional>("profissionais", "*", "name");
   const { itens: procedimentos } = useCrud<Procedimento>("procedimentos", "*", "nome");
   const { itens: comissoes, carregando: carregandoCom, inserir: inserirCom, atualizar: atualizarCom, excluir: excluirCom } = useCrud<ComissaoProfissional>(
     "comissoes_profissional",
-    "id,profissional_id,procedimento_id,percentual,profissionais(nome),procedimentos(nome)",
+    "id,profissional_id,procedimento_id,percentual,profissionais(name),procedimentos(nome)",
     "profissional_id"
   );
 
@@ -503,22 +507,22 @@ function SecaoProfissionais() {
   const [formCom, setFormCom] = useState<Record<string, string>>({});
   const [salvandoCom, setSalvandoCom] = useState(false);
 
-  const camposProf = [{ key: "nome", label: "Nome do Profissional", placeholder: "Ex: Ana Carolina" }];
+  const camposProf = [{ key: "name", label: "Nome do Profissional", placeholder: "Ex: Ana Carolina" }];
 
   const abrirNovo = () => { setForm({}); setErroForm(null); setMostrando("novo"); };
   const abrirEditar = (item: Profissional) => {
-    setForm({ nome: item.nome });
+    setForm({ name: item.name });
     setErroForm(null);
     setMostrando(item.id);
   };
 
   const salvarProf = async () => {
-    if (!form.nome?.trim()) { setErroForm("O nome é obrigatório."); return; }
+    if (!form.name?.trim()) { setErroForm("O nome é obrigatório."); return; }
     setSalvando(true);
     setErroForm(null);
     try {
-      if (mostrando === "novo") await inserirProf({ nome: form.nome.trim(), ativo: true });
-      else await atualizarProf(mostrando, { nome: form.nome.trim() });
+      if (mostrando === "novo") await inserirProf({ name: form.name.trim() });
+      else await atualizarProf(mostrando, { name: form.name.trim() });
       setMostrando("nenhum");
     } catch (e: unknown) {
       setErroForm(e instanceof Error ? e.message : "Erro ao salvar.");
@@ -568,7 +572,7 @@ function SecaoProfissionais() {
         <div key={prof.id} className="border-b border-slate-100 last:border-0">
           {mostrando === prof.id ? (
             <FormInline campos={camposProf} valores={form} onChange={(k, v) => setForm(f => ({ ...f, [k]: v }))}
-              onSalvar={salvarProf} onCancelar={() => setMostrando("nenhum")} salvando={salvando} titulo={`Editar: ${prof.nome}`} />
+              onSalvar={salvarProf} onCancelar={() => setMostrando("nenhum")} salvando={salvando} titulo={`Editar: ${prof.name}`} />
           ) : (
             <div className="group">
               <div className="flex items-center justify-between px-5 py-3">
@@ -580,8 +584,7 @@ function SecaoProfissionais() {
                     ? <ChevronDown className="w-4 h-4" />
                     : <ChevronRight className="w-4 h-4" />
                   }
-                  {prof.nome}
-                  {!prof.ativo && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-normal">Inativo</span>}
+                  {prof.name}
                   <span className="text-xs text-slate-400 font-normal">
                     ({comissoesDoProfissional(prof.id).length} comissão/ões)
                   </span>
