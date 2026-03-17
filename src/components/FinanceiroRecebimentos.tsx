@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
-  AlertCircle, XCircle, Pencil, Trash2, Check,
+  AlertCircle, XCircle, Pencil, Trash2, Check, Eye,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -321,6 +321,7 @@ export default function FinanceiroRecebimentos() {
   const [erro, setErro]           = useState<string | null>(null);
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando]   = useState<Recebimento | null>(null);
+  const [visualizando, setVisualizando] = useState<Recebimento | null>(null);
   const [salvando, setSalvando]   = useState(false);
   const [excluindo, setExcluindo] = useState<string | null>(null);
 
@@ -501,6 +502,13 @@ export default function FinanceiroRecebimentos() {
                         </button>
                       )}
                       <button
+                        title="Visualizar"
+                        onClick={() => setVisualizando(item)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
                         onClick={() => { setEditando(item); setModalAberto(true); }}
                         className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
                       >
@@ -530,6 +538,76 @@ export default function FinanceiroRecebimentos() {
           onFechar={() => { setModalAberto(false); setEditando(null); }}
           salvando={salvando}
         />
+      )}
+
+      {/* Modal de Visualização */}
+      {visualizando && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200">
+              <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                <Eye className="w-5 h-5 text-blue-500" /> Detalhes do Recebimento
+              </h2>
+              <button onClick={() => setVisualizando(null)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Paciente</p>
+                  <p className="text-sm text-slate-900">{visualizando.paciente_nome || <span className="italic text-slate-400">—</span>}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Procedimento</p>
+                  <p className="text-sm text-slate-900">{visualizando.descricao}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Valor</p>
+                  <p className="text-sm font-semibold text-emerald-700">{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(visualizando.valor)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Status</p>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                    visualizando.status === 'recebido' ? 'bg-emerald-100 text-emerald-700' :
+                    visualizando.status === 'atrasado' ? 'bg-red-100 text-red-700' :
+                    visualizando.status === 'cancelado' ? 'bg-slate-100 text-slate-500' :
+                    'bg-amber-100 text-amber-700'
+                  }`}>{visualizando.status.charAt(0).toUpperCase() + visualizando.status.slice(1)}</span>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Vencimento</p>
+                  <p className="text-sm text-slate-900">{new Date(visualizando.data_vencimento + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Data do Pagamento</p>
+                  <p className="text-sm text-slate-900">{visualizando.data_pagamento ? new Date(visualizando.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR') : <span className="italic text-slate-400">—</span>}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Forma de Pagamento</p>
+                  <p className="text-sm text-slate-900">{visualizando.forma_pagamento ? FORMA_PAGAMENTO_LABEL[visualizando.forma_pagamento as FormaPagamento] : <span className="italic text-slate-400">—</span>}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Registrado em</p>
+                  <p className="text-sm text-slate-900">{new Date(visualizando.created_at).toLocaleDateString('pt-BR')}</p>
+                </div>
+              </div>
+              {visualizando.observacoes && (
+                <div>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Observações</p>
+                  <p className="text-sm text-slate-700 bg-slate-50 rounded-lg p-3">{visualizando.observacoes}</p>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 p-5 border-t border-slate-100">
+              <Button variant="outline" onClick={() => setVisualizando(null)}>Fechar</Button>
+              <Button onClick={() => { setEditando(visualizando); setModalAberto(true); setVisualizando(null); }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+                <Pencil className="w-4 h-4" /> Editar
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
