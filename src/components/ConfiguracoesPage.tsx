@@ -1121,15 +1121,16 @@ export default function ConfiguracoesPage() {
         </div>
       </div>
 
-      {/* Linha completa: Profissionais */}
-      <div className="mb-8">
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Profissionais</h2>
-        <SecaoProfissionais />
-      </div>
-      {/* Linha completa: Notificações */}
-      <div>
-        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Notificações</h2>
-        <SecaoAlertasEmail />
+      {/* Grid de duas colunas: Profissionais | Notificações */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div>
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Profissionais</h2>
+          <SecaoProfissionais />
+        </div>
+        <div>
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Notificações</h2>
+          <SecaoAlertasEmail />
+        </div>
       </div>
     </div>
   );
