@@ -785,12 +785,12 @@ function AvisoSQL() {
   );
 }
 
-// ─── Página Principal ─────────────────────────────────────────────────────────
+// ─── Página Principal ─────────────────────────────────────────────
 export default function ConfiguracoesPage() {
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Cabeçalho */}
-      <div className="mb-8">
+      <div className="mb-10">
         <div className="flex items-center gap-3 mb-2">
           <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800">
             <Settings className="w-5 h-5 text-white" />
@@ -800,30 +800,31 @@ export default function ConfiguracoesPage() {
         <p className="text-slate-500 ml-13">Gerencie procedimentos, formas de pagamento, categorias e profissionais da clínica.</p>
       </div>
 
-      <div className="space-y-6">
-        {/* Grupo: Recebimentos */}
+      {/* Grid de duas colunas: Recebimentos | Pagamentos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Coluna Esquerda: Recebimentos */}
         <div>
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Recebimentos</h2>
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Recebimentos</h2>
           <div className="space-y-4">
             <SecaoProcedimentos />
             <SecaoFormasPagamentoRecebimento />
           </div>
         </div>
 
-        {/* Grupo: Pagamentos */}
+        {/* Coluna Direita: Pagamentos */}
         <div>
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Pagamentos</h2>
+          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Pagamentos</h2>
           <div className="space-y-4">
             <SecaoCategoriasPagamento />
             <SecaoFormasPagamentoDespesa />
           </div>
         </div>
+      </div>
 
-        {/* Grupo: Profissionais */}
-        <div>
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3 px-1">Profissionais</h2>
-          <SecaoProfissionais />
-        </div>
+      {/* Linha completa: Profissionais */}
+      <div>
+        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Profissionais</h2>
+        <SecaoProfissionais />
       </div>
     </div>
   );
