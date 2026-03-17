@@ -346,15 +346,21 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
           {!inicial && (
             <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50">
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer select-none">
+                <label className={`flex items-center gap-2 text-sm font-medium select-none ${
+                  form.data_vencimento ? "text-slate-700 cursor-pointer" : "text-slate-400 cursor-not-allowed"
+                }`}>
                   <input
                     type="checkbox"
                     checked={repete}
+                    disabled={!form.data_vencimento}
                     onChange={e => setRepete(e.target.checked)}
-                    className="w-4 h-4 accent-emerald-600"
+                    className="w-4 h-4 accent-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed"
                   />
-                  <Repeat2 className="w-4 h-4 text-slate-400" />
+                  <Repeat2 className={`w-4 h-4 ${form.data_vencimento ? "text-slate-400" : "text-slate-300"}`} />
                   Repete mensalmente
+                  {!form.data_vencimento && (
+                    <span className="text-xs font-normal text-slate-400">(preencha o vencimento primeiro)</span>
+                  )}
                 </label>
                 {repete && (
                   <div className="flex items-center gap-2">
