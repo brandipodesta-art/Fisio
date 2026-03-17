@@ -243,15 +243,16 @@ export default function FinanceiroPagamentos() {
   useEffect(() => { buscar(); }, [buscar]);
 
   async function salvar(dados: PagamentoInput) {
-    // Verificar duplicidade apenas ao criar novo registro
-    if (!editando && dados.categoria && dados.data_vencimento) {
-      // Buscar todos os pagamentos sem filtro para checar duplicidade
+    // Verificar duplicidade tanto na criação quanto na edição
+    if (dados.categoria && dados.data_vencimento) {
       const resAll = await fetch("/api/pagamentos");
       const todos: Pagamento[] = resAll.ok ? await resAll.json() : [];
       const encontrados = todos.filter(
         p =>
           p.categoria === dados.categoria &&
-          p.data_vencimento === dados.data_vencimento
+          p.data_vencimento === dados.data_vencimento &&
+          // Ao editar, excluir o próprio registro da comparação
+          p.id !== editando?.id
       );
       if (encontrados.length > 0) {
         setDuplicatas(encontrados);
@@ -479,7 +480,9 @@ export default function FinanceiroPagamentos() {
               </div>
               <div>
                 <h2 className="text-base font-semibold text-slate-900">Possível Duplicidade</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Já existe um pagamento com a mesma categoria e data</p>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {editando ? "Ao salvar esta edição, outro registro com a mesma categoria e data já existe" : "Já existe um pagamento com a mesma categoria e data"}
+                </p>
               </div>
             </div>
             {/* Corpo */}
@@ -511,7 +514,9 @@ export default function FinanceiroPagamentos() {
                 })}
               </div>
               <p className="text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2 border border-amber-100">
-                Deseja salvar mesmo assim ou cancelar o registro?
+                {editando
+                  ? "Deseja salvar as alterações mesmo assim ou voltar para corrigir?"
+                  : "Deseja salvar mesmo assim ou cancelar o registro?"}
               </p>
             </div>
             {/* Rodapé */}
