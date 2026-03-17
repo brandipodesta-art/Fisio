@@ -681,7 +681,10 @@ function SecaoProfissionais() {
                             className="w-full h-9 text-sm border border-slate-200 rounded-md px-2 bg-white"
                           >
                             <option value="">Selecione...</option>
-                            {procedimentos.map(p => <option key={p.id} value={p.id}>{p.nome}</option>)}
+                            {procedimentos
+                              .filter(p => !comissoesDoProfissional(prof.id).some(c => c.procedimento_id === p.id))
+                              .map(p => <option key={p.id} value={p.id}>{p.nome}</option>)
+                            }
                           </select>
                         </div>
                         <div className="w-28">
