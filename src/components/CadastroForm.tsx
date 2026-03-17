@@ -771,32 +771,34 @@ export default function CadastroForm({
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label
-              htmlFor="profissionalResponsavel"
-              className="text-sm font-medium text-slate-700"
-            >
-              Profissional Responsável *
-            </Label>
-            <Select
-              value={formData.profissionalResponsavel}
-              onValueChange={(value) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  profissionalResponsavel: value,
-                }))
-              }
-            >
-              <SelectTrigger id="profissionalResponsavel" className="mt-2">
-                <SelectValue placeholder="Selecione o profissional responsável por este cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ana-carolina">Ana Carolina</SelectItem>
-                <SelectItem value="amanda-augusta">Amanda Augusta</SelectItem>
-                <SelectItem value="aline-pereira">Aline Pereira</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {formData.tipoUsuario === "paciente" && (
+            <div>
+              <Label
+                htmlFor="profissionalResponsavel"
+                className="text-sm font-medium text-slate-700"
+              >
+                Profissional Responsável *
+              </Label>
+              <Select
+                value={formData.profissionalResponsavel}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    profissionalResponsavel: value,
+                  }))
+                }
+              >
+                <SelectTrigger id="profissionalResponsavel" className="mt-2">
+                  <SelectValue placeholder="Selecione o profissional responsável por este cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ana-carolina">Ana Carolina</SelectItem>
+                  <SelectItem value="amanda-augusta">Amanda Augusta</SelectItem>
+                  <SelectItem value="aline-pereira">Aline Pereira</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
       </Card>
 
