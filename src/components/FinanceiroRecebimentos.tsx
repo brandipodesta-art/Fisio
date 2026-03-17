@@ -399,8 +399,13 @@ export default function FinanceiroRecebimentos() {
   const [excluindo, setExcluindo] = useState<string | null>(null);
 
   // Filtros
-  const [filtroStatus,   setFiltroStatus]   = useState("todos");
-  const [filtroPaciente, setFiltroPaciente] = useState("");
+  const [filtroStatus,        setFiltroStatus]        = useState("todos");
+  const [filtroPaciente,      setFiltroPaciente]      = useState("");
+  const [filtroProcedimento,  setFiltroProcedimento]  = useState("todos");
+  const [filtroVencDe,        setFiltroVencDe]        = useState("");
+  const [filtroVencAte,       setFiltroVencAte]       = useState("");
+  const [filtroPagDe,         setFiltroPagDe]         = useState("");
+  const [filtroPagAte,        setFiltroPagAte]        = useState("");
 
   const buscar = useCallback(async () => {
     setCarregando(true);
@@ -495,7 +500,32 @@ export default function FinanceiroRecebimentos() {
     buscar();
   }
 
-  const totalFiltrado = itens.reduce((s, r) => s + Number(r.valor), 0);
+  // Filtragem local por procedimento, vencimento e data de pagamento
+  const itensFiltrados = itens.filter(r => {
+    if (filtroProcedimento !== "todos") {
+      // Compara ignorando numeração de parcelas: "Acupuntura (2/4)" → base "Acupuntura"
+      const base = r.descricao.replace(/\s*\(\d+\/\d+\)$/, "").trim();
+      if (base !== filtroProcedimento && r.descricao !== filtroProcedimento) return false;
+    }
+    if (filtroVencDe  && r.data_vencimento < filtroVencDe)  return false;
+    if (filtroVencAte && r.data_vencimento > filtroVencAte) return false;
+    if (filtroPagDe  && (!r.data_pagamento || r.data_pagamento < filtroPagDe))  return false;
+    if (filtroPagAte && (!r.data_pagamento || r.data_pagamento > filtroPagAte)) return false;
+    return true;
+  });
+
+  const totalFiltrado = itensFiltrados.reduce((s, r) => s + Number(r.valor), 0);
+
+  // Verifica se algum filtro extra está ativo
+  const filtrosExtrasAtivos = filtroProcedimento !== "todos" || filtroVencDe || filtroVencAte || filtroPagDe || filtroPagAte;
+
+  function limparFiltrosExtras() {
+    setFiltroProcedimento("todos");
+    setFiltroVencDe("");
+    setFiltroVencAte("");
+    setFiltroPagDe("");
+    setFiltroPagAte("");
+  }
 
   return (
     <div className="space-y-5">
@@ -520,7 +550,8 @@ export default function FinanceiroRecebimentos() {
       </div>
 
       {/* Filtros */}
-      <Card className="p-4 border-slate-200 shadow-sm">
+      <Card className="p-4 border-slate-200 shadow-sm space-y-3">
+        {/* Linha 1: busca + status */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -542,12 +573,89 @@ export default function FinanceiroRecebimentos() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Linha 2: procedimento */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Procedimento</label>
+            <Select value={filtroProcedimento} onValueChange={setFiltroProcedimento}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os procedimentos</SelectItem>
+                {PROCEDIMENTOS.map(p => (
+                  <SelectItem key={p} value={p}>{p}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Vencimento de/até */}
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Vencimento — de / até</label>
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="date"
+                value={filtroVencDe}
+                onChange={e => setFiltroVencDe(e.target.value)}
+                className="text-xs"
+                title="Vencimento a partir de"
+              />
+              <span className="text-slate-400 text-xs shrink-0">até</span>
+              <Input
+                type="date"
+                value={filtroVencAte}
+                onChange={e => setFiltroVencAte(e.target.value)}
+                className="text-xs"
+                title="Vencimento até"
+              />
+            </div>
+          </div>
+
+          {/* Data de Pagamento de/até */}
+          <div>
+            <label className="block text-xs font-medium text-slate-500 mb-1">Data Pagamento — de / até</label>
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="date"
+                value={filtroPagDe}
+                onChange={e => setFiltroPagDe(e.target.value)}
+                className="text-xs"
+                title="Pagamento a partir de"
+              />
+              <span className="text-slate-400 text-xs shrink-0">até</span>
+              <Input
+                type="date"
+                value={filtroPagAte}
+                onChange={e => setFiltroPagAte(e.target.value)}
+                className="text-xs"
+                title="Pagamento até"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Botão limpar filtros extras */}
+        {filtrosExtrasAtivos && (
+          <div className="flex justify-end">
+            <button
+              onClick={limparFiltrosExtras}
+              className="text-xs text-slate-500 hover:text-red-600 flex items-center gap-1 underline underline-offset-2"
+            >
+              <X className="w-3 h-3" /> Limpar filtros extras
+            </button>
+          </div>
+        )}
       </Card>
 
       {/* Total */}
-      {!carregando && itens.length > 0 && (
+      {!carregando && itensFiltrados.length > 0 && (
         <div className="flex items-center justify-between text-sm text-slate-600 px-1">
-          <span>{itens.length} registro(s)</span>
+          <span>
+            {itensFiltrados.length} registro(s)
+            {filtrosExtrasAtivos && itens.length !== itensFiltrados.length && (
+              <span className="text-slate-400 ml-1">(de {itens.length})</span>
+            )}
+          </span>
           <span className="font-semibold text-slate-800">Total: {fmt(totalFiltrado)}</span>
         </div>
       )}
@@ -567,13 +675,13 @@ export default function FinanceiroRecebimentos() {
             </Card>
           ))}
         </div>
-      ) : itens.length === 0 ? (
+      ) : itensFiltrados.length === 0 ? (
         <Card className="p-10 text-center border-slate-200 shadow-sm">
           <p className="text-slate-400 text-sm">Nenhum recebimento encontrado.</p>
         </Card>
       ) : (
         <div className="space-y-3">
-          {itens.map(item => {
+          {itensFiltrados.map(item => {
             const cfg = STATUS_CONFIG[item.status];
             const Icon = cfg.icon;
             return (
