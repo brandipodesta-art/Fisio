@@ -87,13 +87,14 @@ function useCrud<T extends { id: string }>(tabela: string, select = "*", orderBy
 }
 
 // ─── Componente de Seção Expansível ──────────────────────────────────────────
-function Secao({ titulo, icone: Icone, cor, children }: {
+function Secao({ titulo, icone: Icone, cor, children, iniciarFechada }: {
   titulo: string;
   icone: React.ElementType;
   cor: string;
   children: React.ReactNode;
+  iniciarFechada?: boolean;
 }) {
-  const [aberta, setAberta] = useState(true);
+  const [aberta, setAberta] = useState(!iniciarFechada);
   return (
     <Card className="overflow-hidden border border-slate-200 shadow-sm">
       <button
@@ -943,7 +944,7 @@ function SecaoAlertasEmail() {
   };
 
   return (
-    <Secao titulo="Alertas de E-mail" icone={Bell} cor="bg-blue-600">
+    <Secao titulo="Alertas de E-mail" icone={Bell} cor="bg-blue-600" iniciarFechada>
       {carregando ? (
         <p className="px-5 py-4 text-sm text-slate-400">Carregando...</p>
       ) : (
