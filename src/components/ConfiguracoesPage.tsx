@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Settings, ChevronDown, ChevronRight, Plus, Pencil, Trash2,
   Check, X, Stethoscope, DollarSign, CreditCard, Tag, Users, Percent,
-  AlertTriangle, Loader2,
+  AlertTriangle, Loader2, Bell, Mail, Clock, Save,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -843,6 +843,229 @@ function SecaoProfissionais() {
   );
 }
 
+// ─── Seção: Alertas de E-mail ───────────────────────────────────────────────
+const DIAS_SEMANA = [
+  { valor: 0, label: "Dom" },
+  { valor: 1, label: "Seg" },
+  { valor: 2, label: "Ter" },
+  { valor: 3, label: "Qua" },
+  { valor: 4, label: "Qui" },
+  { valor: 5, label: "Sex" },
+  { valor: 6, label: "Sáb" },
+];
+
+interface ConfigAlerta {
+  id: string;
+  tipo: string;
+  ativo: boolean;
+  email_destino: string;
+  email_remetente: string;
+  dias_semana: number[];
+  horario: string;
+}
+
+function SecaoAlertasEmail() {
+  const supabase = createClient();
+  const [config, setConfig] = useState<ConfigAlerta | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [salvo, setSalvo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  // Campos editáveis
+  const [ativo, setAtivo] = useState(true);
+  const [emailDestino, setEmailDestino] = useState("brandipodesta@gmail.com");
+  const [emailRemetente, setEmailRemetente] = useState("marpodesta@gmail.com");
+  const [diasSemana, setDiasSemana] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [horario, setHorario] = useState("08:00");
+
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    const { data, error } = await supabase
+      .from("configuracoes_alertas")
+      .select("*")
+      .eq("tipo", "pagamentos_vencidos")
+      .single();
+    if (!error && data) {
+      const d = data as ConfigAlerta;
+      setConfig(d);
+      setAtivo(d.ativo);
+      setEmailDestino(d.email_destino);
+      setEmailRemetente(d.email_remetente);
+      setDiasSemana(d.dias_semana ?? [1, 2, 3, 4, 5]);
+      setHorario(d.horario?.slice(0, 5) ?? "08:00");
+    }
+    setCarregando(false);
+  }, [supabase]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const toggleDia = (dia: number) => {
+    setDiasSemana(prev =>
+      prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia].sort()
+    );
+  };
+
+  const salvar = async () => {
+    if (!emailDestino.trim()) { setErro("Informe o e-mail de destino."); return; }
+    if (!emailRemetente.trim()) { setErro("Informe o e-mail remetente."); return; }
+    if (diasSemana.length === 0) { setErro("Selecione ao menos um dia da semana."); return; }
+    setSalvando(true);
+    setErro(null);
+    try {
+      const payload = {
+        ativo,
+        email_destino: emailDestino.trim(),
+        email_remetente: emailRemetente.trim(),
+        dias_semana: diasSemana,
+        horario: horario + ":00",
+        updated_at: new Date().toISOString(),
+      };
+      if (config) {
+        const { error } = await supabase
+          .from("configuracoes_alertas")
+          .update(payload)
+          .eq("id", config.id);
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabase
+          .from("configuracoes_alertas")
+          .insert({ ...payload, tipo: "pagamentos_vencidos" });
+        if (error) throw new Error(error.message);
+      }
+      await carregar();
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 3000);
+    } catch (e: unknown) {
+      setErro(e instanceof Error ? e.message : "Erro ao salvar.");
+    }
+    setSalvando(false);
+  };
+
+  return (
+    <Secao titulo="Alertas de E-mail" icone={Bell} cor="bg-blue-600">
+      {carregando ? (
+        <p className="px-5 py-4 text-sm text-slate-400">Carregando...</p>
+      ) : (
+        <div className="p-5 space-y-5">
+
+          {/* Toggle ativo */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-slate-800">Alerta de Pagamentos Vencidos</p>
+              <p className="text-xs text-slate-500 mt-0.5">Envia e-mail diário com pagamentos vencidos e não quitados</p>
+            </div>
+            <button
+              onClick={() => setAtivo(v => !v)}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                ativo ? "bg-blue-600" : "bg-slate-200"
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                ativo ? "translate-x-6" : "translate-x-1"
+              }`} />
+            </button>
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* Dias da semana */}
+          <div>
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">
+              <Clock className="w-3.5 h-3.5" /> Dias de Envio
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {DIAS_SEMANA.map(d => (
+                <button
+                  key={d.valor}
+                  onClick={() => toggleDia(d.valor)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                    diasSemana.includes(d.valor)
+                      ? "bg-blue-600 text-white border-blue-600"
+                      : "bg-white text-slate-500 border-slate-200 hover:border-blue-300"
+                  }`}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Horário */}
+          <div>
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+              <Clock className="w-3.5 h-3.5" /> Horário de Envio
+            </label>
+            <Input
+              type="time"
+              value={horario}
+              onChange={e => setHorario(e.target.value)}
+              className="w-36 text-sm"
+            />
+          </div>
+
+          <div className="border-t border-slate-100" />
+
+          {/* E-mails */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+                <Mail className="w-3.5 h-3.5" /> E-mail de Destino
+              </label>
+              <Input
+                type="email"
+                value={emailDestino}
+                onChange={e => setEmailDestino(e.target.value)}
+                placeholder="destinatario@email.com"
+                className="text-sm"
+              />
+              <p className="text-xs text-slate-400 mt-1">Quem vai receber o alerta</p>
+            </div>
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+                <Mail className="w-3.5 h-3.5" /> E-mail Remetente
+              </label>
+              <Input
+                type="email"
+                value={emailRemetente}
+                onChange={e => setEmailRemetente(e.target.value)}
+                placeholder="remetente@gmail.com"
+                className="text-sm"
+              />
+              <p className="text-xs text-slate-400 mt-1">Conta Gmail com senha de app configurada</p>
+            </div>
+          </div>
+
+          {/* Erro */}
+          {erro && (
+            <p className="text-xs text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{erro}</p>
+          )}
+
+          {/* Botão salvar */}
+          <div className="flex items-center gap-3 pt-1">
+            <Button
+              onClick={salvar}
+              disabled={salvando}
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+            >
+              {salvando
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Save className="w-4 h-4" />
+              }
+              {salvando ? "Salvando..." : "Salvar Configurações"}
+            </Button>
+            {salvo && (
+              <span className="flex items-center gap-1.5 text-sm text-emerald-600 font-medium">
+                <Check className="w-4 h-4" /> Salvo com sucesso!
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </Secao>
+  );
+}
+
 // ─── Aviso de tabelas pendentes ───────────────────────────────────────────────
 function AvisoSQL() {
   const [visivel, setVisivel] = useState(true);
@@ -898,9 +1121,15 @@ export default function ConfiguracoesPage() {
       </div>
 
       {/* Linha completa: Profissionais */}
-      <div>
+      <div className="mb-8">
         <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Profissionais</h2>
         <SecaoProfissionais />
+      </div>
+
+      {/* Linha completa: Alertas */}
+      <div>
+        <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Notificações</h2>
+        <SecaoAlertasEmail />
       </div>
     </div>
   );
