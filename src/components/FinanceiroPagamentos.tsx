@@ -287,6 +287,10 @@ export default function FinanceiroPagamentos() {
   const [filtroStatus,    setFiltroStatus]    = useState("todos");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
   const [filtroBusca,     setFiltroBusca]     = useState("");
+  const [filtroVencDe,    setFiltroVencDe]    = useState("");
+  const [filtroVencAte,   setFiltroVencAte]   = useState("");
+  const [filtroPagDe,     setFiltroPagDe]     = useState("");
+  const [filtroPagAte,    setFiltroPagAte]    = useState("");
 
   const buscar = useCallback(async () => {
     setCarregando(true);
@@ -298,20 +302,25 @@ export default function FinanceiroPagamentos() {
       const res = await fetch(`/api/pagamentos?${params}`);
       if (!res.ok) throw new Error("Erro ao carregar pagamentos");
       const data: Pagamento[] = await res.json();
-      // Filtro local por busca de texto
-      const filtrado = filtroBusca
-        ? data.filter(p =>
-            p.descricao.toLowerCase().includes(filtroBusca.toLowerCase()) ||
-            (p.fornecedor ?? "").toLowerCase().includes(filtroBusca.toLowerCase())
-          )
-        : data;
+      // Filtros locais
+      const filtrado = data.filter(p => {
+        if (filtroBusca) {
+          const q = filtroBusca.toLowerCase();
+          if (!p.descricao.toLowerCase().includes(q) && !(p.fornecedor ?? "").toLowerCase().includes(q)) return false;
+        }
+        if (filtroVencDe  && p.data_vencimento < filtroVencDe)  return false;
+        if (filtroVencAte && p.data_vencimento > filtroVencAte) return false;
+        if (filtroPagDe  && (!p.data_pagamento || p.data_pagamento < filtroPagDe))  return false;
+        if (filtroPagAte && (!p.data_pagamento || p.data_pagamento > filtroPagAte)) return false;
+        return true;
+      });
       setItens(filtrado);
     } catch (e: unknown) {
       setErro(e instanceof Error ? e.message : "Erro");
     } finally {
       setCarregando(false);
     }
-  }, [filtroStatus, filtroCategoria, filtroBusca]);
+  }, [filtroStatus, filtroCategoria, filtroBusca, filtroVencDe, filtroVencAte, filtroPagDe, filtroPagAte]);
 
   useEffect(() => { buscar(); }, [buscar]);
 
@@ -485,6 +494,71 @@ export default function FinanceiroPagamentos() {
               ))}
             </SelectContent>
           </Select>
+        </div>
+
+        {/* Filtros de data */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100">
+          {/* Vencimento */}
+          <div>
+            <p className="text-xs font-medium text-slate-500 mb-1.5">Vencimento</p>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={filtroVencDe}
+                onChange={e => setFiltroVencDe(e.target.value)}
+                className="text-sm"
+                title="De"
+              />
+              <span className="text-xs text-slate-400 shrink-0">até</span>
+              <Input
+                type="date"
+                value={filtroVencAte}
+                onChange={e => setFiltroVencAte(e.target.value)}
+                className="text-sm"
+                title="Até"
+              />
+              {(filtroVencDe || filtroVencAte) && (
+                <button
+                  onClick={() => { setFiltroVencDe(""); setFiltroVencAte(""); }}
+                  className="shrink-0 text-slate-400 hover:text-slate-600"
+                  title="Limpar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Data do Pagamento */}
+          <div>
+            <p className="text-xs font-medium text-slate-500 mb-1.5">Data do Pagamento</p>
+            <div className="flex items-center gap-2">
+              <Input
+                type="date"
+                value={filtroPagDe}
+                onChange={e => setFiltroPagDe(e.target.value)}
+                className="text-sm"
+                title="De"
+              />
+              <span className="text-xs text-slate-400 shrink-0">até</span>
+              <Input
+                type="date"
+                value={filtroPagAte}
+                onChange={e => setFiltroPagAte(e.target.value)}
+                className="text-sm"
+                title="Até"
+              />
+              {(filtroPagDe || filtroPagAte) && (
+                <button
+                  onClick={() => { setFiltroPagDe(""); setFiltroPagAte(""); }}
+                  className="shrink-0 text-slate-400 hover:text-slate-600"
+                  title="Limpar"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </Card>
 
