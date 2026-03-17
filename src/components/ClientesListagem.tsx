@@ -24,19 +24,10 @@ import {
   Loader2,
   AlertCircle,
   RefreshCw,
-  MoreVertical,
   Pencil,
   Eye,
-  PowerOff,
-  Power,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+
 import type { PacienteResumo } from "@/lib/types/paciente";
 import { TIPO_USUARIO_LABEL, TIPO_USUARIO_COLOR } from "@/lib/types/paciente";
 
@@ -425,58 +416,18 @@ export default function ClientesListagem({
               }`}
             >
               <div className="p-4 flex items-center gap-4">
-                {/* Menu de ações */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button
-                      className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors relative group/avatar ${
-                        cliente.ativo
-                          ? "bg-emerald-100 hover:bg-emerald-200"
-                          : "bg-slate-200 hover:bg-slate-300"
-                      }`}
-                      title="Ações"
-                    >
-                      <UserRound
-                        className={`w-5 h-5 group-hover/avatar:opacity-0 transition-opacity ${
-                          cliente.ativo ? "text-emerald-600" : "text-slate-400"
-                        }`}
-                      />
-                      <MoreVertical className="w-4 h-4 text-slate-600 absolute opacity-0 group-hover/avatar:opacity-100 transition-opacity" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-48">
-                    <DropdownMenuItem
-                      className="gap-2 cursor-pointer text-slate-700 focus:text-emerald-700 focus:bg-emerald-50"
-                      onClick={() => onVisualizarCliente?.(cliente)}
-                    >
-                      <Eye className="w-4 h-4" />
-                      Visualizar
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className="gap-2 cursor-pointer text-slate-700 focus:text-blue-700 focus:bg-blue-50"
-                      onClick={() => onEditarCliente?.(cliente)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                      Editar
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      className={`gap-2 cursor-pointer ${
-                        cliente.ativo
-                          ? "text-red-600 focus:text-red-700 focus:bg-red-50"
-                          : "text-emerald-600 focus:text-emerald-700 focus:bg-emerald-50"
-                      }`}
-                      onClick={() => alternarStatus(cliente)}
-                    >
-                      {cliente.ativo ? (
-                        <><PowerOff className="w-4 h-4" /> Desativar</>
-                      ) : (
-                        <><Power className="w-4 h-4" /> Ativar</>
-                      )}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* Avatar */}
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                    cliente.ativo ? "bg-emerald-100" : "bg-slate-200"
+                  }`}
+                >
+                  <UserRound
+                    className={`w-5 h-5 ${
+                      cliente.ativo ? "text-emerald-600" : "text-slate-400"
+                    }`}
+                  />
+                </div>
 
                 {/* Dados principais */}
                 <div className="flex-1 min-w-0">
@@ -537,6 +488,24 @@ export default function ClientesListagem({
                       {cliente.cidade}
                     </span>
                   )}
+                </div>
+
+                {/* Ícones de ação */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    title="Visualizar"
+                    onClick={() => onVisualizarCliente?.(cliente)}
+                    className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  <button
+                    title="Editar"
+                    onClick={() => onEditarCliente?.(cliente)}
+                    className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </Card>
