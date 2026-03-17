@@ -5,6 +5,7 @@ import TopBar from "@/components/TopBar";
 import CadastroLayout from "@/components/CadastroLayout";
 import AgendaPage from "@/components/AgendaPage";
 import FinanceiroPage from "@/components/FinanceiroPage";
+import ConfiguracoesPage from "@/components/ConfiguracoesPage";
 
 /**
  * Page - Página principal com navegação via Top Bar
@@ -30,6 +31,7 @@ export default function Page() {
           </div>
         )}
         {activePage === "financeiro" && <FinanceiroPage />}
+        {activePage === "configuracoes" && <ConfiguracoesPage />}
       </main>
     </div>
   );

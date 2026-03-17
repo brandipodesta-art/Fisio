@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Users, CalendarDays, DollarSign, LogOut } from "lucide-react";
+import { Activity, Users, CalendarDays, DollarSign, LogOut, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface TopBarProps {
@@ -12,6 +12,7 @@ const menuItems = [
   { key: "cadastro", label: "Cadastro", icon: Users },
   { key: "agenda", label: "Agenda", icon: CalendarDays },
   { key: "financeiro", label: "Financeiro", icon: DollarSign },
+  { key: "configuracoes", label: "Configurações", icon: Settings },
 ];
 
 export default function TopBar({ activePage, onPageChange }: TopBarProps) {
