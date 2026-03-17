@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
   AlertCircle, XCircle, Pencil, Trash2, Check, Eye, TriangleAlert,
@@ -305,6 +305,23 @@ export default function FinanceiroPagamentos() {
 
   const totalFiltrado = itens.reduce((s, p) => s + Number(p.valor), 0);
 
+  // Calcular quais IDs possuem duplicatas na lista completa carregada
+  // (agrupa por categoria + data_vencimento e marca os que aparecem mais de uma vez)
+  const idsDuplicados = useMemo(() => {
+    const grupos = new Map<string, string[]>();
+    itens.forEach(p => {
+      const chave = `${p.categoria}||${p.data_vencimento}`;
+      const grupo = grupos.get(chave) ?? [];
+      grupo.push(p.id);
+      grupos.set(chave, grupo);
+    });
+    const ids = new Set<string>();
+    grupos.forEach(grupo => {
+      if (grupo.length > 1) grupo.forEach(id => ids.add(id));
+    });
+    return ids;
+  }, [itens]);
+
   return (
     <div className="space-y-5">
       {/* Cabeçalho */}
@@ -361,10 +378,18 @@ export default function FinanceiroPagamentos() {
         </div>
       </Card>
 
-      {/* Total */}
+      {/* Total + aviso de duplicatas */}
       {!carregando && itens.length > 0 && (
-        <div className="flex items-center justify-between text-sm text-slate-600 px-1">
-          <span>{itens.length} registro(s)</span>
+        <div className="flex items-center justify-between text-sm text-slate-600 px-1 flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <span>{itens.length} registro(s)</span>
+            {idsDuplicados.size > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full">
+                <TriangleAlert className="w-3.5 h-3.5" />
+                {idsDuplicados.size} registro(s) com possível duplicidade
+              </span>
+            )}
+          </div>
           <span className="font-semibold text-slate-800">Total: {fmt(totalFiltrado)}</span>
         </div>
       )}
@@ -394,7 +419,11 @@ export default function FinanceiroPagamentos() {
             const cfg = STATUS_CONFIG[item.status];
             const Icon = cfg.icon;
             return (
-              <Card key={item.id} className="p-4 border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+              <Card key={item.id} className={`p-4 shadow-sm hover:shadow-md transition-shadow ${
+                  idsDuplicados.has(item.id)
+                    ? "border-amber-300 bg-amber-50/40"
+                    : "border-slate-200"
+                }`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -407,6 +436,11 @@ export default function FinanceiroPagamentos() {
                       </span>
                       {item.fornecedor && (
                         <span className="text-xs text-slate-500">{item.fornecedor}</span>
+                      )}
+                      {idsDuplicados.has(item.id) && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
+                          <TriangleAlert className="w-3 h-3" /> Possível duplicata
+                        </span>
                       )}
                     </div>
                     <p className="text-sm font-medium text-slate-900 truncate">{item.descricao}</p>
