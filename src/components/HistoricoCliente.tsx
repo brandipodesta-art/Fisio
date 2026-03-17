@@ -26,6 +26,7 @@ interface ProcedimentoResumo {
   total: number;
   pagos: number;
   pendentes: number;
+  canceladas: number;
   valorTotal: number;
   ultimaData: string;
 }
@@ -158,6 +159,7 @@ export default function HistoricoCliente({ pacienteId }: HistoricoClienteProps) 
         existing.valorTotal += Number(r.valor);
         if (statusNorm === "pago") existing.pagos += 1;
         if (statusNorm === "pendente" || statusNorm === "atrasado") existing.pendentes += 1;
+        if (statusNorm === "cancelado") existing.canceladas += 1;
         // Mantém a data mais recente
         if (r.data_vencimento > existing.ultimaData) {
           existing.ultimaData = r.data_vencimento;
@@ -168,6 +170,7 @@ export default function HistoricoCliente({ pacienteId }: HistoricoClienteProps) 
           total: 1,
           pagos: statusNorm === "pago" ? 1 : 0,
           pendentes: (statusNorm === "pendente" || statusNorm === "atrasado") ? 1 : 0,
+          canceladas: statusNorm === "cancelado" ? 1 : 0,
           valorTotal: Number(r.valor),
           ultimaData: r.data_vencimento,
         });
@@ -284,7 +287,7 @@ export default function HistoricoCliente({ pacienteId }: HistoricoClienteProps) 
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className={`grid gap-3 text-center ${proc.canceladas > 0 ? "grid-cols-4" : "grid-cols-3"}`}>
                     <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
                       <p className="text-xs text-slate-500 mb-1">Total</p>
                       <p className="text-xl font-bold text-slate-900">{proc.total}</p>
@@ -297,6 +300,12 @@ export default function HistoricoCliente({ pacienteId }: HistoricoClienteProps) 
                       <p className="text-xs text-slate-500 mb-1">Pendentes</p>
                       <p className="text-xl font-bold text-amber-700">{proc.pendentes}</p>
                     </div>
+                    {proc.canceladas > 0 && (
+                      <div className="bg-red-50 rounded-lg p-3 border border-red-200">
+                        <p className="text-xs text-slate-500 mb-1">Canceladas</p>
+                        <p className="text-xl font-bold text-red-600">{proc.canceladas}</p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-3 pt-3 border-t border-slate-100 flex justify-between items-center">
