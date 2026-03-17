@@ -663,6 +663,41 @@ export default function CadastroForm({
         }
         toast.dismiss();
         toast.success("Cadastro atualizado com sucesso!");
+
+        // ── Sincronizar com tabela profissionais se for Funcionário ou Financeiro ──
+        if (formData.tipoUsuario === 'funcionario' || formData.tipoUsuario === 'financeiro') {
+          const nome = formData.nomeCompleto.trim();
+          const idSlug = nome
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '');
+          const primeiroNome = nome.split(' ')[0];
+          const ultimoNome = nome.split(' ').slice(-1)[0];
+          const shortName = nome.split(' ').length > 1
+            ? `${primeiroNome} ${ultimoNome[0]}.`
+            : primeiroNome;
+          // Verifica se já existe para não sobrescrever a cor
+          const { data: jaExiste } = await supabase
+            .from('profissionais').select('id,color,bg_color,border_color,text_color').eq('id', idSlug).maybeSingle();
+          if (jaExiste) {
+            // Atualiza apenas o nome
+            await supabase.from('profissionais').update({ name: nome, short_name: shortName }).eq('id', idSlug);
+          } else {
+            const paleta = [
+              { color: '#8b5cf6', bg_color: 'bg-violet-100', border_color: 'border-violet-200', text_color: 'text-violet-700' },
+              { color: '#ec4899', bg_color: 'bg-pink-100', border_color: 'border-pink-200', text_color: 'text-pink-700' },
+              { color: '#14b8a6', bg_color: 'bg-teal-100', border_color: 'border-teal-200', text_color: 'text-teal-700' },
+              { color: '#f59e0b', bg_color: 'bg-amber-100', border_color: 'border-amber-200', text_color: 'text-amber-700' },
+              { color: '#6366f1', bg_color: 'bg-indigo-100', border_color: 'border-indigo-200', text_color: 'text-indigo-700' },
+            ];
+            const { data: existentes } = await supabase.from('profissionais').select('id');
+            const cor = paleta[(existentes?.length ?? 0) % paleta.length];
+            await supabase.from('profissionais').insert({ id: idSlug, name: nome, short_name: shortName, ...cor });
+          }
+        }
+
         onSalvoComSucesso?.();
         return;
       }
@@ -703,6 +738,37 @@ export default function CadastroForm({
           throw new Error('Paciente com este CPF já cadastrado no sistema.');
         }
         throw error;
+      }
+
+      // ── Sincronizar com tabela profissionais se for Funcionário ou Financeiro ──
+      if (formData.tipoUsuario === 'funcionario' || formData.tipoUsuario === 'financeiro') {
+        const nome = formData.nomeCompleto.trim();
+        // Gera slug no padrão: "Thais Almeida" → "thais-almeida"
+        const idSlug = nome
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '');
+        const primeiroNome = nome.split(' ')[0];
+        const ultimoNome = nome.split(' ').slice(-1)[0];
+        const shortName = nome.split(' ').length > 1
+          ? `${primeiroNome} ${ultimoNome[0]}.`
+          : primeiroNome;
+        // Paleta rotativa de cores para novos profissionais
+        const paleta = [
+          { color: '#8b5cf6', bg_color: 'bg-violet-100', border_color: 'border-violet-200', text_color: 'text-violet-700' },
+          { color: '#ec4899', bg_color: 'bg-pink-100', border_color: 'border-pink-200', text_color: 'text-pink-700' },
+          { color: '#14b8a6', bg_color: 'bg-teal-100', border_color: 'border-teal-200', text_color: 'text-teal-700' },
+          { color: '#f59e0b', bg_color: 'bg-amber-100', border_color: 'border-amber-200', text_color: 'text-amber-700' },
+          { color: '#6366f1', bg_color: 'bg-indigo-100', border_color: 'border-indigo-200', text_color: 'text-indigo-700' },
+        ];
+        const { data: existentes } = await supabase.from('profissionais').select('id');
+        const cor = paleta[(existentes?.length ?? 0) % paleta.length];
+        await supabase.from('profissionais').upsert(
+          { id: idSlug, name: nome, short_name: shortName, ...cor },
+          { onConflict: 'id' }
+        );
       }
 
       toast.dismiss();
