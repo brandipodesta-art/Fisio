@@ -130,12 +130,16 @@ function ItemLinha({
   const [confirmando, setConfirmando] = useState(false);
   return (
     <div className={`flex items-center justify-between px-5 py-3 border-b border-slate-100 last:border-0 group ${inativo ? "opacity-50" : ""}`}>
-      <div>
+      <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-slate-800">{label}</span>
-        {sublabel && <span className="ml-2 text-xs text-slate-500">{sublabel}</span>}
-        {inativo && <span className="ml-2 text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Inativo</span>}
+        {inativo && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Inativo</span>}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-3">
+        {sublabel && (
+          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
+            {sublabel}
+          </span>
+        )}
         {confirmando ? (
           <>
             <span className="text-xs text-red-600 mr-2">Confirmar exclusão?</span>
@@ -147,14 +151,14 @@ function ItemLinha({
             </button>
           </>
         ) : (
-          <>
-            <button onClick={onEditar} className="p-1.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={onEditar} className="p-1.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100">
               <Pencil className="w-4 h-4" />
             </button>
-            <button onClick={() => setConfirmando(true)} className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button onClick={() => setConfirmando(true)} className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50">
               <Trash2 className="w-4 h-4" />
             </button>
-          </>
+          </div>
         )}
       </div>
     </div>
