@@ -39,7 +39,11 @@ interface Evolucao {
   descricao: string;
 }
 
-export default function HistoricoCliente() {
+interface HistoricoClienteProps {
+  pacienteId?: string;
+}
+
+export default function HistoricoCliente({ pacienteId }: HistoricoClienteProps) {
   const [exames, setExames] = useState<Exame[]>([]);
   const [frequencia, setFrequencia] = useState<Frequencia[]>([]);
   const [financeiro, setFinanceiro] = useState<Financeiro[]>([]);
@@ -50,30 +54,44 @@ export default function HistoricoCliente() {
 
   useEffect(() => {
     async function fetchData() {
+      // Busca financeira: usa a tabela `recebimentos` filtrada pelo paciente_id
+      let queryFinanceiro = supabase
+        .from('recebimentos')
+        .select('id, descricao, valor, data_vencimento, data_pagamento, status')
+        .order('data_vencimento', { ascending: false });
+      if (pacienteId) {
+        queryFinanceiro = queryFinanceiro.eq('paciente_id', pacienteId);
+      }
+
       const [resExames, resFrequencia, resFinanceiro, resEvolucoes] = await Promise.all([
         supabase.from('exames').select('*'),
         supabase.from('frequencias').select('*'),
-        supabase.from('financeiro_paciente').select('*'),
+        queryFinanceiro,
         supabase.from('evolucoes').select('*').order('created_at', { ascending: false })
       ]);
 
       if (resExames.data) {
-        setExames(resExames.data.map((e: any) => ({
+        setExames(resExames.data.map((e: { id: string; tipo: string; data: string; resultado: string }) => ({
           id: e.id, tipo: e.tipo, data: e.data, resultado: e.resultado
         })));
       }
       if (resFrequencia.data) {
-        setFrequencia(resFrequencia.data.map((f: any) => ({
+        setFrequencia(resFrequencia.data.map((f: { mes: string; presencas: number; faltas: number }) => ({
           mes: f.mes, presencas: f.presencas, faltas: f.faltas
         })));
       }
       if (resFinanceiro.data) {
-        setFinanceiro(resFinanceiro.data.map((f: any) => ({
-          id: f.id, descricao: f.descricao, valor: Number(f.valor), data: f.data, status: f.status
+        setFinanceiro(resFinanceiro.data.map((f: { id: string; descricao: string; valor: number; data_vencimento: string; data_pagamento: string | null; status: string }) => ({
+          id: f.id,
+          descricao: f.descricao,
+          valor: Number(f.valor),
+          // Prioriza data de pagamento; se não houver, usa data de vencimento
+          data: f.data_pagamento ?? f.data_vencimento,
+          status: (f.status === 'recebido' ? 'pago' : f.status) as 'pago' | 'pendente' | 'cancelado',
         })));
       }
       if (resEvolucoes.data) {
-        setEvolucoes(resEvolucoes.data.map((e: any) => ({
+        setEvolucoes(resEvolucoes.data.map((e: { id: string; data_salva: string; texto: string }) => ({
           id: e.id, data: e.data_salva, descricao: e.texto
         })));
       }
@@ -81,7 +99,7 @@ export default function HistoricoCliente() {
       setIsLoading(false);
     }
     fetchData();
-  }, [supabase]);
+  }, [supabase, pacienteId]);
 
   const getStatusColor = (status: string) => {
     switch (status) {

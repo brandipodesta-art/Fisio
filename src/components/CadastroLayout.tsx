@@ -178,7 +178,7 @@ export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
 
           {/* Aba: Histórico */}
           <TabsContent value="historico" className="space-y-6">
-            <HistoricoCliente />
+            <HistoricoCliente pacienteId={idCliente} />
           </TabsContent>
         </Tabs>
       </div>
