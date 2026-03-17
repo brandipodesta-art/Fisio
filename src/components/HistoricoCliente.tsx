@@ -41,7 +41,7 @@ interface Financeiro {
   descricao: string;
   valor: number;
   data: string;
-  status: "pago" | "pendente" | "cancelado";
+  status: "pago" | "pendente" | "atrasado" | "cancelado";
 }
 
 interface Evolucao {
@@ -109,6 +109,7 @@ export default function HistoricoCliente({ pacienteId }: HistoricoClienteProps) 
             status: (f.status === "recebido" ? "pago" : f.status) as
               | "pago"
               | "pendente"
+              | "atrasado"
               | "cancelado",
           }))
         );
@@ -156,7 +157,7 @@ export default function HistoricoCliente({ pacienteId }: HistoricoClienteProps) 
         existing.total += 1;
         existing.valorTotal += Number(r.valor);
         if (statusNorm === "pago") existing.pagos += 1;
-        if (statusNorm === "pendente") existing.pendentes += 1;
+        if (statusNorm === "pendente" || statusNorm === "atrasado") existing.pendentes += 1;
         // Mantém a data mais recente
         if (r.data_vencimento > existing.ultimaData) {
           existing.ultimaData = r.data_vencimento;
@@ -166,7 +167,7 @@ export default function HistoricoCliente({ pacienteId }: HistoricoClienteProps) 
           nome,
           total: 1,
           pagos: statusNorm === "pago" ? 1 : 0,
-          pendentes: statusNorm === "pendente" ? 1 : 0,
+          pendentes: (statusNorm === "pendente" || statusNorm === "atrasado") ? 1 : 0,
           valorTotal: Number(r.valor),
           ultimaData: r.data_vencimento,
         });
@@ -182,6 +183,8 @@ export default function HistoricoCliente({ pacienteId }: HistoricoClienteProps) 
         return "bg-emerald-100 text-emerald-800";
       case "pendente":
         return "bg-amber-100 text-amber-800";
+      case "atrasado":
+        return "bg-orange-100 text-orange-800";
       case "cancelado":
         return "bg-red-100 text-red-800";
       default:
@@ -414,6 +417,8 @@ export default function HistoricoCliente({ pacienteId }: HistoricoClienteProps) 
                           ? "Pago"
                           : item.status === "pendente"
                           ? "Pendente"
+                          : item.status === "atrasado"
+                          ? "Atrasado"
                           : "Cancelado"}
                       </span>
                     </div>
