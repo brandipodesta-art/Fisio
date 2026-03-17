@@ -94,7 +94,7 @@ function Secao({ titulo, icone: Icone, cor, children, iniciarFechada }: {
   children: React.ReactNode;
   iniciarFechada?: boolean;
 }) {
-  const [aberta, setAberta] = useState(!iniciarFechada);
+  const [aberta, setAberta] = useState(false);
   return (
     <Card className="overflow-hidden border border-slate-200 shadow-sm">
       <button
