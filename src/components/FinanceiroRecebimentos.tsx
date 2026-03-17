@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
+import { createClient } from "@/lib/supabase/client";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
   AlertCircle, XCircle, Pencil, Trash2, Check, Eye, Repeat2, CalendarDays,
@@ -14,18 +15,30 @@ import {
 import type { Recebimento, RecebimentoInput, FormaPagamento } from "@/lib/types/financeiro";
 import { FORMA_PAGAMENTO_LABEL } from "@/lib/types/financeiro";
 
-const PROCEDIMENTOS = [
-  "Pilates",
-  "Fisioterapia",
-  "Limpeza de pele",
-  "Acupuntura",
-  "Massagem relaxante",
-  "Drenagem linfática",
-  "Liberação miofascial",
-  "Quiropraxia",
-  "Pelling de diamante",
-  "Laserterapia",
-];
+/** Hook para buscar procedimentos dinamicamente do Supabase */
+function useProcedimentos() {
+  const [procedimentos, setProcedimentos] = useState<string[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const supabase = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    async function buscar() {
+      try {
+        const { data } = await supabase
+          .from("procedimentos")
+          .select("nome")
+          .eq("ativo", true)
+          .order("nome");
+        if (data) setProcedimentos(data.map((p: { nome: string }) => p.nome));
+      } finally {
+        setCarregando(false);
+      }
+    }
+    buscar();
+  }, [supabase]);
+
+  return { procedimentos, carregando };
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -171,6 +184,8 @@ function AutocompletePaciente({
 // ─── Formulário Modal ─────────────────────────────────────────────────────────
 
 function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
+  const { procedimentos, carregando: carregandoProc } = useProcedimentos();
+
   // Extrai o procedimento base removendo numeração de parcelas: "Acupuntura (2/4)" → "Acupuntura"
   const procedimentoBase = inicial?.descricao
     ? inicial.descricao.replace(/\s*\(\d+\/\d+\)$/, "").trim()
@@ -244,9 +259,15 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
                 <SelectValue placeholder="Selecione o procedimento..." />
               </SelectTrigger>
               <SelectContent>
-                {PROCEDIMENTOS.map(p => (
-                  <SelectItem key={p} value={p}>{p}</SelectItem>
-                ))}
+                {carregandoProc ? (
+                  <SelectItem value="__loading" disabled>Carregando...</SelectItem>
+                ) : procedimentos.length === 0 ? (
+                  <SelectItem value="__empty" disabled>Nenhum procedimento cadastrado</SelectItem>
+                ) : (
+                  procedimentos.map(p => (
+                    <SelectItem key={p} value={p}>{p}</SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -394,6 +415,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function FinanceiroRecebimentos() {
+  const { procedimentos } = useProcedimentos();
   const [itens, setItens]         = useState<Recebimento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro]           = useState<string | null>(null);
@@ -587,7 +609,7 @@ export default function FinanceiroRecebimentos() {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="todos">Todos os procedimentos</SelectItem>
-                {PROCEDIMENTOS.map(p => (
+                {procedimentos.map(p => (
                   <SelectItem key={p} value={p}>{p}</SelectItem>
                 ))}
               </SelectContent>
