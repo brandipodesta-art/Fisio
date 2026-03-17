@@ -120,14 +120,17 @@ function ItemLinha({
   onEditar,
   onExcluir,
   inativo,
+  mensagemExclusao,
 }: {
   label: string;
   sublabel?: string;
   onEditar: () => void;
   onExcluir: () => void;
   inativo?: boolean;
+  mensagemExclusao?: string;
 }) {
   const [confirmando, setConfirmando] = useState(false);
+  const msgConfirm = mensagemExclusao ?? "Confirmar exclusão?";
   return (
     <div className={`flex items-center justify-between px-5 py-3 border-b border-slate-100 last:border-0 group ${inativo ? "opacity-50" : ""}`}>
       <div className="flex items-center gap-2">
@@ -142,7 +145,7 @@ function ItemLinha({
         )}
         {confirmando ? (
           <>
-            <span className="text-xs text-red-600 mr-2">Confirmar exclusão?</span>
+            <span className="text-xs text-red-600 mr-2">{msgConfirm}</span>
             <button onClick={() => { onExcluir(); setConfirmando(false); }} className="p-1.5 rounded text-red-600 hover:bg-red-50">
               <Check className="w-4 h-4" />
             </button>
@@ -210,6 +213,43 @@ function FormInline({
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Componente de Confirmação de Exclusão ──────────────────────────────────
+function ConfirmarExclusao({
+  mensagem,
+  onConfirmar,
+  tamanho = "sm",
+}: {
+  mensagem: string;
+  onConfirmar: () => void;
+  tamanho?: "sm" | "md";
+}) {
+  const [confirmando, setConfirmando] = useState(false);
+  const iconSize = tamanho === "sm" ? "w-3.5 h-3.5" : "w-4 h-4";
+  const btnClass = tamanho === "sm"
+    ? "p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50"
+    : "p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50";
+  if (confirmando) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="text-xs text-red-600 whitespace-nowrap">{mensagem}</span>
+        <button onClick={() => { onConfirmar(); setConfirmando(false); }}
+          className="p-1 rounded text-red-600 hover:bg-red-50">
+          <Check className={iconSize} />
+        </button>
+        <button onClick={() => setConfirmando(false)}
+          className="p-1 rounded text-slate-500 hover:bg-slate-100">
+          <X className={iconSize} />
+        </button>
+      </div>
+    );
+  }
+  return (
+    <button onClick={() => setConfirmando(true)} className={btnClass}>
+      <Trash2 className={iconSize} />
+    </button>
   );
 }
 
@@ -369,6 +409,11 @@ function SecaoFormasPagamentoRecebimento() {
 
   const salvar = async () => {
     if (!form.nome?.trim()) { setErroForm("O nome é obrigatório."); return; }
+    const nomeNormalizado = form.nome.trim().toLowerCase();
+    const duplicado = itens.some(i =>
+      i.nome.toLowerCase() === nomeNormalizado && i.id !== mostrando
+    );
+    if (duplicado) { setErroForm(`Já existe uma forma de pagamento com o nome "${form.nome.trim()}".`); return; }
     setSalvando(true);
     setErroForm(null);
     try {
@@ -435,6 +480,11 @@ function SecaoCategoriasPagamento() {
 
   const salvar = async () => {
     if (!form.nome?.trim()) { setErroForm("O nome é obrigatório."); return; }
+    const nomeNormalizado = form.nome.trim().toLowerCase();
+    const duplicado = itens.some(i =>
+      i.nome.toLowerCase() === nomeNormalizado && i.id !== mostrando
+    );
+    if (duplicado) { setErroForm(`Já existe uma categoria com o nome "${form.nome.trim()}".`); return; }
     setSalvando(true);
     setErroForm(null);
     try {
@@ -502,6 +552,11 @@ function SecaoFormasPagamentoDespesa() {
 
   const salvar = async () => {
     if (!form.nome?.trim()) { setErroForm("O nome é obrigatório."); return; }
+    const nomeNormalizado = form.nome.trim().toLowerCase();
+    const duplicado = itens.some(i =>
+      i.nome.toLowerCase() === nomeNormalizado && i.id !== mostrando
+    );
+    if (duplicado) { setErroForm(`Já existe uma forma de pagamento com o nome "${form.nome.trim()}".`); return; }
     setSalvando(true);
     setErroForm(null);
     try {
@@ -562,9 +617,10 @@ function SecaoProfissionais() {
   const [salvando, setSalvando] = useState(false);
   const [erroForm, setErroForm] = useState<string | null>(null);
   const [profSelecionado, setProfSelecionado] = useState<string | null>(null);
-  const [mostraComissao, setMostraComissao] = useState<"nenhum" | "novo" | string>("nenhum");
+  const [mostraComissao, setMostraComissao] = useState<"nenhum" | string>("nenhum");
   const [formCom, setFormCom] = useState<Record<string, string>>({});
   const [salvandoCom, setSalvandoCom] = useState(false);
+  const [erroComissao, setErroComissao] = useState<string | null>(null);
 
   const camposProf = [{ key: "name", label: "Nome do Profissional", placeholder: "Ex: Ana Carolina" }];
 
@@ -593,21 +649,29 @@ function SecaoProfissionais() {
     comissoes.filter(c => c.profissional_id === profId);
 
   const salvarComissao = async (profId: string) => {
-    if (!formCom.procedimento_id || !formCom.percentual) return;
+    setErroComissao(null);
+    if (!formCom.percentual) { setErroComissao("Informe o percentual de comissão."); return; }
+    if (mostraComissao === "novo" && !formCom.procedimento_id) { setErroComissao("Selecione um procedimento."); return; }
+    const perc = parseFloat(formCom.percentual);
+    if (isNaN(perc) || perc < 0) { setErroComissao("O percentual deve ser um número positivo."); return; }
+    if (perc > 100) { setErroComissao("O percentual não pode ser superior a 100%."); return; }
     setSalvandoCom(true);
     try {
       if (mostraComissao === "novo") {
         await inserirCom({
           profissional_id: profId,
           procedimento_id: formCom.procedimento_id,
-          percentual: parseFloat(formCom.percentual),
+          percentual: perc,
         });
       } else {
-        await atualizarCom(mostraComissao, { percentual: parseFloat(formCom.percentual) });
+        await atualizarCom(mostraComissao, { percentual: perc });
       }
       setMostraComissao("nenhum");
       setFormCom({});
-    } catch { /* ignore */ }
+      setErroComissao(null);
+    } catch (e: unknown) {
+      setErroComissao(e instanceof Error ? e.message : "Erro ao salvar comissão.");
+    }
     setSalvandoCom(false);
   };
 
@@ -652,9 +716,10 @@ function SecaoProfissionais() {
                   <button onClick={() => abrirEditar(prof)} className="p-1.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100">
                     <Pencil className="w-4 h-4" />
                   </button>
-                  <button onClick={() => excluirProf(prof.id)} className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <ConfirmarExclusao
+                    mensagem={`Excluir ${prof.name}? Todas as comissões vinculadas serão removidas.`}
+                    onConfirmar={() => excluirProf(prof.id)}
+                  />
                 </div>
               </div>
 
@@ -704,6 +769,9 @@ function SecaoProfissionais() {
                           </Button>
                         </div>
                       </div>
+                      {erroComissao && mostraComissao === "novo" && formCom.profissional_id === prof.id && (
+                        <p className="mt-2 text-xs text-red-600">{erroComissao}</p>
+                      )}
                     </div>
                   )}
 
@@ -716,23 +784,28 @@ function SecaoProfissionais() {
                     return (
                       <div key={com.id} className="flex items-center justify-between px-4 py-2 border-b border-slate-100 last:border-0 group/com">
                         {mostraComissao === com.id ? (
-                          <div className="flex gap-3 items-end w-full">
-                            <div className="w-28">
-                              <label className="text-xs text-slate-500 mb-1 block">% Comissão</label>
-                              <Input type="number" min="0" max="100"
-                                value={formCom.percentual ?? com.percentual.toString()}
-                                onChange={e => setFormCom(f => ({ ...f, percentual: e.target.value }))}
-                                className="h-9 text-sm" />
+                          <div className="flex flex-col gap-1 w-full">
+                            <div className="flex gap-3 items-end">
+                              <div className="w-28">
+                                <label className="text-xs text-slate-500 mb-1 block">% Comissão</label>
+                                <Input type="number" min="0" max="100"
+                                  value={formCom.percentual ?? com.percentual.toString()}
+                                  onChange={e => setFormCom(f => ({ ...f, percentual: e.target.value }))}
+                                  className="h-9 text-sm" />
+                              </div>
+                              <div className="flex gap-2">
+                                <Button size="sm" onClick={() => salvarComissao(prof.id)} disabled={salvandoCom}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white h-9">
+                                  {salvandoCom ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                </Button>
+                                <Button size="sm" variant="ghost" onClick={() => { setMostraComissao("nenhum"); setFormCom({}); setErroComissao(null); }} className="h-9">
+                                  <X className="w-4 h-4" />
+                                </Button>
+                              </div>
                             </div>
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={() => salvarComissao(prof.id)} disabled={salvandoCom}
-                                className="bg-emerald-600 hover:bg-emerald-700 text-white h-9">
-                                {salvandoCom ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                              </Button>
-                              <Button size="sm" variant="ghost" onClick={() => { setMostraComissao("nenhum"); setFormCom({}); }} className="h-9">
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
+                            {erroComissao && mostraComissao === com.id && (
+                              <p className="text-xs text-red-600">{erroComissao}</p>
+                            )}
                           </div>
                         ) : (
                           <>
@@ -742,14 +815,14 @@ function SecaoProfissionais() {
                                 {com.percentual}%
                               </span>
                               <div className="flex gap-1 opacity-0 group-hover/com:opacity-100 transition-opacity">
-                                <button onClick={() => { setMostraComissao(com.id); setFormCom({ percentual: com.percentual.toString() }); }}
+                                <button onClick={() => { setMostraComissao(com.id); setFormCom({ percentual: com.percentual.toString() }); setErroComissao(null); }}
                                   className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100">
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
-                                <button onClick={() => excluirCom(com.id)}
-                                  className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50">
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
+                                <ConfirmarExclusao
+                                  mensagem={`Excluir comissão de ${procNome}?`}
+                                  onConfirmar={() => excluirCom(com.id)}
+                                />
                               </div>
                             </div>
                           </>
