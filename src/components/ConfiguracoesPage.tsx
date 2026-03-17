@@ -213,6 +213,63 @@ function FormInline({
   );
 }
 
+// ─── Linha customizada para Procedimentos ───────────────────────────────────
+function ProcedimentoLinha({
+  item,
+  onEditar,
+  onExcluir,
+}: {
+  item: Procedimento;
+  onEditar: () => void;
+  onExcluir: () => void;
+}) {
+  const [confirmando, setConfirmando] = useState(false);
+  const valorFormatado = item.valor_padrao != null
+    ? item.valor_padrao.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })
+    : "—";
+
+  return (
+    <div className={`flex items-center justify-between px-5 py-3 border-b border-slate-100 last:border-0 group ${!item.ativo ? "opacity-50" : ""}`}>
+      {/* Nome */}
+      <div className="flex items-center gap-2 min-w-0">
+        <span className="text-sm font-medium text-slate-800 truncate">{item.nome}</span>
+        {!item.ativo && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full flex-shrink-0">Inativo</span>}
+      </div>
+      {/* Valor + ações */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Valor padrão com lápis ao lado */}
+        <button
+          onClick={onEditar}
+          className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full hover:bg-emerald-100 transition-colors"
+          title="Clique para editar o valor"
+        >
+          <Pencil className="w-3 h-3" />
+          {valorFormatado}
+        </button>
+        {/* Excluir */}
+        {confirmando ? (
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-red-600">Excluir?</span>
+            <button onClick={() => { onExcluir(); setConfirmando(false); }} className="p-1.5 rounded text-red-600 hover:bg-red-50">
+              <Check className="w-4 h-4" />
+            </button>
+            <button onClick={() => setConfirmando(false)} className="p-1.5 rounded text-slate-500 hover:bg-slate-100">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setConfirmando(true)}
+            className="p-1.5 rounded text-slate-300 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Seção: Procedimentos ─────────────────────────────────────────────────────
 function SecaoProcedimentos() {
   const { itens, carregando, erro, inserir, atualizar, excluir } = useCrud<Procedimento>(
@@ -275,10 +332,8 @@ function SecaoProcedimentos() {
             <FormInline campos={campos} valores={form} onChange={(k, v) => setForm(f => ({ ...f, [k]: v }))}
               onSalvar={salvar} onCancelar={() => setMostrando("nenhum")} salvando={salvando} titulo={`Editar: ${item.nome}`} />
           ) : (
-            <ItemLinha
-              label={item.nome}
-              sublabel={item.valor_padrao != null ? `R$ ${item.valor_padrao.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : undefined}
-              inativo={!item.ativo}
+            <ProcedimentoLinha
+              item={item}
               onEditar={() => abrirEditar(item)}
               onExcluir={() => excluir(item.id)}
             />
