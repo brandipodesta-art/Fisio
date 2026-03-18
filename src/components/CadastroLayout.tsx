@@ -24,8 +24,8 @@ import type { PacienteResumo } from "@/lib/types/paciente";
 type Modo =
   | { tipo: "listagem" }
   | { tipo: "novo" }
-  | { tipo: "editar"; id: string; nome?: string }
-  | { tipo: "ver"; id: string; nome?: string };
+  | { tipo: "editar"; id: string; nome?: string; tipoUsuario?: string }
+  | { tipo: "ver"; id: string; nome?: string; tipoUsuario?: string };
 
 interface CadastroLayoutProps {
   onTabChange?: (tab: string) => void;
@@ -41,12 +41,12 @@ export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
   };
 
   const handleEditarCliente = (cliente: PacienteResumo) => {
-    setModo({ tipo: "editar", id: cliente.id, nome: cliente.nome_completo });
+    setModo({ tipo: "editar", id: cliente.id, nome: cliente.nome_completo, tipoUsuario: cliente.tipo_usuario });
     setAbaCliente("dados");
   };
 
   const handleVisualizarCliente = (cliente: PacienteResumo) => {
-    setModo({ tipo: "ver", id: cliente.id, nome: cliente.nome_completo });
+    setModo({ tipo: "ver", id: cliente.id, nome: cliente.nome_completo, tipoUsuario: cliente.tipo_usuario });
     setAbaCliente("dados");
   };
 
@@ -96,6 +96,8 @@ export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
     modo.tipo === "editar" || modo.tipo === "ver" ? (modo.nome ?? "Cliente") : "";
 
   const idCliente = modo.tipo === "editar" || modo.tipo === "ver" ? modo.id : "";
+
+  const tipoUsuarioCliente = modo.tipo === "editar" || modo.tipo === "ver" ? (modo.tipoUsuario ?? "paciente") : "paciente";
 
   return (
     <div className="py-8">
@@ -178,7 +180,11 @@ export default function CadastroLayout({ onTabChange }: CadastroLayoutProps) {
 
           {/* Aba: Histórico */}
           <TabsContent value="historico" className="space-y-6">
-            <HistoricoCliente pacienteId={idCliente} />
+            <HistoricoCliente
+              pacienteId={idCliente}
+              tipoUsuario={tipoUsuarioCliente}
+              nomeCompleto={nomeCliente}
+            />
           </TabsContent>
         </Tabs>
       </div>
