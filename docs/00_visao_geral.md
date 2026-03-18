@@ -16,6 +16,9 @@
 | **Sonner** | Biblioteca de toasts/notificações |
 | **Geist Sans** | Tipografia principal (via `next/font/google`) |
 | **Supabase** | Banco de dados PostgreSQL (BaaS) e Autenticação |
+| **react-hook-form** | Gerenciamento de formulários com validação |
+| **@hookform/resolvers** | Integração react-hook-form com Zod |
+| **zod** | Validação de esquemas TypeScript |
 
 ---
 
@@ -45,12 +48,16 @@ Fisio/
 │   │   ├── FinanceiroResumo.tsx    # Dashboard financeiro (KPIs e Gráficos)
 │   │   ├── FinanceiroRecebimentos.tsx # Gestão de receitas
 │   │   ├── FinanceiroPagamentos.tsx   # Gestão de despesas e contas a pagar
+│   │   ├── ConfiguracoesPage.tsx      # Configurações da clínica (procedimentos, formas, profissionais, alertas)
 │   │   └── ui/                     # Componentes shadcn/ui
 │   └── lib/
 │       ├── supabase/               # Clientes do Supabase (Server e Browser)
 │       ├── types/                  # Interfaces TS (paciente.ts, financeiro.ts)
+│       ├── validacoes-configuracoes.ts  # Funções de validação puras (46 testes)
 │       └── utils.ts                # Utilitário cn() (clsx + tailwind-merge)
 └── docs/                           # 📂 Documentação detalhada
+    ├── sql_completo_atual.sql      # SQL consolidado de todas as 9 tabelas
+    └── alerta_pagamentos.py        # Script de alerta diário (em /home/ubuntu/)
 ```
 
 ---
@@ -112,3 +119,23 @@ Fisio/
 | 18 | `ClientesListagem.tsx` — Histórico Consolidado | [18_clientes_cadastrados_alteracoes.md](./18_clientes_cadastrados_alteracoes.md) |
 | 19 | `HistoricoCliente.tsx` — Aba Procedimentos | [19_historico_cliente_procedimentos.md](./19_historico_cliente_procedimentos.md) |
 | 20 | Tabela `procedimentos` no Supabase | [20_tabela_procedimentos.md](./20_tabela_procedimentos.md) |
+| 21 | Supabase — Alterações 17/03/2026 | [21_supabase_alteracoes_17032026.md](./21_supabase_alteracoes_17032026.md) |
+| 22 | Configurações — Alterações 17/03/2026 | [22_configuracoes_alteracoes_17032026.md](./22_configuracoes_alteracoes_17032026.md) |
+| 23 | Financeiro e Ajustes Gerais 17/03/2026 | [23_financeiro_ajustes_17032026.md](./23_financeiro_ajustes_17032026.md) |
+| 24 | Alterações Pós-17/03/2026 | [24_alteracoes_pos_17032026.md](./24_alteracoes_pos_17032026.md) |
+
+---
+
+## Tabelas no Supabase (estado atual)
+
+| Tabela | Descrição | Tipo de ID |
+|---|---|---|
+| `pacientes` | Cadastro de clientes (pacientes, funcionários, admins, financeiro) | UUID |
+| `profissionais` | Profissionais da clínica (sincronizado com funcionários/financeiros) | TEXT (slug) |
+| `procedimentos` | Tipos de procedimentos com valor padrão | UUID |
+| `formas_pagamento` | Formas de pagamento (recebimento/pagamento/ambos) | TEXT |
+| `categorias_pagamento` | Categorias de despesas | TEXT |
+| `comissoes_profissional` | Comissões por procedimento por profissional | TEXT |
+| `recebimentos` | Receitas da clínica | UUID |
+| `pagamentos` | Despesas e contas a pagar | UUID |
+| `configuracoes_alertas` | Preferências de alertas de e-mail | UUID |
