@@ -63,7 +63,10 @@ DDL_STEPS = [
               IF (SELECT data_type FROM information_schema.columns
                   WHERE table_name = 'formas_pagamento' AND column_name = 'id'
                     AND table_schema = 'public') = 'text' THEN
+                -- Remove o DEFAULT text antes de converter
+                ALTER TABLE public.formas_pagamento ALTER COLUMN id DROP DEFAULT;
                 ALTER TABLE public.formas_pagamento ALTER COLUMN id TYPE UUID USING id::uuid;
+                ALTER TABLE public.formas_pagamento ALTER COLUMN id SET DEFAULT gen_random_uuid();
               END IF;
             END $$;
         """
@@ -75,7 +78,10 @@ DDL_STEPS = [
               IF (SELECT data_type FROM information_schema.columns
                   WHERE table_name = 'categorias_pagamento' AND column_name = 'id'
                     AND table_schema = 'public') = 'text' THEN
+                -- Remove o DEFAULT text antes de converter
+                ALTER TABLE public.categorias_pagamento ALTER COLUMN id DROP DEFAULT;
                 ALTER TABLE public.categorias_pagamento ALTER COLUMN id TYPE UUID USING id::uuid;
+                ALTER TABLE public.categorias_pagamento ALTER COLUMN id SET DEFAULT gen_random_uuid();
               END IF;
             END $$;
         """
