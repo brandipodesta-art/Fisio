@@ -121,6 +121,15 @@ export default function CadastroForm({
   const supabase = createClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingPaciente, setLoadingPaciente] = useState(false);
+  const [profissionaisList, setProfissionaisList] = useState<{ id: string; name: string }[]>([]);
+
+  // Busca profissionais dinamicamente para o select
+  useEffect(() => {
+    supabase.from("profissionais").select("id, name").order("name").then(({ data }) => {
+      if (data) setProfissionaisList(data as { id: string; name: string }[]);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ─────────────────────────────────────────────
   // Pré-carregamento dos dados no modo de edição
@@ -858,9 +867,13 @@ export default function CadastroForm({
                   <SelectValue placeholder="Selecione o profissional responsável por este cliente" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ana-carolina">Ana Carolina</SelectItem>
-                  <SelectItem value="amanda-augusta">Amanda Augusta</SelectItem>
-                  <SelectItem value="aline-pereira">Aline Pereira</SelectItem>
+                  {profissionaisList.length === 0 ? (
+                    <SelectItem value="_loading" disabled>Carregando...</SelectItem>
+                  ) : (
+                    profissionaisList.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
