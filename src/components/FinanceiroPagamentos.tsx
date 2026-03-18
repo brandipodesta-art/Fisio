@@ -11,9 +11,12 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import type { Pagamento, PagamentoInput, FormaPagamento } from "@/lib/types/financeiro";
+import type {
+  Pagamento, PagamentoInput, FormaPagamento,
+  FormaPagamentoItem, CategoriaPagamentoItem,
+} from "@/lib/types/financeiro";
 import { createClient } from "@/lib/supabase/client";
-import { FORMA_PAGAMENTO_LABEL, CATEGORIA_PAGAMENTO } from "@/lib/types/financeiro";
+import { FORMA_PAGAMENTO_LABEL } from "@/lib/types/financeiro";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -34,6 +37,30 @@ const STATUS_CONFIG = {
   cancelado: { label: "Cancelado", cor: "bg-slate-100 text-slate-500",     icon: XCircle },
 };
 
+// ─── Hook para carregar formas de pagamento e categorias do banco ─────────────
+
+function useLookups() {
+  const [formas, setFormas]       = useState<FormaPagamentoItem[]>([]);
+  const [categorias, setCategorias] = useState<CategoriaPagamentoItem[]>([]);
+  const sb = useMemo(() => createClient(), []);
+
+  useEffect(() => {
+    sb.from("formas_pagamento")
+      .select("id, nome, tipo")
+      .in("tipo", ["pagamento", "ambos"])
+      .order("nome")
+      .then(({ data }) => { if (data) setFormas(data as FormaPagamentoItem[]); });
+
+    sb.from("categorias_pagamento")
+      .select("id, nome")
+      .eq("ativo", true)
+      .order("nome")
+      .then(({ data }) => { if (data) setCategorias(data as CategoriaPagamentoItem[]); });
+  }, [sb]);
+
+  return { formas, categorias };
+}
+
 // ─── Formulário Modal ─────────────────────────────────────────────────────────
 
 interface FormModalProps {
@@ -41,19 +68,23 @@ interface FormModalProps {
   onSalvar: (dados: PagamentoInput, recorrencia?: { meses: number }) => Promise<void>;
   onFechar: () => void;
   salvando: boolean;
+  formas: FormaPagamentoItem[];
+  categorias: CategoriaPagamentoItem[];
 }
 
-function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
+function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }: FormModalProps) {
   const [form, setForm] = useState<PagamentoInput>({
-    descricao:       inicial?.descricao       ?? "",
-    categoria:       inicial?.categoria       ?? "",
-    valor:           inicial?.valor           ?? 0,
-    data_vencimento: inicial?.data_vencimento ?? "",
-    data_pagamento:  inicial?.data_pagamento  ?? null,
-    status:          inicial?.status          ?? "pendente",
-    forma_pagamento: inicial?.forma_pagamento ?? null,
-    fornecedor:      inicial?.fornecedor      ?? null,
-    observacoes:     inicial?.observacoes     ?? null,
+    descricao:        inicial?.descricao        ?? "",
+    categoria:        inicial?.categoria        ?? null,
+    categoria_id:     inicial?.categoria_id     ?? null,
+    valor:            inicial?.valor            ?? 0,
+    data_vencimento:  inicial?.data_vencimento  ?? "",
+    data_pagamento:   inicial?.data_pagamento   ?? null,
+    status:           inicial?.status           ?? "pendente",
+    forma_pagamento:  inicial?.forma_pagamento  ?? null,
+    forma_pagamento_id: inicial?.forma_pagamento_id ?? null,
+    fornecedor:       inicial?.fornecedor       ?? null,
+    observacoes:      inicial?.observacoes      ?? null,
   });
   const [repete, setRepete]   = useState(false);
   const [meses, setMeses]     = useState(3);
@@ -83,6 +114,11 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
     await onSalvar(form, repete ? { meses } : undefined);
   }
 
+  // Rótulo da categoria para exibição no modal de visualização
+  const categoriaLabel = form.categoria_id
+    ? (categorias.find(c => c.id === form.categoria_id)?.nome ?? form.categoria ?? "—")
+    : (form.categoria ?? "—");
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
@@ -109,12 +145,23 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Categoria *</label>
-              <Select value={form.categoria} onValueChange={v => set("categoria", v)}>
+              <Select
+                value={form.categoria_id ?? ""}
+                onValueChange={v => {
+                  const cat = categorias.find(c => c.id === v);
+                  set("categoria_id", v || null);
+                  set("categoria", cat?.nome ?? null);
+                }}
+              >
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  {CATEGORIA_PAGAMENTO.map(c => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
+                  {categorias.length === 0 ? (
+                    <SelectItem value="__loading" disabled>Carregando...</SelectItem>
+                  ) : (
+                    categorias.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -168,14 +215,22 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Forma de Pagamento</label>
               <Select
-                value={form.forma_pagamento ?? ""}
-                onValueChange={v => set("forma_pagamento", v || null)}
+                value={form.forma_pagamento_id ?? ""}
+                onValueChange={v => {
+                  const fp = formas.find(f => f.id === v);
+                  set("forma_pagamento_id", v || null);
+                  set("forma_pagamento", fp ? slugFromNome(fp.nome) : null);
+                }}
               >
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(FORMA_PAGAMENTO_LABEL).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
+                  {formas.length === 0 ? (
+                    <SelectItem value="__loading" disabled>Carregando...</SelectItem>
+                  ) : (
+                    formas.map(f => (
+                      <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -262,24 +317,34 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
                     : "Registrar"}
             </Button>
           </div>
+          {/* Exibição de debug da categoria selecionada (apenas dev) */}
+          <p className="hidden">{categoriaLabel}</p>
         </form>
       </div>
     </div>
   );
 }
 
+// ─── Utilitário: nome da forma de pagamento → slug legado ─────────────────────
+// Mantém compatibilidade com o campo TEXT legado ao gravar novos registros
+
+function slugFromNome(nome: string): FormaPagamento | null {
+  const map: Record<string, FormaPagamento> = {
+    "Dinheiro":              "dinheiro",
+    "PIX":                   "pix",
+    "Cartão de Crédito":     "cartao_credito",
+    "Cartão de Débito":      "cartao_debito",
+    "Transferência":         "transferencia",
+    "Boleto":                "boleto",
+    "Cheque":                "cheque",
+  };
+  return map[nome] ?? null;
+}
+
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function FinanceiroPagamentos() {
-  const [categoriasList, setCategoriasList] = useState<{ id: string; nome: string }[]>([]);
-
-  // Carrega categorias dinamicamente do banco
-  useEffect(() => {
-    const sb = createClient();
-    sb.from("categorias_pagamento").select("id, nome").order("nome").then(({ data }) => {
-      if (data) setCategoriasList(data as { id: string; nome: string }[]);
-    });
-  }, []);
+  const { formas, categorias } = useLookups();
 
   const [itens, setItens]             = useState<Pagamento[]>([]);
   const [carregando, setCarregando]   = useState(true);
@@ -291,7 +356,7 @@ export default function FinanceiroPagamentos() {
   const [excluindo, setExcluindo]     = useState<string | null>(null);
 
   // Controle de duplicidade
-  const [duplicatas, setDuplicatas]   = useState<Pagamento[]>([]);
+  const [duplicatas, setDuplicatas]         = useState<Pagamento[]>([]);
   const [dadosPendentes, setDadosPendentes] = useState<PagamentoInput | null>(null);
 
   // Filtros
@@ -308,7 +373,11 @@ export default function FinanceiroPagamentos() {
     setErro(null);
     const params = new URLSearchParams();
     if (filtroStatus !== "todos") params.set("status", filtroStatus);
-    if (filtroCategoria !== "todas") params.set("categoria", filtroCategoria);
+    // Filtro de categoria: passa o nome (campo legado) para a API
+    if (filtroCategoria !== "todas") {
+      const cat = categorias.find(c => c.id === filtroCategoria);
+      if (cat) params.set("categoria", cat.nome);
+    }
     try {
       const res = await fetch(`/api/pagamentos?${params}`);
       if (!res.ok) throw new Error("Erro ao carregar pagamentos");
@@ -331,7 +400,7 @@ export default function FinanceiroPagamentos() {
     } finally {
       setCarregando(false);
     }
-  }, [filtroStatus, filtroCategoria, filtroBusca, filtroVencDe, filtroVencAte, filtroPagDe, filtroPagAte]);
+  }, [filtroStatus, filtroCategoria, filtroBusca, filtroVencDe, filtroVencAte, filtroPagDe, filtroPagAte, categorias]);
 
   useEffect(() => { buscar(); }, [buscar]);
 
@@ -350,17 +419,42 @@ export default function FinanceiroPagamentos() {
     return datas;
   }
 
+  // Rótulo da categoria para exibição na lista
+  function categoriaLabel(item: Pagamento): string {
+    if (item.categoria_id) {
+      return categorias.find(c => c.id === item.categoria_id)?.nome ?? item.categoria ?? "—";
+    }
+    return item.categoria ?? "—";
+  }
+
+  // Rótulo da forma de pagamento para exibição na lista
+  function formaLabel(item: Pagamento): string | null {
+    if (item.forma_pagamento_id) {
+      return formas.find(f => f.id === item.forma_pagamento_id)?.nome ?? null;
+    }
+    if (item.forma_pagamento) {
+      return FORMA_PAGAMENTO_LABEL[item.forma_pagamento as FormaPagamento] ?? null;
+    }
+    return null;
+  }
+
   async function salvar(dados: PagamentoInput, recorrencia?: { meses: number }) {
-    // Verificar duplicidade tanto na criação quanto na edição
-    if (dados.categoria && dados.data_vencimento) {
+    // Verificar duplicidade: usa categoria_id ou nome legado
+    const catNome = dados.categoria_id
+      ? (categorias.find(c => c.id === dados.categoria_id)?.nome ?? dados.categoria)
+      : dados.categoria;
+
+    if (catNome && dados.data_vencimento) {
       const resAll = await fetch("/api/pagamentos");
       const todos: Pagamento[] = resAll.ok ? await resAll.json() : [];
-      const encontrados = todos.filter(
-        p =>
-          p.categoria === dados.categoria &&
+      const encontrados = todos.filter(p => {
+        const pCat = p.categoria_id
+          ? (categorias.find(c => c.id === p.categoria_id)?.nome ?? p.categoria)
+          : p.categoria;
+        return pCat === catNome &&
           p.data_vencimento === dados.data_vencimento &&
-          p.id !== editando?.id
-      );
+          p.id !== editando?.id;
+      });
       if (encontrados.length > 0) {
         setDuplicatas(encontrados);
         setDadosPendentes(dados);
@@ -393,10 +487,8 @@ export default function FinanceiroPagamentos() {
               body: JSON.stringify({
                 ...dados,
                 data_vencimento: data,
-                // Limpar data de pagamento nas parcelas futuras
                 data_pagamento: null,
                 status: "pendente",
-                // Numerar a descrição automaticamente
                 descricao: `${dados.descricao} (${idx + 2}/${recorrencia.meses + 1})`,
               }),
             })
@@ -435,12 +527,12 @@ export default function FinanceiroPagamentos() {
 
   const totalFiltrado = itens.reduce((s, p) => s + Number(p.valor), 0);
 
-  // Calcular quais IDs possuem duplicatas na lista completa carregada
-  // (agrupa por categoria + data_vencimento e marca os que aparecem mais de uma vez)
+  // Calcular quais IDs possuem duplicatas na lista
   const idsDuplicados = useMemo(() => {
     const grupos = new Map<string, string[]>();
     itens.forEach(p => {
-      const chave = `${p.categoria}||${p.data_vencimento}`;
+      const catKey = p.categoria_id ?? p.categoria ?? "";
+      const chave = `${catKey}||${p.data_vencimento}`;
       const grupo = grupos.get(chave) ?? [];
       grupo.push(p.id);
       grupos.set(chave, grupo);
@@ -500,8 +592,8 @@ export default function FinanceiroPagamentos() {
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="todas">Todas as categorias</SelectItem>
-              {CATEGORIA_PAGAMENTO.map(c => (
-                <SelectItem key={c} value={c}>{c}</SelectItem>
+              {categorias.map(c => (
+                <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -627,7 +719,7 @@ export default function FinanceiroPagamentos() {
                         {cfg.label}
                       </span>
                       <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-                        {item.categoria}
+                        {categoriaLabel(item)}
                       </span>
                       {item.fornecedor && (
                         <span className="text-xs text-slate-500">{item.fornecedor}</span>
@@ -642,8 +734,8 @@ export default function FinanceiroPagamentos() {
                     <div className="flex items-center gap-4 mt-1 text-xs text-slate-500 flex-wrap">
                       <span>Venc.: {fmtDate(item.data_vencimento)}</span>
                       {item.data_pagamento && <span>Pago: {fmtDate(item.data_pagamento)}</span>}
-                      {item.forma_pagamento && (
-                        <span>{FORMA_PAGAMENTO_LABEL[item.forma_pagamento as FormaPagamento]}</span>
+                      {formaLabel(item) && (
+                        <span>{formaLabel(item)}</span>
                       )}
                     </div>
                   </div>
@@ -695,6 +787,8 @@ export default function FinanceiroPagamentos() {
           onSalvar={salvar}
           onFechar={() => { setModalAberto(false); setEditando(null); }}
           salvando={salvando}
+          formas={formas}
+          categorias={categorias}
         />
       )}
 
@@ -718,7 +812,11 @@ export default function FinanceiroPagamentos() {
             <div className="p-5 space-y-3">
               <p className="text-sm text-slate-600">
                 Encontramos <strong>{duplicatas.length}</strong> registro(s) com a categoria
-                {" "}<strong className="text-slate-900">&ldquo;{dadosPendentes.categoria}&rdquo;</strong>{" "}
+                {" "}<strong className="text-slate-900">&ldquo;{
+                  dadosPendentes.categoria_id
+                    ? (categorias.find(c => c.id === dadosPendentes.categoria_id)?.nome ?? dadosPendentes.categoria)
+                    : dadosPendentes.categoria
+                }&rdquo;</strong>{" "}
                 e vencimento em{" "}
                 <strong className="text-slate-900">{fmtDate(dadosPendentes.data_vencimento)}</strong>:
               </p>
@@ -754,14 +852,13 @@ export default function FinanceiroPagamentos() {
                 variant="outline"
                 onClick={() => { setDuplicatas([]); setDadosPendentes(null); }}
               >
-                Cancelar
+                {editando ? "Voltar e corrigir" : "Cancelar"}
               </Button>
               <Button
-                className="bg-amber-500 hover:bg-amber-600 text-white gap-2"
-                disabled={salvando}
-                onClick={() => _persistirSalvar(dadosPendentes)}
+                className="bg-amber-600 hover:bg-amber-700 text-white"
+                onClick={() => { if (dadosPendentes) _persistirSalvar(dadosPendentes); }}
               >
-                {salvando ? "Salvando..." : "Salvar mesmo assim"}
+                Salvar mesmo assim
               </Button>
             </div>
           </div>
@@ -782,13 +879,13 @@ export default function FinanceiroPagamentos() {
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
+                <div>
                   <p className="text-xs font-medium text-slate-500 mb-1">Descrição</p>
                   <p className="text-sm text-slate-900">{visualizando.descricao}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-1">Categoria</p>
-                  <p className="text-sm text-slate-900">{visualizando.categoria}</p>
+                  <p className="text-sm text-slate-900">{categoriaLabel(visualizando)}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-1">Valor</p>
@@ -796,19 +893,9 @@ export default function FinanceiroPagamentos() {
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-1">Status</p>
-                  {(() => {
-                    const cfg = STATUS_CONFIG[visualizando.status];
-                    const Icon = cfg.icon;
-                    return (
-                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.cor}`}>
-                        <Icon className="w-3 h-3" />{cfg.label}
-                      </span>
-                    );
-                  })()}
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Fornecedor</p>
-                  <p className="text-sm text-slate-900">{visualizando.fornecedor ?? <span className="italic text-slate-400">—</span>}</p>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[visualizando.status].cor}`}>
+                    {STATUS_CONFIG[visualizando.status].label}
+                  </span>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-1">Vencimento</p>
@@ -820,11 +907,11 @@ export default function FinanceiroPagamentos() {
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-1">Forma de Pagamento</p>
-                  <p className="text-sm text-slate-900">{visualizando.forma_pagamento ? FORMA_PAGAMENTO_LABEL[visualizando.forma_pagamento as FormaPagamento] : <span className="italic text-slate-400">—</span>}</p>
+                  <p className="text-sm text-slate-900">{formaLabel(visualizando) ?? <span className="italic text-slate-400">—</span>}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Registrado em</p>
-                  <p className="text-sm text-slate-900">{new Date(visualizando.created_at).toLocaleDateString('pt-BR')}</p>
+                  <p className="text-xs font-medium text-slate-500 mb-1">Fornecedor</p>
+                  <p className="text-sm text-slate-900">{visualizando.fornecedor ?? <span className="italic text-slate-400">—</span>}</p>
                 </div>
               </div>
               {visualizando.observacoes && (
@@ -836,8 +923,10 @@ export default function FinanceiroPagamentos() {
             </div>
             <div className="flex justify-end gap-3 p-5 border-t border-slate-100">
               <Button variant="outline" onClick={() => setVisualizando(null)}>Fechar</Button>
-              <Button onClick={() => { setEditando(visualizando); setModalAberto(true); setVisualizando(null); }}
-                className="bg-slate-800 hover:bg-slate-900 text-white gap-2">
+              <Button
+                onClick={() => { setEditando(visualizando); setModalAberto(true); setVisualizando(null); }}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+              >
                 <Pencil className="w-4 h-4" /> Editar
               </Button>
             </div>

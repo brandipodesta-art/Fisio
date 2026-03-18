@@ -15,22 +15,18 @@ export const FORMA_PAGAMENTO_LABEL: Record<FormaPagamento, string> = {
   outro:           "Outro",
 };
 
-export const CATEGORIA_PAGAMENTO = [
-  "Aluguel",
-  "Energia Elétrica",
-  "Água",
-  "Internet / Telefone",
-  "Equipamentos",
-  "Material de Consumo",
-  "Salários",
-  "Impostos / Taxas",
-  "Manutenção",
-  "Marketing",
-  "Seguros",
-  "Outros",
-] as const;
+// ─── Interfaces de lookup (carregadas dinamicamente do banco) ─────────────────
 
-export type CategoriaPagamento = typeof CATEGORIA_PAGAMENTO[number];
+export interface FormaPagamentoItem {
+  id: string;   // UUID
+  nome: string;
+  tipo: "recebimento" | "pagamento" | "ambos";
+}
+
+export interface CategoriaPagamentoItem {
+  id: string;   // UUID
+  nome: string;
+}
 
 // ─── Recebimento ──────────────────────────────────────────────────────────────
 
@@ -43,7 +39,10 @@ export interface Recebimento {
   data_vencimento: string;       // ISO date "YYYY-MM-DD"
   data_pagamento: string | null; // ISO date "YYYY-MM-DD"
   status: StatusRecebimento;
+  // Campo legado (TEXT slug) — mantido para leitura de registros antigos
   forma_pagamento: FormaPagamento | null;
+  // Campo novo (UUID FK) — usado em novos registros e edições
+  forma_pagamento_id: string | null;
   observacoes: string | null;
   created_at: string;
 }
@@ -55,12 +54,18 @@ export type RecebimentoInput = Omit<Recebimento, "id" | "created_at">;
 export interface Pagamento {
   id: string;
   descricao: string;
-  categoria: string;
+  // Campo legado (TEXT nome) — mantido para leitura de registros antigos
+  categoria: string | null;
+  // Campo novo (UUID FK) — usado em novos registros e edições
+  categoria_id: string | null;
   valor: number;
-  data_vencimento: string;       // ISO date "YYYY-MM-DD"
-  data_pagamento: string | null; // ISO date "YYYY-MM-DD"
+  data_vencimento: string;        // ISO date "YYYY-MM-DD"
+  data_pagamento: string | null;  // ISO date "YYYY-MM-DD"
   status: StatusPagamento;
+  // Campo legado (TEXT slug) — mantido para leitura de registros antigos
   forma_pagamento: FormaPagamento | null;
+  // Campo novo (UUID FK) — usado em novos registros e edições
+  forma_pagamento_id: string | null;
   fornecedor: string | null;
   observacoes: string | null;
   created_at: string;

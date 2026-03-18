@@ -12,8 +12,36 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import type { Recebimento, RecebimentoInput, FormaPagamento } from "@/lib/types/financeiro";
+import type { Recebimento, RecebimentoInput, FormaPagamento, FormaPagamentoItem } from "@/lib/types/financeiro";
 import { FORMA_PAGAMENTO_LABEL } from "@/lib/types/financeiro";
+
+/** Hook para carregar formas de pagamento do tipo recebimento/ambos */
+function useFormasPagamento() {
+  const [formas, setFormas] = useState<FormaPagamentoItem[]>([]);
+  const sb = useMemo(() => createClient(), []);
+  useEffect(() => {
+    sb.from("formas_pagamento")
+      .select("id, nome, tipo")
+      .in("tipo", ["recebimento", "ambos"])
+      .order("nome")
+      .then(({ data }) => { if (data) setFormas(data as FormaPagamentoItem[]); });
+  }, [sb]);
+  return { formas };
+}
+
+/** Converte nome da forma de pagamento para slug legado */
+function slugFromNome(nome: string): FormaPagamento | null {
+  const map: Record<string, FormaPagamento> = {
+    "Dinheiro":          "dinheiro",
+    "PIX":               "pix",
+    "Cartão de Crédito": "cartao_credito",
+    "Cartão de Débito":  "cartao_debito",
+    "Transferência":     "transferencia",
+    "Boleto":            "boleto",
+    "Cheque":            "cheque",
+  };
+  return map[nome] ?? null;
+}
 
 /** Hook para buscar procedimentos dinamicamente do Supabase */
 interface ProcedimentoOpcao {
@@ -74,6 +102,7 @@ interface FormModalProps {
   onSalvar: (dados: RecebimentoInput, recorrencia?: { meses: number }) => Promise<void>;
   onFechar: () => void;
   salvando: boolean;
+  formas: FormaPagamentoItem[];
 }
 
 // ─── Autocomplete de Pacientes ───────────────────────────────────────────────
@@ -191,7 +220,7 @@ function AutocompletePaciente({
 
 // ─── Formulário Modal ─────────────────────────────────────────────────────────
 
-function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
+function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalProps) {
   const { procedimentos, carregando: carregandoProc } = useProcedimentos();
 
   // Extrai o procedimento base removendo numeração de parcelas: "Acupuntura (2/4)" → "Acupuntura"
@@ -206,9 +235,10 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
     valor:            inicial?.valor            ?? 0,
     data_vencimento:  inicial?.data_vencimento  ?? "",
     data_pagamento:   inicial?.data_pagamento   ?? null,
-    status:           inicial?.status           ?? "pendente",
-    forma_pagamento:  inicial?.forma_pagamento  ?? null,
-    observacoes:      inicial?.observacoes      ?? null,
+    status:              inicial?.status              ?? "pendente",
+    forma_pagamento:     inicial?.forma_pagamento     ?? null,
+    forma_pagamento_id:  inicial?.forma_pagamento_id  ?? null,
+    observacoes:         inicial?.observacoes         ?? null,
   });
   const [repete, setRepete] = useState(false);
   const [meses, setMeses]   = useState(3);
@@ -330,14 +360,22 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
             <div>
               <label className="block text-xs font-medium text-slate-600 mb-1">Forma de Pagamento</label>
               <Select
-                value={form.forma_pagamento ?? ""}
-                onValueChange={v => set("forma_pagamento", v || null)}
+                value={form.forma_pagamento_id ?? ""}
+                onValueChange={v => {
+                  const fp = formas.find(f => f.id === v);
+                  set("forma_pagamento_id", v || null);
+                  set("forma_pagamento", fp ? slugFromNome(fp.nome) : null);
+                }}
               >
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(FORMA_PAGAMENTO_LABEL).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
+                  {formas.length === 0 ? (
+                    <SelectItem value="__loading" disabled>Carregando...</SelectItem>
+                  ) : (
+                    formas.map(f => (
+                      <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -440,6 +478,18 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
 
 export default function FinanceiroRecebimentos() {
   const { procedimentos } = useProcedimentos();
+  const { formas } = useFormasPagamento();
+
+  // Rótulo da forma de pagamento para exibição (prefere UUID, fallback para slug legado)
+  function formaLabel(item: Recebimento): string | null {
+    if (item.forma_pagamento_id) {
+      return formas.find(f => f.id === item.forma_pagamento_id)?.nome ?? null;
+    }
+    if (item.forma_pagamento) {
+      return FORMA_PAGAMENTO_LABEL[item.forma_pagamento as FormaPagamento] ?? null;
+    }
+    return null;
+  }
   const [itens, setItens]         = useState<Recebimento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro]           = useState<string | null>(null);
@@ -752,8 +802,8 @@ export default function FinanceiroRecebimentos() {
                     <div className="flex items-center gap-4 mt-1 text-xs text-slate-500 flex-wrap">
                       <span>Venc.: {fmtDate(item.data_vencimento)}</span>
                       {item.data_pagamento && <span>Pago: {fmtDate(item.data_pagamento)}</span>}
-                      {item.forma_pagamento && (
-                        <span>{FORMA_PAGAMENTO_LABEL[item.forma_pagamento as FormaPagamento]}</span>
+                      {formaLabel(item) && (
+                        <span>{formaLabel(item)}</span>
                       )}
                     </div>
                   </div>
@@ -805,6 +855,7 @@ export default function FinanceiroRecebimentos() {
           onSalvar={salvar}
           onFechar={() => { setModalAberto(false); setEditando(null); }}
           salvando={salvando}
+          formas={formas}
         />
       )}
 
@@ -860,7 +911,7 @@ export default function FinanceiroRecebimentos() {
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-1">Forma de Pagamento</p>
-                  <p className="text-sm text-slate-900">{visualizando.forma_pagamento ? FORMA_PAGAMENTO_LABEL[visualizando.forma_pagamento as FormaPagamento] : <span className="italic text-slate-400">—</span>}</p>
+                  <p className="text-sm text-slate-900">{formaLabel(visualizando) ?? <span className="italic text-slate-400">—</span>}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-slate-500 mb-1">Registrado em</p>
