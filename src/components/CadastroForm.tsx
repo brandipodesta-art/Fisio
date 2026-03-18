@@ -630,7 +630,8 @@ export default function CadastroForm({
 
     const payload = {
       tipo_usuario: formData.tipoUsuario,
-      profissional_responsavel: formData.profissionalResponsavel,
+      // Converte string vazia para null — FK exige valor válido ou NULL
+      profissional_responsavel: formData.profissionalResponsavel || null,
       nome_completo: formData.nomeCompleto,
       cpf: formData.cpf,
       rg: formData.rg,
@@ -714,7 +715,8 @@ export default function CadastroForm({
       // ── Modo criação: INSERT via Supabase client ──
       const { error } = await supabase.from('pacientes').insert({
         tipo_usuario: formData.tipoUsuario,
-        profissional_responsavel: formData.profissionalResponsavel,
+        // Converte string vazia para null — FK exige valor válido ou NULL
+        profissional_responsavel: formData.profissionalResponsavel || null,
         nome_completo: formData.nomeCompleto,
         cpf: formData.cpf,
         rg: formData.rg,
