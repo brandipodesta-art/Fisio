@@ -746,7 +746,7 @@ export default function CadastroForm({
         if (error.code === '23505') {
           throw new Error('Paciente com este CPF já cadastrado no sistema.');
         }
-        throw error;
+        throw new Error(error.message || error.details || `Erro ao salvar cadastro (código: ${error.code}).`);
       }
 
       // ── Sincronizar com tabela profissionais se for Funcionário ou Financeiro ──
@@ -785,8 +785,14 @@ export default function CadastroForm({
       onSalvoComSucesso?.();
     } catch (err: any) {
       toast.dismiss();
-      console.error(err);
-      toast.error(err.message || "Erro ao salvar cadastro. Tente novamente.");
+      // Extrai a mensagem real — suporta Error nativo e objeto de erro do Supabase
+      const msg =
+        err?.message ||
+        err?.details ||
+        (typeof err === "string" ? err : null) ||
+        "Erro ao salvar cadastro. Tente novamente.";
+      console.error("[CadastroForm] handleSubmit error:", msg, err);
+      toast.error(msg);
     } finally {
       setIsSubmitting(false);
     }
