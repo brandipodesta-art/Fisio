@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import type { Pagamento, PagamentoInput, FormaPagamento } from "@/lib/types/financeiro";
+import { createClient } from "@/lib/supabase/client";
 import { FORMA_PAGAMENTO_LABEL, CATEGORIA_PAGAMENTO } from "@/lib/types/financeiro";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -270,6 +271,16 @@ function FormModal({ inicial, onSalvar, onFechar, salvando }: FormModalProps) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function FinanceiroPagamentos() {
+  const [categoriasList, setCategoriasList] = useState<{ id: string; nome: string }[]>([]);
+
+  // Carrega categorias dinamicamente do banco
+  useEffect(() => {
+    const sb = createClient();
+    sb.from("categorias_pagamento").select("id, nome").order("nome").then(({ data }) => {
+      if (data) setCategoriasList(data as { id: string; nome: string }[]);
+    });
+  }, []);
+
   const [itens, setItens]             = useState<Pagamento[]>([]);
   const [carregando, setCarregando]   = useState(true);
   const [erro, setErro]               = useState<string | null>(null);
