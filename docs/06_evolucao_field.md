@@ -14,7 +14,9 @@ Componente para registrar e visualizar a evolução clínica do paciente. Permit
 
 | Import | Tipo | Origem |
 |---|---|---|
-| `useState` | React Hook | `react` |
+| `useState, useEffect` | React Hooks | `react` |
+| `ConfirmDeleteDialog` | UI Component | `@/components/ui/ConfirmDeleteDialog` |
+| `createClient` | Supabase Client | `@/lib/supabase/client` |
 | `Button` | UI Component | `@/components/ui/button` |
 | `Card` | UI Component | `@/components/ui/card` |
 | `Textarea` | UI Component | `@/components/ui/textarea` |
@@ -41,6 +43,8 @@ Componente para registrar e visualizar a evolução clínica do paciente. Permit
 | `evolucoes` | `Evolucao[]` | `[]` | Lista de evoluções salvas |
 | `textoAtual` | `string` | `""` | Texto sendo digitado no form |
 | `showForm` | `boolean` | `false` | Controla visibilidade do formulário |
+| `isLoading` | `boolean` | `true` | Indica carregamento de dados do Supabase |
+| `deletandoId` | `string \| null` | `null` | ID da evolução aguardando confirmação de exclusão |
 
 ---
 
@@ -60,8 +64,13 @@ Componente para registrar e visualizar a evolução clínica do paciente. Permit
 6. Exibe toast de sucesso
 
 ### `handleDeletarEvolucao(id: string)`
-1. Filtra o array removendo a evolução com o `id` correspondente
-2. Exibe toast de confirmação
+1. Faz backup do array antes da exclusão (rollback otimista)
+2. Remove visualmente a evolução do array
+3. Envia `DELETE` para o Supabase
+4. Em caso de erro, restaura o backup e exibe toast de erro
+5. Em caso de sucesso, exibe toast de confirmação
+
+> **Confirmação:** A exclusão é precedida por um `ConfirmDeleteDialog` — diálogo in-app harmonizado com o sistema. O botão de lixeira abre o dialog ao invés de executar a exclusão diretamente.
 
 ---
 
@@ -213,9 +222,9 @@ Componente para registrar e visualizar a evolução clínica do paciente. Permit
 
 ## Notas para Edição Futura
 
-- **Persistência:** Dados armazenados apenas em estado React — perdem-se ao recarregar a página. Precisa integrar com backend/banco de dados
+- ~~**Persistência:** Dados armazenados apenas em estado React~~ — **Resolvido:** Agora integrado com Supabase via `createClient()`
 - **Contradição na UI:** O texto diz "não pode ser editado" mas o botão de **deletar** existe — se realmente imutável, remover o botão de excluir
-- **ID gerado:** Usa `Date.now()` — pode colidir se 2 evoluções forem salvas no mesmo milissegundo (improvável mas possível). Considerar `crypto.randomUUID()`
+- ~~**ID gerado:** Usa `Date.now()`~~ — **Resolvido:** UUID gerado pelo Supabase
 - **Paginação:** Sem limite de evoluções na lista — considerar paginação se paciente tiver muitas evoluções
 - **Busca/filtro:** Não há como buscar ou filtrar evoluções — útil para pacientes com muitos registros
 - **Impressão:** Considerar botão para exportar/imprimir evoluções

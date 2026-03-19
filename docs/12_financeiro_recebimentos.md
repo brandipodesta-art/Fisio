@@ -30,7 +30,7 @@ Gerencia os recebimentos (receitas) da clínica, permitindo o registro de pagame
 ### 3. Ações Rápidas
 - **Marcar como Recebido:** Botão de check rápido para itens pendentes.
 - **Visualizar:** Modal de leitura (somente leitura) com todos os detalhes do registro, separando visualmente o procedimento base da numeração da parcela.
-- **Editar / Excluir:** Ações padrão de CRUD.
+- **Editar / Excluir:** Ações padrão de CRUD. A exclusão exibe um `ConfirmDeleteDialog` in-app (dialog harmonizado com o sistema) ao invés do `confirm()` nativo do navegador.
 
 ---
 
@@ -40,6 +40,7 @@ Gerencia os recebimentos (receitas) da clínica, permitindo o registro de pagame
 |---|---|---|
 | `useState, useCallback, useMemo` | React Hooks | `react` |
 | `Card, Button, Input, Select` | UI Components | `@/components/ui/...` |
+| `ConfirmDeleteDialog` | UI Component | `@/components/ui/ConfirmDeleteDialog` |
 | `AutocompletePaciente` | Componente | `@/components/AutocompletePaciente` |
 | `Recebimento, RecebimentoInput` | Interfaces | `@/lib/types/financeiro` |
 | Ícones variados | Ícones | `lucide-react` |

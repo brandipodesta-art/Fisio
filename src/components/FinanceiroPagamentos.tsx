@@ -1,4 +1,5 @@
 "use client";
+import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
@@ -31,10 +32,10 @@ function fmtDate(iso: string | null) {
 }
 
 const STATUS_CONFIG = {
-  pago:      { label: "Pago",      cor: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
+  pago:      { label: "Pago",      cor: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", icon: CheckCircle2 },
   pendente:  { label: "Pendente",  cor: "bg-blue-100 text-blue-700",       icon: Clock },
   atrasado:  { label: "Atrasado",  cor: "bg-orange-100 text-orange-700",   icon: AlertCircle },
-  cancelado: { label: "Cancelado", cor: "bg-slate-100 text-slate-500",     icon: XCircle },
+  cancelado: { label: "Cancelado", cor: "bg-muted text-muted-foreground",     icon: XCircle },
 };
 
 // ─── Hook para carregar formas de pagamento e categorias do banco ─────────────
@@ -121,19 +122,19 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">
+      <div className="bg-popover rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-border">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="text-base font-semibold text-foreground">
             {inicial ? "Editar Pagamento" : "Novo Pagamento"}
           </h2>
-          <button onClick={onFechar} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onFechar} className="text-muted-foreground hover:text-foreground">
             <X className="w-5 h-5" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Descrição */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Descrição *</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Descrição *</label>
             <Input
               required
               value={form.descricao}
@@ -144,7 +145,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
           {/* Categoria + Fornecedor */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Categoria *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Categoria *</label>
               <Select
                 value={form.categoria_id ?? ""}
                 onValueChange={v => {
@@ -166,7 +167,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
               </Select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Fornecedor</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Fornecedor</label>
               <Input
                 value={form.fornecedor ?? ""}
                 onChange={e => set("fornecedor", e.target.value || null)}
@@ -177,7 +178,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
           {/* Valor + Vencimento */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Valor (R$) *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Valor (R$) *</label>
               <Input
                 required
                 type="number"
@@ -189,7 +190,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Vencimento *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Vencimento *</label>
               <Input
                 required
                 type="date"
@@ -201,7 +202,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
           {/* Status + Forma de Pagamento */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Status *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Status *</label>
               <Select value={form.status} onValueChange={v => set("status", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -213,7 +214,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
               </Select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Forma de Pagamento</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Forma de Pagamento</label>
               <Select
                 value={form.forma_pagamento_id ?? ""}
                 onValueChange={v => {
@@ -237,43 +238,43 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
           </div>
           {/* Recorrência mensal — só na criação */}
           {!inicial && (
-            <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50">
+            <div className="border border-border rounded-lg p-3 space-y-3 bg-muted/50">
               <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 cursor-pointer select-none">
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground/80 cursor-pointer select-none">
                   <input
                     type="checkbox"
                     checked={repete}
                     onChange={e => setRepete(e.target.checked)}
-                    className="w-4 h-4 accent-emerald-600"
+                    className="w-4 h-4 accent-primary"
                   />
-                  <Repeat2 className="w-4 h-4 text-slate-400" />
+                  <Repeat2 className="w-4 h-4 text-muted-foreground/60" />
                   Repete mensalmente
                 </label>
                 {repete && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">Gerar mais</span>
+                    <span className="text-xs text-muted-foreground">Gerar mais</span>
                     <input
                       type="number"
                       min={1}
                       max={24}
                       value={meses}
                       onChange={e => setMeses(Math.max(1, Math.min(24, Number(e.target.value))))}
-                      className="w-16 border border-slate-200 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-16 border border-border rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary"
                     />
-                    <span className="text-xs text-slate-500">mes(es)</span>
+                    <span className="text-xs text-muted-foreground">mes(es)</span>
                   </div>
                 )}
               </div>
               {repete && datasPreview().length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1.5 flex items-center gap-1">
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
                     <CalendarDays className="w-3.5 h-3.5" /> Datas que serão criadas:
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {datasPreview().map((d, i) => {
                       const [y, mo, di] = d.split("-");
                       return (
-                        <span key={i} className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        <span key={i} className="text-xs bg-accent text-primary border border-primary/20 px-2 py-0.5 rounded-full">
                           {di}/{mo}/{y}
                         </span>
                       );
@@ -286,7 +287,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
 
           {/* Data de Pagamento */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Data do Pagamento</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Data do Pagamento</label>
             <Input
               type="date"
               value={form.data_pagamento ?? ""}
@@ -295,9 +296,9 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
           </div>
           {/* Observações */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Observações</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Observações</label>
             <textarea
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
               rows={2}
               value={form.observacoes ?? ""}
               onChange={e => set("observacoes", e.target.value || null)}
@@ -307,7 +308,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
           {/* Botões */}
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onFechar}>Cancelar</Button>
-            <Button type="submit" disabled={salvando} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button type="submit" disabled={salvando} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {salvando
                 ? "Salvando..."
                 : inicial
@@ -354,6 +355,7 @@ export default function FinanceiroPagamentos() {
   const [visualizando, setVisualizando] = useState<Pagamento | null>(null);
   const [salvando, setSalvando]       = useState(false);
   const [excluindo, setExcluindo]     = useState<string | null>(null);
+  const [excluirDialogId, setExcluirDialogId] = useState<string | null>(null);
 
   // Controle de duplicidade
   const [duplicatas, setDuplicatas]         = useState<Pagamento[]>([]);
@@ -509,10 +511,10 @@ export default function FinanceiroPagamentos() {
   }
 
   async function excluir(id: string) {
-    if (!confirm("Confirmar exclusão deste pagamento?")) return;
     setExcluindo(id);
     await fetch(`/api/pagamentos/${id}`, { method: "DELETE" });
     setExcluindo(null);
+    setExcluirDialogId(null);
     buscar();
   }
 
@@ -549,8 +551,8 @@ export default function FinanceiroPagamentos() {
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Pagamentos</h2>
-          <p className="text-sm text-slate-500">Contas e despesas da clínica</p>
+          <h2 className="text-xl font-semibold text-foreground">Pagamentos</h2>
+          <p className="text-sm text-muted-foreground">Contas e despesas da clínica</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={buscar} disabled={carregando}>
@@ -558,7 +560,7 @@ export default function FinanceiroPagamentos() {
           </Button>
           <Button
             size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
             onClick={() => { setEditando(null); setModalAberto(true); }}
           >
             <Plus className="w-4 h-4" /> Novo Pagamento
@@ -567,10 +569,10 @@ export default function FinanceiroPagamentos() {
       </div>
 
       {/* Filtros */}
-      <Card className="p-4 border-slate-200 shadow-sm">
+      <Card className="p-4 border-border shadow-sm">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
             <Input
               className="pl-9"
               placeholder="Buscar por descrição ou fornecedor..."
@@ -600,10 +602,10 @@ export default function FinanceiroPagamentos() {
         </div>
 
         {/* Filtros de data */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-slate-100">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-border/60">
           {/* Vencimento */}
           <div>
-            <p className="text-xs font-medium text-slate-500 mb-1.5">Vencimento</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Vencimento</p>
             <div className="flex items-center gap-2">
               <Input
                 type="date"
@@ -612,7 +614,7 @@ export default function FinanceiroPagamentos() {
                 className="text-sm"
                 title="De"
               />
-              <span className="text-xs text-slate-400 shrink-0">até</span>
+              <span className="text-xs text-muted-foreground/60 shrink-0">até</span>
               <Input
                 type="date"
                 value={filtroVencAte}
@@ -623,7 +625,7 @@ export default function FinanceiroPagamentos() {
               {(filtroVencDe || filtroVencAte) && (
                 <button
                   onClick={() => { setFiltroVencDe(""); setFiltroVencAte(""); }}
-                  className="shrink-0 text-slate-400 hover:text-slate-600"
+                  className="shrink-0 text-muted-foreground/60 hover:text-muted-foreground"
                   title="Limpar"
                 >
                   <X className="w-4 h-4" />
@@ -634,7 +636,7 @@ export default function FinanceiroPagamentos() {
 
           {/* Data do Pagamento */}
           <div>
-            <p className="text-xs font-medium text-slate-500 mb-1.5">Data do Pagamento</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1.5">Data do Pagamento</p>
             <div className="flex items-center gap-2">
               <Input
                 type="date"
@@ -643,7 +645,7 @@ export default function FinanceiroPagamentos() {
                 className="text-sm"
                 title="De"
               />
-              <span className="text-xs text-slate-400 shrink-0">até</span>
+              <span className="text-xs text-muted-foreground/60 shrink-0">até</span>
               <Input
                 type="date"
                 value={filtroPagAte}
@@ -654,7 +656,7 @@ export default function FinanceiroPagamentos() {
               {(filtroPagDe || filtroPagAte) && (
                 <button
                   onClick={() => { setFiltroPagDe(""); setFiltroPagAte(""); }}
-                  className="shrink-0 text-slate-400 hover:text-slate-600"
+                  className="shrink-0 text-muted-foreground/60 hover:text-muted-foreground"
                   title="Limpar"
                 >
                   <X className="w-4 h-4" />
@@ -667,7 +669,7 @@ export default function FinanceiroPagamentos() {
 
       {/* Total + aviso de duplicatas */}
       {!carregando && itens.length > 0 && (
-        <div className="flex items-center justify-between text-sm text-slate-600 px-1 flex-wrap gap-2">
+        <div className="flex items-center justify-between text-sm text-muted-foreground px-1 flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <span>{itens.length} registro(s)</span>
             {idsDuplicados.size > 0 && (
@@ -677,7 +679,7 @@ export default function FinanceiroPagamentos() {
               </span>
             )}
           </div>
-          <span className="font-semibold text-slate-800">Total: {fmt(totalFiltrado)}</span>
+          <span className="font-semibold text-foreground">Total: {fmt(totalFiltrado)}</span>
         </div>
       )}
 
@@ -691,14 +693,14 @@ export default function FinanceiroPagamentos() {
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="p-4 animate-pulse">
-              <div className="h-4 bg-slate-200 rounded w-1/2 mb-2" />
-              <div className="h-3 bg-slate-100 rounded w-1/3" />
+              <div className="h-4 bg-muted rounded w-1/2 mb-2" />
+              <div className="h-3 bg-muted rounded w-1/3" />
             </Card>
           ))}
         </div>
       ) : itens.length === 0 ? (
-        <Card className="p-10 text-center border-slate-200 shadow-sm">
-          <p className="text-slate-400 text-sm">Nenhum pagamento encontrado.</p>
+        <Card className="p-10 text-center border-border shadow-sm">
+          <p className="text-muted-foreground/60 text-sm">Nenhum pagamento encontrado.</p>
         </Card>
       ) : (
         <div className="space-y-3">
@@ -709,7 +711,7 @@ export default function FinanceiroPagamentos() {
               <Card key={item.id} className={`p-4 shadow-sm hover:shadow-md transition-shadow ${
                   idsDuplicados.has(item.id)
                     ? "border-amber-300 bg-amber-50/40"
-                    : "border-slate-200"
+                    : "border-border"
                 }`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
@@ -718,11 +720,11 @@ export default function FinanceiroPagamentos() {
                         <Icon className="w-3 h-3" />
                         {cfg.label}
                       </span>
-                      <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+                      <span className="text-xs text-muted-foreground/60 bg-muted px-2 py-0.5 rounded-full">
                         {categoriaLabel(item)}
                       </span>
                       {item.fornecedor && (
-                        <span className="text-xs text-slate-500">{item.fornecedor}</span>
+                        <span className="text-xs text-muted-foreground">{item.fornecedor}</span>
                       )}
                       {idsDuplicados.has(item.id) && (
                         <span className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
@@ -730,8 +732,8 @@ export default function FinanceiroPagamentos() {
                         </span>
                       )}
                     </div>
-                    <p className="text-sm font-medium text-slate-900 truncate">{item.descricao}</p>
-                    <div className="flex items-center gap-4 mt-1 text-xs text-slate-500 flex-wrap">
+                    <p className="text-sm font-medium text-foreground truncate">{item.descricao}</p>
+                    <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
                       <span>Venc.: {fmtDate(item.data_vencimento)}</span>
                       {item.data_pagamento && <span>Pago: {fmtDate(item.data_pagamento)}</span>}
                       {formaLabel(item) && (
@@ -740,13 +742,13 @@ export default function FinanceiroPagamentos() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-base font-bold text-slate-900">{fmt(Number(item.valor))}</span>
+                    <span className="text-base font-bold text-foreground">{fmt(Number(item.valor))}</span>
                     <div className="flex items-center gap-1">
                       {item.status === "pendente" && (
                         <button
                           onClick={() => marcarPago(item)}
                           title="Marcar como pago"
-                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50"
+                          className="p-1.5 rounded-lg text-primary hover:bg-accent"
                         >
                           <Check className="w-4 h-4" />
                         </button>
@@ -754,20 +756,20 @@ export default function FinanceiroPagamentos() {
                       <button
                         title="Visualizar"
                         onClick={() => setVisualizando(item)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                        className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-blue-600 hover:bg-blue-50"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => { setEditando(item); setModalAberto(true); }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                        className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground/80 hover:bg-muted"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => excluir(item.id)}
+                        onClick={() => setExcluirDialogId(item.id)}
                         disabled={excluindo === item.id}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -795,46 +797,46 @@ export default function FinanceiroPagamentos() {
       {/* Modal de Alerta de Duplicidade */}
       {duplicatas.length > 0 && dadosPendentes && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+          <div className="bg-popover rounded-xl shadow-2xl w-full max-w-md border border-border">
             {/* Header */}
             <div className="flex items-center gap-3 p-5 border-b border-amber-100 bg-amber-50 rounded-t-xl">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
                 <TriangleAlert className="w-5 h-5 text-amber-600" />
               </div>
               <div>
-                <h2 className="text-base font-semibold text-slate-900">Possível Duplicidade</h2>
-                <p className="text-xs text-slate-500 mt-0.5">
+                <h2 className="text-base font-semibold text-foreground">Possível Duplicidade</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {editando ? "Ao salvar esta edição, outro registro com a mesma categoria e data já existe" : "Já existe um pagamento com a mesma categoria e data"}
                 </p>
               </div>
             </div>
             {/* Corpo */}
             <div className="p-5 space-y-3">
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-muted-foreground">
                 Encontramos <strong>{duplicatas.length}</strong> registro(s) com a categoria
-                {" "}<strong className="text-slate-900">&ldquo;{
+                {" "}<strong className="text-foreground">&ldquo;{
                   dadosPendentes.categoria_id
                     ? (categorias.find(c => c.id === dadosPendentes.categoria_id)?.nome ?? dadosPendentes.categoria)
                     : dadosPendentes.categoria
                 }&rdquo;</strong>{" "}
                 e vencimento em{" "}
-                <strong className="text-slate-900">{fmtDate(dadosPendentes.data_vencimento)}</strong>:
+                <strong className="text-foreground">{fmtDate(dadosPendentes.data_vencimento)}</strong>:
               </p>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {duplicatas.map(d => {
                   const cfg = STATUS_CONFIG[d.status];
                   const Icon = cfg.icon;
                   return (
-                    <div key={d.id} className="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
+                    <div key={d.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 border border-border/60">
                       <div>
-                        <p className="text-sm font-medium text-slate-800">{d.descricao}</p>
-                        <p className="text-xs text-slate-400">{d.fornecedor ?? "—"} &middot; Venc.: {fmtDate(d.data_vencimento)}</p>
+                        <p className="text-sm font-medium text-foreground">{d.descricao}</p>
+                        <p className="text-xs text-muted-foreground/60">{d.fornecedor ?? "—"} &middot; Venc.: {fmtDate(d.data_vencimento)}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.cor}`}>
                           <Icon className="w-3 h-3" />{cfg.label}
                         </span>
-                        <span className="text-sm font-semibold text-slate-700">{fmt(Number(d.valor))}</span>
+                        <span className="text-sm font-semibold text-foreground/80">{fmt(Number(d.valor))}</span>
                       </div>
                     </div>
                   );
@@ -847,7 +849,7 @@ export default function FinanceiroPagamentos() {
               </p>
             </div>
             {/* Rodapé */}
-            <div className="flex justify-end gap-3 p-5 border-t border-slate-100">
+            <div className="flex justify-end gap-3 p-5 border-t border-border/60">
               <Button
                 variant="outline"
                 onClick={() => { setDuplicatas([]); setDadosPendentes(null); }}
@@ -868,64 +870,64 @@ export default function FinanceiroPagamentos() {
       {/* Modal de Visualização */}
       {visualizando && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
-                <Eye className="w-5 h-5 text-blue-500" /> Detalhes do Pagamento
+          <div className="bg-popover rounded-xl shadow-xl w-full max-w-lg border border-border">
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                <Eye className="w-4 h-4 text-blue-500" /> Detalhes do Pagamento
               </h2>
-              <button onClick={() => setVisualizando(null)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setVisualizando(null)} className="text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Descrição</p>
-                  <p className="text-sm text-slate-900">{visualizando.descricao}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Descrição</p>
+                  <p className="text-sm text-foreground">{visualizando.descricao}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Categoria</p>
-                  <p className="text-sm text-slate-900">{categoriaLabel(visualizando)}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Categoria</p>
+                  <p className="text-sm text-foreground">{categoriaLabel(visualizando)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Valor</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Valor</p>
                   <p className="text-sm font-semibold text-red-700">{fmt(Number(visualizando.valor))}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Status</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Status</p>
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CONFIG[visualizando.status].cor}`}>
                     {STATUS_CONFIG[visualizando.status].label}
                   </span>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Vencimento</p>
-                  <p className="text-sm text-slate-900">{fmtDate(visualizando.data_vencimento)}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Vencimento</p>
+                  <p className="text-sm text-foreground">{fmtDate(visualizando.data_vencimento)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Data do Pagamento</p>
-                  <p className="text-sm text-slate-900">{visualizando.data_pagamento ? fmtDate(visualizando.data_pagamento) : <span className="italic text-slate-400">—</span>}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Data do Pagamento</p>
+                  <p className="text-sm text-foreground">{visualizando.data_pagamento ? fmtDate(visualizando.data_pagamento) : <span className="italic text-muted-foreground/60">—</span>}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Forma de Pagamento</p>
-                  <p className="text-sm text-slate-900">{formaLabel(visualizando) ?? <span className="italic text-slate-400">—</span>}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Forma de Pagamento</p>
+                  <p className="text-sm text-foreground">{formaLabel(visualizando) ?? <span className="italic text-muted-foreground/60">—</span>}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Fornecedor</p>
-                  <p className="text-sm text-slate-900">{visualizando.fornecedor ?? <span className="italic text-slate-400">—</span>}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Fornecedor</p>
+                  <p className="text-sm text-foreground">{visualizando.fornecedor ?? <span className="italic text-muted-foreground/60">—</span>}</p>
                 </div>
               </div>
               {visualizando.observacoes && (
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Observações</p>
-                  <p className="text-sm text-slate-700 bg-slate-50 rounded-lg p-3">{visualizando.observacoes}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Observações</p>
+                  <p className="text-sm text-foreground/80 bg-muted/50 rounded-lg p-3">{visualizando.observacoes}</p>
                 </div>
               )}
             </div>
-            <div className="flex justify-end gap-3 p-5 border-t border-slate-100">
+            <div className="flex justify-end gap-3 p-5 border-t border-border/60">
               <Button variant="outline" onClick={() => setVisualizando(null)}>Fechar</Button>
               <Button
                 onClick={() => { setEditando(visualizando); setModalAberto(true); setVisualizando(null); }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
               >
                 <Pencil className="w-4 h-4" /> Editar
               </Button>
@@ -933,6 +935,16 @@ export default function FinanceiroPagamentos() {
           </div>
         </div>
       )}
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <ConfirmDeleteDialog
+        open={!!excluirDialogId}
+        onOpenChange={(open) => { if (!open) setExcluirDialogId(null); }}
+        onConfirm={() => { if (excluirDialogId) excluir(excluirDialogId); }}
+        titulo="Excluir Pagamento"
+        mensagem="Tem certeza que deseja excluir este pagamento? Esta ação não pode ser desfeita."
+        loading={!!excluindo}
+      />
     </div>
   );
 }

@@ -19,19 +19,27 @@ export default function FinanceiroPage() {
 
   return (
     <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-8 py-8">
-      {/* Abas de navegação */}
-      <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 mb-8 w-full">
+      {/* Cabecalho da pagina */}
+      <div className="mb-6">
+        <h1 className="text-xl font-semibold text-foreground">Financeiro</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Controle de recebimentos, pagamentos e fluxo de caixa
+        </p>
+      </div>
+
+      {/* Abas de navegacao — estilo premium */}
+      <div className="flex items-center gap-1 bg-muted/60 rounded-xl p-1 mb-8 w-full border border-border">
         {ABAS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
             onClick={() => setAba(key)}
             className={`
               flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg
-              text-sm font-medium transition-all duration-150 cursor-pointer
+              text-sm font-medium transition-premium cursor-pointer
               ${
                 aba === key
-                  ? "bg-white text-emerald-700 shadow-sm"
-                  : "text-slate-500 hover:text-slate-800 hover:bg-white/60"
+                  ? "bg-card text-primary shadow-sm"
+                  : "text-muted-foreground hover:text-foreground hover:bg-card/40"
               }
             `}
           >
@@ -41,10 +49,12 @@ export default function FinanceiroPage() {
         ))}
       </div>
 
-      {/* Conteúdo da aba ativa */}
-      {aba === "resumo"       && <FinanceiroResumo />}
-      {aba === "recebimentos" && <FinanceiroRecebimentos />}
-      {aba === "pagamentos"   && <FinanceiroPagamentos />}
+      {/* Conteudo da aba ativa */}
+      <div className="animate-fade-in" key={aba}>
+        {aba === "resumo"       && <FinanceiroResumo />}
+        {aba === "recebimentos" && <FinanceiroRecebimentos />}
+        {aba === "pagamentos"   && <FinanceiroPagamentos />}
+      </div>
     </div>
   );
 }

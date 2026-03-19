@@ -24,6 +24,12 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -42,88 +48,168 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   CAMADA 1 — NEUTRAL FOUNDATION
+   4 layers de background, strokes sutis em 85% white,
+   3 níveis de texto (foreground / secondary / muted)
+   ═══════════════════════════════════════════════════════════ */
+
 :root {
-  --primary: oklch(0.515 0.195 142.5);
+  --radius: 0.625rem;
+
+  /* ── Camada 2: Functional Accent (Emerald 500/600) ─────── */
+  --primary:            oklch(0.505 0.193 142.5);
   --primary-foreground: oklch(1 0 0);
-  --sidebar-primary: oklch(0.515 0.195 142.5);
+
+  /* ── Camada 1: Neutral Foundation ──────────────────────── */
+  /* 4 layers: background → sidebar → card → popover */
+  --background:         oklch(0.970 0.002 264);
+  --card:               oklch(0.995 0.001 264);
+  --popover:            oklch(1 0 0);
+  --foreground:         oklch(0.145 0.006 265);
+  --card-foreground:    oklch(0.145 0.006 265);
+  --popover-foreground: oklch(0.145 0.006 265);
+
+  /* Sidebar — entre background e card */
+  --sidebar:                    oklch(0.982 0.001 264);
+  --sidebar-foreground:         oklch(0.145 0.006 265);
+  --sidebar-primary:            oklch(0.505 0.193 142.5);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --chart-1: oklch(0.515 0.195 142.5);
-  --chart-2: oklch(0.515 0.195 142.5);
-  --chart-3: oklch(0.515 0.195 142.5);
-  --chart-4: oklch(0.515 0.195 142.5);
-  --chart-5: oklch(0.515 0.195 142.5);
-  --radius: 0.5rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.11 0.008 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.11 0.008 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.11 0.008 65);
-  --secondary: oklch(0.97 0.001 286);
-  --secondary-foreground: oklch(0.11 0.008 65);
-  --muted: oklch(0.943 0.002 286);
-  --muted-foreground: oklch(0.55 0.016 286);
-  --accent: oklch(0.515 0.195 142.5);
-  --accent-foreground: oklch(1 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
+  --sidebar-accent:             oklch(0.955 0.012 142);
+  --sidebar-accent-foreground:  oklch(0.38 0.12 142.5);
+  --sidebar-border:             oklch(0.92 0.002 264);
+  --sidebar-ring:               oklch(0.505 0.193 142.5);
+
+  /* Secundárias e mutadas */
+  --secondary:            oklch(0.960 0.002 264);
+  --secondary-foreground: oklch(0.24 0.006 265);
+  --muted:                oklch(0.950 0.002 264);
+  --muted-foreground:     oklch(0.50 0.010 264);
+  --accent:               oklch(0.955 0.012 142);
+  --accent-foreground:    oklch(0.38 0.12 142.5);
+
+  /* ── Camada 3: Semantic Colors ─────────────────────────── */
+  --destructive:            oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.96 0.002 286);
-  --ring: oklch(0.515 0.195 142.5);
-  --sidebar: oklch(1 0 0);
-  --sidebar-foreground: oklch(0.11 0.008 65);
-  --sidebar-accent: oklch(0.515 0.195 142.5);
-  --sidebar-accent-foreground: oklch(1 0 0);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.515 0.195 142.5);
+
+  --success:            oklch(0.520 0.180 142.5);
+  --success-foreground: oklch(1 0 0);
+
+  --warning:            oklch(0.750 0.160 62);
+  --warning-foreground: oklch(0.25 0.05 62);
+
+  --info:               oklch(0.550 0.165 229);
+  --info-foreground:    oklch(1 0 0);
+
+  /* Bordas e inputs — strokes sutis */
+  --border: oklch(0.910 0.002 264);
+  --input:  oklch(0.910 0.002 264);
+  --ring:   oklch(0.505 0.193 142.5);
+
+  /* ── Gráficos — OKLCH com brilho percebido igual ─────── */
+  --chart-1: oklch(0.515 0.195 142.5);
+  --chart-2: oklch(0.550 0.165 229);
+  --chart-3: oklch(0.700 0.165 62);
+  --chart-4: oklch(0.575 0.148 293);
+  --chart-5: oklch(0.610 0.138 19);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   CAMADA 4 — DARK MODE (dobro da distância entre neutros)
+   ═══════════════════════════════════════════════════════════ */
+
 .dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
+  --primary:            oklch(0.540 0.190 142.5);
+  --primary-foreground: oklch(0.98 0 0);
+
+  /* 4 tons de fundo com distâncias dobradas */
+  --background:         oklch(0.130 0.005 265);
+  --card:               oklch(0.180 0.005 265);
+  --popover:            oklch(0.215 0.005 265);
+  --foreground:         oklch(0.900 0.003 265);
+  --card-foreground:    oklch(0.900 0.003 265);
+  --popover-foreground: oklch(0.900 0.003 265);
+
+  /* Sidebar — entre background e card */
+  --sidebar:                    oklch(0.155 0.005 265);
+  --sidebar-foreground:         oklch(0.900 0.003 265);
+  --sidebar-primary:            oklch(0.540 0.190 142.5);
+  --sidebar-primary-foreground: oklch(0.98 0 0);
+  --sidebar-accent:             oklch(0.20 0.025 142);
+  --sidebar-accent-foreground:  oklch(0.72 0.15 142.5);
+  --sidebar-border:             oklch(1 0 0 / 8%);
+  --sidebar-ring:               oklch(0.540 0.190 142.5);
+
+  /* Secundárias */
+  --secondary:            oklch(0.240 0.006 265);
+  --secondary-foreground: oklch(0.78 0.004 265);
+  --muted:                oklch(0.215 0.005 265);
+  --muted-foreground:     oklch(0.56 0.010 264);
+  --accent:               oklch(0.20 0.025 142);
+  --accent-foreground:    oklch(0.72 0.15 142.5);
+
+  /* Semânticas dark */
+  --destructive:            oklch(0.660 0.195 22);
   --destructive-foreground: oklch(0.985 0 0);
+
+  --success:            oklch(0.620 0.175 142.5);
+  --success-foreground: oklch(0.985 0 0);
+
+  --warning:            oklch(0.780 0.145 62);
+  --warning-foreground: oklch(0.20 0.04 62);
+
+  --info:               oklch(0.640 0.155 229);
+  --info-foreground:    oklch(0.985 0 0);
+
+  /* Bordas sutis — white com opacidade */
   --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+  --input:  oklch(1 0 0 / 12%);
+  --ring:   oklch(0.540 0.190 142.5);
+
+  /* Gráficos dark */
+  --chart-1: oklch(0.620 0.185 142.5);
+  --chart-2: oklch(0.640 0.155 229);
+  --chart-3: oklch(0.760 0.150 62);
+  --chart-4: oklch(0.660 0.138 293);
+  --chart-5: oklch(0.700 0.128 19);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   BASE LAYER
+   ═══════════════════════════════════════════════════════════ */
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground font-sans;
     font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold;
+
+  /* Hierarquia tipográfica premium */
+  h1 {
+    @apply text-xl font-semibold tracking-tight text-foreground;
+    line-height: 1.3;
   }
+  h2 {
+    @apply text-base font-semibold text-foreground;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+  }
+  h3 {
+    @apply text-sm font-semibold text-foreground;
+    line-height: 1.5;
+  }
+  h4, h5, h6 {
+    @apply font-medium text-foreground;
+  }
+
+  /* Cursores para elementos interativos */
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [type="button"]:not(:disabled),
@@ -135,27 +221,37 @@
   input[type="radio"]:not(:disabled) {
     @apply cursor-pointer;
   }
+
+  /* Focus ring enterprise — acessível e bonito */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Scrollbar sutil */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: oklch(0.82 0.002 264);
+    border-radius: 999px;
+  }
+  .dark ::-webkit-scrollbar-thumb { background: oklch(0.28 0.004 265); }
+  ::-webkit-scrollbar-thumb:hover { background: oklch(0.72 0.004 264); }
+  .dark ::-webkit-scrollbar-thumb:hover { background: oklch(0.38 0.004 265); }
 }
 
+/* ═══════════════════════════════════════════════════════════
+   COMPONENTS LAYER
+   ═══════════════════════════════════════════════════════════ */
+
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
+  /* Container responsivo */
   .container {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
+    padding-left: 1rem;
     padding-right: 1rem;
   }
 
@@ -164,22 +260,77 @@
     min-width: 0;
   }
 
+  /* Card premium */
   .card-minimal {
-    @apply bg-white border border-border rounded-lg shadow-sm p-6;
+    @apply bg-card border border-border rounded-xl p-6;
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 3%),
+      0 2px 8px oklch(0 0 0 / 2%);
+  }
+  .dark .card-minimal {
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 12%),
+      0 2px 8px oklch(0 0 0 / 8%);
+  }
+
+  /* Seção de página */
+  .page-section {
+    @apply p-5 md:p-6;
   }
 
   @media (min-width: 640px) {
     .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
+      padding-left: 1.5rem;
       padding-right: 1.5rem;
     }
   }
 
   @media (min-width: 1024px) {
     .container {
-      padding-left: 2rem; /* 32px - desktop padding */
+      padding-left: 2rem;
       padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      max-width: 1280px;
     }
+  }
+
+  /* ── Micro-interações ─────────────────────────────── */
+
+  /* Transição suave para elementos interativos */
+  .transition-premium {
+    transition-property: color, background-color, border-color, box-shadow, transform, opacity;
+    transition-duration: 180ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Hover de elevação para cards clicáveis */
+  .hover-lift {
+    transition: transform 180ms cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .hover-lift:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 2px 4px oklch(0 0 0 / 4%),
+      0 4px 16px oklch(0 0 0 / 3%);
+  }
+  .dark .hover-lift:hover {
+    box-shadow:
+      0 2px 4px oklch(0 0 0 / 16%),
+      0 4px 16px oklch(0 0 0 / 12%);
+  }
+
+  /* Fade in animation */
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in {
+    animation: fade-in 300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  /* Glass effect para TopBar e popovers */
+  .glass {
+    backdrop-filter: blur(12px) saturate(1.4);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
   }
 }

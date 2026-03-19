@@ -39,13 +39,13 @@ export default function AgendaEventCard({
       </div>
 
       {/* Patient name */}
-      <div className={`font-medium text-slate-900 truncate ${compact ? "text-[11px]" : "text-sm"}`}>
+      <div className={`font-medium text-foreground truncate ${compact ? "text-[11px]" : "text-sm"}`}>
         {appointment.patientName}
       </div>
 
       {/* Professional name - hidden in compact mode */}
       {!compact && (
-        <div className="text-xs text-slate-500 truncate">
+        <div className="text-xs text-muted-foreground truncate">
           {professional.name}
         </div>
       )}

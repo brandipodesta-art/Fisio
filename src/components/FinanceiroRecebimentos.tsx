@@ -1,4 +1,5 @@
 "use client";
+import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -89,10 +90,10 @@ function fmtDate(iso: string | null) {
 }
 
 const STATUS_CONFIG = {
-  recebido:  { label: "Recebido",  cor: "bg-emerald-100 text-emerald-700", icon: CheckCircle2 },
+  recebido:  { label: "Recebido",  cor: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", icon: CheckCircle2 },
   pendente:  { label: "Pendente",  cor: "bg-blue-100 text-blue-700",       icon: Clock },
   atrasado:  { label: "Atrasado",  cor: "bg-orange-100 text-orange-700",   icon: AlertCircle },
-  cancelado: { label: "Cancelado", cor: "bg-slate-100 text-slate-500",     icon: XCircle },
+  cancelado: { label: "Cancelado", cor: "bg-muted text-muted-foreground",     icon: XCircle },
 };
 
 // ─── Formulário Modal ─────────────────────────────────────────────────────────
@@ -171,38 +172,38 @@ function AutocompletePaciente({
   return (
     <div ref={wrapperRef} className="relative">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
         <input
           type="text"
           value={query}
           onChange={handleChange}
           onFocus={() => sugestoes.length > 0 && setAberto(true)}
           placeholder="Digite o nome do paciente..."
-          className="w-full pl-9 pr-8 py-2 border border-slate-200 rounded-lg text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+          className="w-full pl-9 pr-8 py-2 border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
         />
         {query && (
           <button
             type="button"
             onClick={limpar}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-muted-foreground"
           >
             <X className="w-4 h-4" />
           </button>
         )}
       </div>
       {buscando && (
-        <p className="text-xs text-slate-400 mt-1 pl-1">Buscando...</p>
+        <p className="text-xs text-muted-foreground/60 mt-1 pl-1">Buscando...</p>
       )}
       {pacienteId && (
-        <p className="text-xs text-emerald-600 mt-1 pl-1">✓ Paciente vinculado</p>
+        <p className="text-xs text-primary mt-1 pl-1">✓ Paciente vinculado</p>
       )}
       {aberto && sugestoes.length > 0 && (
-        <ul className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+        <ul className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
           {sugestoes.map(p => (
             <li
               key={p.id}
               onMouseDown={() => selecionar(p)}
-              className="px-4 py-2.5 text-sm text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer"
+              className="px-4 py-2.5 text-sm text-foreground hover:bg-accent hover:text-primary cursor-pointer"
             >
               {p.nome_completo}
             </li>
@@ -210,7 +211,7 @@ function AutocompletePaciente({
         </ul>
       )}
       {aberto && sugestoes.length === 0 && !buscando && query.length >= 2 && (
-        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg px-4 py-3 text-sm text-slate-400">
+        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg px-4 py-3 text-sm text-muted-foreground/60">
           Nenhum paciente encontrado
         </div>
       )}
@@ -270,19 +271,19 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-slate-200">
-          <h2 className="text-lg font-semibold text-slate-900">
+      <div className="bg-popover rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-border">
+          <h2 className="text-lg font-semibold text-foreground">
             {inicial ? "Editar Recebimento" : "Novo Recebimento"}
           </h2>
-          <button onClick={onFechar} className="text-slate-400 hover:text-slate-600">
+          <button onClick={onFechar} className="text-muted-foreground/60 hover:text-muted-foreground">
             <X className="w-5 h-5" />
           </button>
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Paciente — Autocomplete */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Nome do Paciente</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Nome do Paciente</label>
             <AutocompletePaciente
               value={form.paciente_nome ?? ""}
               pacienteId={form.paciente_id}
@@ -291,7 +292,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
           </div>
           {/* Procedimento */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Procedimento *</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Procedimento *</label>
             <Select
               value={form.descricao}
               onValueChange={v => {
@@ -322,7 +323,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
           {/* Valor + Vencimento */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Valor (R$) *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Valor (R$) *</label>
               <Input
                 required
                 type="number"
@@ -334,7 +335,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Vencimento *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Vencimento *</label>
               <Input
                 required
                 type="date"
@@ -346,7 +347,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
           {/* Status + Forma de Pagamento */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Status *</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Status *</label>
               <Select value={form.status} onValueChange={v => set("status", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -358,7 +359,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
               </Select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-600 mb-1">Forma de Pagamento</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Forma de Pagamento</label>
               <Select
                 value={form.forma_pagamento_id ?? ""}
                 onValueChange={v => {
@@ -382,49 +383,49 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
           </div>
           {/* Recorrência mensal — só na criação */}
           {!inicial && (
-            <div className="border border-slate-200 rounded-lg p-3 space-y-3 bg-slate-50">
+            <div className="border border-border rounded-lg p-3 space-y-3 bg-muted/50">
               <div className="flex items-center justify-between">
                 <label className={`flex items-center gap-2 text-sm font-medium select-none ${
-                  form.data_vencimento ? "text-slate-700 cursor-pointer" : "text-slate-400 cursor-not-allowed"
+                  form.data_vencimento ? "text-foreground/80 cursor-pointer" : "text-muted-foreground/60 cursor-not-allowed"
                 }`}>
                   <input
                     type="checkbox"
                     checked={repete}
                     disabled={!form.data_vencimento}
                     onChange={e => setRepete(e.target.checked)}
-                    className="w-4 h-4 accent-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="w-4 h-4 accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
                   />
-                  <Repeat2 className={`w-4 h-4 ${form.data_vencimento ? "text-slate-400" : "text-slate-300"}`} />
+                  <Repeat2 className={`w-4 h-4 ${form.data_vencimento ? "text-muted-foreground/60" : "text-muted-foreground/30"}`} />
                   Repete mensalmente
                   {!form.data_vencimento && (
-                    <span className="text-xs font-normal text-slate-400">(preencha o vencimento primeiro)</span>
+                    <span className="text-xs font-normal text-muted-foreground/60">(preencha o vencimento primeiro)</span>
                   )}
                 </label>
                 {repete && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-slate-500">Gerar mais</span>
+                    <span className="text-xs text-muted-foreground">Gerar mais</span>
                     <input
                       type="number"
                       min={1}
                       max={24}
                       value={meses}
                       onChange={e => setMeses(Math.max(1, Math.min(24, Number(e.target.value))))}
-                      className="w-16 border border-slate-200 rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="w-16 border border-border rounded-md px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-primary"
                     />
-                    <span className="text-xs text-slate-500">mes(es)</span>
+                    <span className="text-xs text-muted-foreground">mes(es)</span>
                   </div>
                 )}
               </div>
               {repete && datasPreview().length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1.5 flex items-center gap-1">
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
                     <CalendarDays className="w-3.5 h-3.5" /> Datas que serão criadas:
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     {datasPreview().map((d, i) => {
                       const [y, mo, di] = d.split("-");
                       return (
-                        <span key={i} className="text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded-full">
+                        <span key={i} className="text-xs bg-accent text-primary border border-primary/20 px-2 py-0.5 rounded-full">
                           {di}/{mo}/{y}
                         </span>
                       );
@@ -437,7 +438,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
 
           {/* Data de Pagamento */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Data do Pagamento</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Data do Pagamento</label>
             <Input
               type="date"
               value={form.data_pagamento ?? ""}
@@ -446,9 +447,9 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
           </div>
           {/* Observações */}
           <div>
-            <label className="block text-xs font-medium text-slate-600 mb-1">Observações</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Observações</label>
             <textarea
-              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full border border-border rounded-lg px-3 py-2 text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
               rows={2}
               value={form.observacoes ?? ""}
               onChange={e => set("observacoes", e.target.value || null)}
@@ -458,7 +459,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
           {/* Botões */}
           <div className="flex justify-end gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onFechar}>Cancelar</Button>
-            <Button type="submit" disabled={salvando} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+            <Button type="submit" disabled={salvando} className="bg-primary hover:bg-primary/90 text-primary-foreground">
               {salvando
                 ? "Salvando..."
                 : inicial
@@ -498,6 +499,7 @@ export default function FinanceiroRecebimentos() {
   const [visualizando, setVisualizando] = useState<Recebimento | null>(null);
   const [salvando, setSalvando]   = useState(false);
   const [excluindo, setExcluindo] = useState<string | null>(null);
+  const [excluirDialogId, setExcluirDialogId] = useState<string | null>(null);
 
   // Filtros
   const [filtroStatus,        setFiltroStatus]        = useState("todos");
@@ -585,10 +587,10 @@ export default function FinanceiroRecebimentos() {
   }
 
   async function excluir(id: string) {
-    if (!confirm("Confirmar exclusão deste recebimento?")) return;
     setExcluindo(id);
     await fetch(`/api/recebimentos/${id}`, { method: "DELETE" });
     setExcluindo(null);
+    setExcluirDialogId(null);
     buscar();
   }
 
@@ -633,8 +635,8 @@ export default function FinanceiroRecebimentos() {
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Recebimentos</h2>
-          <p className="text-sm text-slate-500">Pagamentos recebidos e a receber dos clientes</p>
+          <h2 className="text-xl font-semibold text-foreground">Recebimentos</h2>
+          <p className="text-sm text-muted-foreground">Pagamentos recebidos e a receber dos clientes</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={buscar} disabled={carregando}>
@@ -642,7 +644,7 @@ export default function FinanceiroRecebimentos() {
           </Button>
           <Button
             size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
             onClick={() => { setEditando(null); setModalAberto(true); }}
           >
             <Plus className="w-4 h-4" /> Novo Recebimento
@@ -651,11 +653,11 @@ export default function FinanceiroRecebimentos() {
       </div>
 
       {/* Filtros */}
-      <Card className="p-4 border-slate-200 shadow-sm space-y-3">
+      <Card className="p-4 border-border shadow-sm space-y-3">
         {/* Linha 1: busca + status */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
             <Input
               className="pl-9"
               placeholder="Buscar por paciente..."
@@ -678,7 +680,7 @@ export default function FinanceiroRecebimentos() {
         {/* Linha 2: procedimento */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Procedimento</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Procedimento</label>
             <Select value={filtroProcedimento} onValueChange={setFiltroProcedimento}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -692,7 +694,7 @@ export default function FinanceiroRecebimentos() {
 
           {/* Vencimento de/até */}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Vencimento — de / até</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Vencimento — de / até</label>
             <div className="flex items-center gap-1.5">
               <Input
                 type="date"
@@ -701,7 +703,7 @@ export default function FinanceiroRecebimentos() {
                 className="text-xs"
                 title="Vencimento a partir de"
               />
-              <span className="text-slate-400 text-xs shrink-0">até</span>
+              <span className="text-muted-foreground/60 text-xs shrink-0">até</span>
               <Input
                 type="date"
                 value={filtroVencAte}
@@ -714,7 +716,7 @@ export default function FinanceiroRecebimentos() {
 
           {/* Data de Pagamento de/até */}
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Data Pagamento — de / até</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Data Pagamento — de / até</label>
             <div className="flex items-center gap-1.5">
               <Input
                 type="date"
@@ -723,7 +725,7 @@ export default function FinanceiroRecebimentos() {
                 className="text-xs"
                 title="Pagamento a partir de"
               />
-              <span className="text-slate-400 text-xs shrink-0">até</span>
+              <span className="text-muted-foreground/60 text-xs shrink-0">até</span>
               <Input
                 type="date"
                 value={filtroPagAte}
@@ -740,7 +742,7 @@ export default function FinanceiroRecebimentos() {
           <div className="flex justify-end">
             <button
               onClick={limparFiltrosExtras}
-              className="text-xs text-slate-500 hover:text-red-600 flex items-center gap-1 underline underline-offset-2"
+              className="text-xs text-muted-foreground hover:text-red-600 flex items-center gap-1 underline underline-offset-2"
             >
               <X className="w-3 h-3" /> Limpar filtros extras
             </button>
@@ -750,14 +752,14 @@ export default function FinanceiroRecebimentos() {
 
       {/* Total */}
       {!carregando && itensFiltrados.length > 0 && (
-        <div className="flex items-center justify-between text-sm text-slate-600 px-1">
+        <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
           <span>
             {itensFiltrados.length} registro(s)
             {filtrosExtrasAtivos && itens.length !== itensFiltrados.length && (
-              <span className="text-slate-400 ml-1">(de {itens.length})</span>
+              <span className="text-muted-foreground/60 ml-1">(de {itens.length})</span>
             )}
           </span>
-          <span className="font-semibold text-slate-800">Total: {fmt(totalFiltrado)}</span>
+          <span className="font-semibold text-foreground">Total: {fmt(totalFiltrado)}</span>
         </div>
       )}
 
@@ -771,14 +773,14 @@ export default function FinanceiroRecebimentos() {
         <div className="space-y-3">
           {[...Array(4)].map((_, i) => (
             <Card key={i} className="p-4 animate-pulse">
-              <div className="h-4 bg-slate-200 rounded w-1/2 mb-2" />
-              <div className="h-3 bg-slate-100 rounded w-1/3" />
+              <div className="h-4 bg-muted rounded w-1/2 mb-2" />
+              <div className="h-3 bg-muted rounded w-1/3" />
             </Card>
           ))}
         </div>
       ) : itensFiltrados.length === 0 ? (
-        <Card className="p-10 text-center border-slate-200 shadow-sm">
-          <p className="text-slate-400 text-sm">Nenhum recebimento encontrado.</p>
+        <Card className="p-10 text-center border-border shadow-sm">
+          <p className="text-muted-foreground/60 text-sm">Nenhum recebimento encontrado.</p>
         </Card>
       ) : (
         <div className="space-y-3">
@@ -786,7 +788,7 @@ export default function FinanceiroRecebimentos() {
             const cfg = STATUS_CONFIG[item.status];
             const Icon = cfg.icon;
             return (
-              <Card key={item.id} className="p-4 border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+              <Card key={item.id} className="p-4 border-border shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -795,11 +797,11 @@ export default function FinanceiroRecebimentos() {
                         {cfg.label}
                       </span>
                       {item.paciente_nome && (
-                        <span className="text-xs text-slate-500">{item.paciente_nome}</span>
+                        <span className="text-xs text-muted-foreground">{item.paciente_nome}</span>
                       )}
                     </div>
-                    <p className="text-sm font-medium text-slate-900 truncate">{item.descricao}</p>
-                    <div className="flex items-center gap-4 mt-1 text-xs text-slate-500 flex-wrap">
+                    <p className="text-sm font-medium text-foreground truncate">{item.descricao}</p>
+                    <div className="flex items-center gap-4 mt-1 text-xs text-muted-foreground flex-wrap">
                       <span>Venc.: {fmtDate(item.data_vencimento)}</span>
                       {item.data_pagamento && <span>Pago: {fmtDate(item.data_pagamento)}</span>}
                       {formaLabel(item) && (
@@ -808,13 +810,13 @@ export default function FinanceiroRecebimentos() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-base font-bold text-slate-900">{fmt(Number(item.valor))}</span>
+                    <span className="text-base font-bold text-foreground">{fmt(Number(item.valor))}</span>
                     <div className="flex items-center gap-1">
                       {item.status === "pendente" && (
                         <button
                           onClick={() => marcarRecebido(item)}
                           title="Marcar como recebido"
-                          className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50"
+                          className="p-1.5 rounded-lg text-primary hover:bg-accent"
                         >
                           <Check className="w-4 h-4" />
                         </button>
@@ -822,20 +824,20 @@ export default function FinanceiroRecebimentos() {
                       <button
                         title="Visualizar"
                         onClick={() => setVisualizando(item)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                        className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-blue-600 hover:bg-blue-50"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => { setEditando(item); setModalAberto(true); }}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100"
+                        className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground/80 hover:bg-muted"
                       >
                         <Pencil className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => excluir(item.id)}
+                        onClick={() => setExcluirDialogId(item.id)}
                         disabled={excluindo === item.id}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-red-600 hover:bg-red-50"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -862,79 +864,89 @@ export default function FinanceiroRecebimentos() {
       {/* Modal de Visualização */}
       {visualizando && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
-            <div className="flex items-center justify-between p-5 border-b border-slate-200">
-              <h2 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+          <div className="bg-popover rounded-xl shadow-xl w-full max-w-lg">
+            <div className="flex items-center justify-between p-5 border-b border-border">
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <Eye className="w-5 h-5 text-blue-500" /> Detalhes do Recebimento
               </h2>
-              <button onClick={() => setVisualizando(null)} className="text-slate-400 hover:text-slate-600">
+              <button onClick={() => setVisualizando(null)} className="text-muted-foreground/60 hover:text-muted-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Paciente</p>
-                  <p className="text-sm text-slate-900">{visualizando.paciente_nome || <span className="italic text-slate-400">—</span>}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Paciente</p>
+                  <p className="text-sm text-foreground">{visualizando.paciente_nome || <span className="italic text-muted-foreground/60">—</span>}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Procedimento</p>
-                  <p className="text-sm text-slate-900">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Procedimento</p>
+                  <p className="text-sm text-foreground">
                     {visualizando.descricao.replace(/\s*\(\d+\/\d+\)$/, "").trim()}
                     {/\(\d+\/\d+\)$/.test(visualizando.descricao) && (
-                      <span className="ml-1.5 text-xs text-slate-400 font-normal">
+                      <span className="ml-1.5 text-xs text-muted-foreground/60 font-normal">
                         {visualizando.descricao.match(/(\(\d+\/\d+\))$/)?.[1]}
                       </span>
                     )}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Valor</p>
-                  <p className="text-sm font-semibold text-emerald-700">{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(visualizando.valor)}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Valor</p>
+                  <p className="text-sm font-semibold text-primary">{new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(visualizando.valor)}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Status</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Status</p>
                   <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                    visualizando.status === 'recebido' ? 'bg-emerald-100 text-emerald-700' :
+                    visualizando.status === 'recebido' ? 'bg-green-100 text-green-700' :
                     visualizando.status === 'atrasado' ? 'bg-red-100 text-red-700' :
-                    visualizando.status === 'cancelado' ? 'bg-slate-100 text-slate-500' :
+                    visualizando.status === 'cancelado' ? 'bg-muted text-muted-foreground' :
                     'bg-amber-100 text-amber-700'
                   }`}>{visualizando.status.charAt(0).toUpperCase() + visualizando.status.slice(1)}</span>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Vencimento</p>
-                  <p className="text-sm text-slate-900">{new Date(visualizando.data_vencimento + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Vencimento</p>
+                  <p className="text-sm text-foreground">{new Date(visualizando.data_vencimento + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Data do Pagamento</p>
-                  <p className="text-sm text-slate-900">{visualizando.data_pagamento ? new Date(visualizando.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR') : <span className="italic text-slate-400">—</span>}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Data do Pagamento</p>
+                  <p className="text-sm text-foreground">{visualizando.data_pagamento ? new Date(visualizando.data_pagamento + 'T12:00:00').toLocaleDateString('pt-BR') : <span className="italic text-muted-foreground/60">—</span>}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Forma de Pagamento</p>
-                  <p className="text-sm text-slate-900">{formaLabel(visualizando) ?? <span className="italic text-slate-400">—</span>}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Forma de Pagamento</p>
+                  <p className="text-sm text-foreground">{formaLabel(visualizando) ?? <span className="italic text-muted-foreground/60">—</span>}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Registrado em</p>
-                  <p className="text-sm text-slate-900">{new Date(visualizando.created_at).toLocaleDateString('pt-BR')}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Registrado em</p>
+                  <p className="text-sm text-foreground">{new Date(visualizando.created_at).toLocaleDateString('pt-BR')}</p>
                 </div>
               </div>
               {visualizando.observacoes && (
                 <div>
-                  <p className="text-xs font-medium text-slate-500 mb-1">Observações</p>
-                  <p className="text-sm text-slate-700 bg-slate-50 rounded-lg p-3">{visualizando.observacoes}</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Observações</p>
+                  <p className="text-sm text-foreground/80 bg-muted/50 rounded-lg p-3">{visualizando.observacoes}</p>
                 </div>
               )}
             </div>
-            <div className="flex justify-end gap-3 p-5 border-t border-slate-100">
+            <div className="flex justify-end gap-3 p-5 border-t border-border/60">
               <Button variant="outline" onClick={() => setVisualizando(null)}>Fechar</Button>
               <Button onClick={() => { setEditando(visualizando); setModalAberto(true); setVisualizando(null); }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+                className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
                 <Pencil className="w-4 h-4" /> Editar
               </Button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <ConfirmDeleteDialog
+        open={!!excluirDialogId}
+        onOpenChange={(open) => { if (!open) setExcluirDialogId(null); }}
+        onConfirm={() => { if (excluirDialogId) excluir(excluirDialogId); }}
+        titulo="Excluir Recebimento"
+        mensagem="Tem certeza que deseja excluir este recebimento? Esta ação não pode ser desfeita."
+        loading={!!excluindo}
+      />
     </div>
   );
 }

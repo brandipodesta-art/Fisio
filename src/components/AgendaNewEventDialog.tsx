@@ -101,7 +101,7 @@ export default function AgendaNewEventDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CalendarPlus className="w-5 h-5 text-emerald-600" />
+            <CalendarPlus className="w-5 h-5 text-primary" />
             Novo Agendamento
           </DialogTitle>
           <DialogDescription>
@@ -112,7 +112,7 @@ export default function AgendaNewEventDialog({
         <div className="space-y-4 mt-2">
           {/* Patient Name */}
           <div>
-            <Label htmlFor="patient" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="patient" className="text-sm font-medium text-foreground/80">
               Paciente *
             </Label>
             <Input
@@ -127,7 +127,7 @@ export default function AgendaNewEventDialog({
 
           {/* Professional */}
           <div>
-            <Label htmlFor="professional" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="professional" className="text-sm font-medium text-foreground/80">
               Profissional *
             </Label>
             <Select value={professionalId} onValueChange={setProfessionalId}>
@@ -153,7 +153,7 @@ export default function AgendaNewEventDialog({
           {/* Date + Time row */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label htmlFor="date" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="date" className="text-sm font-medium text-foreground/80">
                 Data *
               </Label>
               <Input
@@ -165,7 +165,7 @@ export default function AgendaNewEventDialog({
               />
             </div>
             <div>
-              <Label htmlFor="time" className="text-sm font-medium text-slate-700">
+              <Label htmlFor="time" className="text-sm font-medium text-foreground/80">
                 Horário *
               </Label>
               <Select value={startTime} onValueChange={setStartTime}>
@@ -185,7 +185,7 @@ export default function AgendaNewEventDialog({
 
           {/* Duration */}
           <div>
-            <Label htmlFor="duration" className="text-sm font-medium text-slate-700">
+            <Label htmlFor="duration" className="text-sm font-medium text-foreground/80">
               Duração
             </Label>
             <Select value={duration} onValueChange={setDuration}>
@@ -204,8 +204,8 @@ export default function AgendaNewEventDialog({
 
           {/* Notes */}
           <div>
-            <Label htmlFor="notes" className="text-sm font-medium text-slate-700">
-              Observação <span className="text-slate-400 font-normal">(opcional)</span>
+            <Label htmlFor="notes" className="text-sm font-medium text-foreground/80">
+              Observação <span className="text-muted-foreground/60 font-normal">(opcional)</span>
             </Label>
             <Input
               id="notes"
@@ -218,13 +218,13 @@ export default function AgendaNewEventDialog({
         </div>
 
         {/* Action buttons */}
-        <div className="flex gap-2 justify-end mt-4 pt-4 border-t border-slate-200">
+        <div className="flex gap-2 justify-end mt-4 pt-4 border-t border-border">
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancelar
           </Button>
           <Button
             onClick={handleSave}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
             Agendar
           </Button>

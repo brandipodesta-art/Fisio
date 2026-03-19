@@ -807,8 +807,8 @@ export default function CadastroForm({
   if (loadingPaciente) {
     return (
       <div className="flex items-center justify-center py-24">
-        <div className="flex flex-col items-center gap-3 text-slate-500">
-          <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
           <span className="text-sm">Carregando dados do paciente...</span>
         </div>
       </div>
@@ -825,15 +825,15 @@ export default function CadastroForm({
         </div>
       )}
       {/* Seção 1: Tipo de Usuário e Profissional */}
-      <Card className="p-6 border-slate-200 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">
+      <Card className="p-6 border-border shadow-sm">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           Tipo de Usuário
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label
               htmlFor="tipoUsuario"
-              className="text-sm font-medium text-slate-700"
+              className="text-sm font-medium text-foreground/80"
             >
               Selecione o tipo de usuário *
             </Label>
@@ -858,7 +858,7 @@ export default function CadastroForm({
             <div>
               <Label
                 htmlFor="profissionalResponsavel"
-                className="text-sm font-medium text-slate-700"
+                className="text-sm font-medium text-foreground/80"
               >
                 Profissional Responsável *
               </Label>
@@ -890,8 +890,8 @@ export default function CadastroForm({
       </Card>
 
       {/* Seção 2: Dados Pessoais */}
-      <Card className="p-6 border-slate-200 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">
+      <Card className="p-6 border-border shadow-sm">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           Dados Pessoais
         </h2>
         <div className="space-y-4">
@@ -899,7 +899,7 @@ export default function CadastroForm({
           <div>
             <Label
               htmlFor="nomeCompleto"
-              className="text-sm font-medium text-slate-700"
+              className="text-sm font-medium text-foreground/80"
             >
               Nome Completo *
             </Label>
@@ -922,7 +922,7 @@ export default function CadastroForm({
             <div>
               <Label
                 htmlFor="cpf"
-                className="text-sm font-medium text-slate-700"
+                className="text-sm font-medium text-foreground/80"
               >
                 CPF *
               </Label>
@@ -937,13 +937,13 @@ export default function CadastroForm({
                     fieldErrors.cpf
                       ? "border-red-400 focus-visible:ring-red-400 pr-10"
                       : validations.cpf
-                      ? "border-emerald-400 pr-10"
+                      ? "border-primary/40 pr-10"
                       : ""
                   }
                 />
                 {/* Ícone de sucesso */}
                 {validations.cpf && (
-                  <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-600 pointer-events-none" />
+                  <CheckCircle2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary pointer-events-none" />
                 )}
                 {/* Ícone de erro */}
                 {fieldErrors.cpf && (
@@ -961,7 +961,7 @@ export default function CadastroForm({
             <div>
               <Label
                 htmlFor="rg"
-                className="text-sm font-medium text-slate-700"
+                className="text-sm font-medium text-foreground/80"
               >
                 RG
               </Label>
@@ -982,7 +982,7 @@ export default function CadastroForm({
             <div>
               <Label
                 htmlFor="dataNascimento"
-                className="text-sm font-medium text-slate-700"
+                className="text-sm font-medium text-foreground/80"
               >
                 Data de Nascimento
               </Label>
@@ -997,7 +997,7 @@ export default function CadastroForm({
                     ? "border-red-400 focus-visible:ring-red-400"
                     : formData.dataNascimento.length === 10 &&
                       !fieldErrors.dataNascimento
-                    ? "border-emerald-400"
+                    ? "border-primary/40"
                     : ""
                 }`}
               />
@@ -1011,7 +1011,7 @@ export default function CadastroForm({
             <div>
               <Label
                 htmlFor="estadoCivil"
-                className="text-sm font-medium text-slate-700"
+                className="text-sm font-medium text-foreground/80"
               >
                 Estado Civil
               </Label>
@@ -1038,7 +1038,7 @@ export default function CadastroForm({
           <div>
             <Label
               htmlFor="profissao"
-              className="text-sm font-medium text-slate-700"
+              className="text-sm font-medium text-foreground/80"
             >
               Profissão
             </Label>
@@ -1059,15 +1059,15 @@ export default function CadastroForm({
       </Card>
 
       {/* Seção 3: Contato */}
-      <Card className="p-6 border-slate-200 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Contato</h2>
+      <Card className="p-6 border-border shadow-sm">
+        <h2 className="text-lg font-semibold text-foreground mb-4">Contato</h2>
         <div className="space-y-4">
           {/* Telefones */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label
                 htmlFor="telefonFixo"
-                className="text-sm font-medium text-slate-700"
+                className="text-sm font-medium text-foreground/80"
               >
                 Telefone Fixo
               </Label>
@@ -1079,14 +1079,14 @@ export default function CadastroForm({
                 maxLength={14}
                 className="mt-2"
               />
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-muted-foreground/60">
                 Formato: (DDD) 0000-0000
               </p>
             </div>
             <div>
               <Label
                 htmlFor="telefonCel"
-                className="text-sm font-medium text-slate-700"
+                className="text-sm font-medium text-foreground/80"
               >
                 Telefone Celular
               </Label>
@@ -1098,7 +1098,7 @@ export default function CadastroForm({
                 maxLength={15}
                 className="mt-2"
               />
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-muted-foreground/60">
                 Formato: (DDD) 00000-0000
               </p>
             </div>
@@ -1108,7 +1108,7 @@ export default function CadastroForm({
           <div>
             <Label
               htmlFor="comoFicouSabendo"
-              className="text-sm font-medium text-slate-700"
+              className="text-sm font-medium text-foreground/80"
             >
               Como ficou sabendo da nossa clínica?
             </Label>
@@ -1133,14 +1133,14 @@ export default function CadastroForm({
       </Card>
 
       {/* Seção 4: Endereço */}
-      <Card className="p-6 border-slate-200 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">Endereço</h2>
+      <Card className="p-6 border-border shadow-sm">
+        <h2 className="text-lg font-semibold text-foreground mb-4">Endereço</h2>
         <div className="space-y-4">
           {/* CEP — busca automática ao completar 8 dígitos (sem botão Buscar) */}
           <div>
             <Label
               htmlFor="cep"
-              className="text-sm font-medium text-slate-700"
+              className="text-sm font-medium text-foreground/80"
             >
               CEP
             </Label>
@@ -1155,20 +1155,20 @@ export default function CadastroForm({
                   fieldErrors.cep
                     ? "border-red-400 focus-visible:ring-red-400"
                     : validations.cep
-                    ? "border-emerald-400"
+                    ? "border-primary/40"
                     : ""
                 }`}
               />
               {/* Ícone de status do CEP */}
               <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                 {cepLoading ? (
-                  <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                  <Loader2 className="w-4 h-4 text-muted-foreground/60 animate-spin" />
                 ) : validations.cep ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <CheckCircle2 className="w-4 h-4 text-primary" />
                 ) : fieldErrors.cep ? (
                   <AlertCircle className="w-4 h-4 text-red-500" />
                 ) : (
-                  <Search className="w-4 h-4 text-slate-300" />
+                  <Search className="w-4 h-4 text-muted-foreground/30" />
                 )}
               </div>
             </div>
@@ -1178,7 +1178,7 @@ export default function CadastroForm({
                 {fieldErrors.cep}
               </p>
             ) : (
-              <p className="mt-1 text-xs text-slate-400">
+              <p className="mt-1 text-xs text-muted-foreground/60">
                 Endereço preenchido automaticamente ao digitar o CEP completo
               </p>
             )}
@@ -1189,7 +1189,7 @@ export default function CadastroForm({
             <div className="md:col-span-2">
               <Label
                 htmlFor="rua"
-                className="text-sm font-medium text-slate-700"
+                className="text-sm font-medium text-foreground/80"
               >
                 Rua
               </Label>
@@ -1200,13 +1200,13 @@ export default function CadastroForm({
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, rua: e.target.value }))
                 }
-                className="mt-2 bg-slate-50"
+                className="mt-2 bg-muted/50"
               />
             </div>
             <div>
               <Label
                 htmlFor="numero"
-                className="text-sm font-medium text-slate-700"
+                className="text-sm font-medium text-foreground/80"
               >
                 Número
               </Label>
@@ -1227,7 +1227,7 @@ export default function CadastroForm({
             <div>
               <Label
                 htmlFor="bairro"
-                className="text-sm font-medium text-slate-700"
+                className="text-sm font-medium text-foreground/80"
               >
                 Bairro
               </Label>
@@ -1238,13 +1238,13 @@ export default function CadastroForm({
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, bairro: e.target.value }))
                 }
-                className="mt-2 bg-slate-50"
+                className="mt-2 bg-muted/50"
               />
             </div>
             <div>
               <Label
                 htmlFor="complemento"
-                className="text-sm font-medium text-slate-700"
+                className="text-sm font-medium text-foreground/80"
               >
                 Complemento
               </Label>
@@ -1267,7 +1267,7 @@ export default function CadastroForm({
           <div>
             <Label
               htmlFor="cidade"
-              className="text-sm font-medium text-slate-700"
+              className="text-sm font-medium text-foreground/80"
             >
               Cidade
             </Label>
@@ -1278,20 +1278,20 @@ export default function CadastroForm({
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, cidade: e.target.value }))
               }
-              className="mt-2 bg-slate-50"
+              className="mt-2 bg-muted/50"
             />
           </div>
         </div>
       </Card>
 
       {/* Seção 5: Nota Fiscal */}
-      <Card className="p-6 border-slate-200 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900 mb-4">
+      <Card className="p-6 border-border shadow-sm">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
           Nota Fiscal
         </h2>
         <div className="space-y-4">
           <div>
-            <Label className="text-sm font-medium text-slate-700">
+            <Label className="text-sm font-medium text-foreground/80">
               Deseja emitir NF no nome de outra pessoa ou empresa?
             </Label>
             <div className="flex gap-4 mt-3">
@@ -1307,9 +1307,9 @@ export default function CadastroForm({
                       emitirNF: e.target.value,
                     }))
                   }
-                  className="w-4 h-4 accent-emerald-600"
+                  className="w-4 h-4 accent-primary"
                 />
-                <span className="text-sm text-slate-700">Não</span>
+                <span className="text-sm text-foreground/80">Não</span>
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -1323,9 +1323,9 @@ export default function CadastroForm({
                       emitirNF: e.target.value,
                     }))
                   }
-                  className="w-4 h-4 accent-emerald-600"
+                  className="w-4 h-4 accent-primary"
                 />
-                <span className="text-sm text-slate-700">Sim</span>
+                <span className="text-sm text-foreground/80">Sim</span>
               </label>
             </div>
           </div>
@@ -1351,7 +1351,7 @@ export default function CadastroForm({
                   <div>
                     <Label
                       htmlFor="nfCpfCnpj"
-                      className="text-sm font-medium text-slate-700"
+                      className="text-sm font-medium text-foreground/80"
                     >
                       CPF ou CNPJ *
                     </Label>
@@ -1366,15 +1366,15 @@ export default function CadastroForm({
                           fieldErrors.nfCpfCnpj
                             ? "border-red-400 focus-visible:ring-red-400"
                             : nfCpfCnpjValid === true
-                            ? "border-emerald-400"
+                            ? "border-primary/40"
                             : ""
                         }`}
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                         {nfCnpjLoading ? (
-                          <Loader2 className="w-5 h-5 text-slate-400 animate-spin" />
+                          <Loader2 className="w-5 h-5 text-muted-foreground/60 animate-spin" />
                         ) : nfCpfCnpjValid === true ? (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
                         ) : fieldErrors.nfCpfCnpj ? (
                           <XCircle className="w-5 h-5 text-red-500" />
                         ) : null}
@@ -1386,7 +1386,7 @@ export default function CadastroForm({
                         {fieldErrors.nfCpfCnpj}
                       </p>
                     ) : (
-                      <p className="mt-1 text-xs text-slate-400">
+                      <p className="mt-1 text-xs text-muted-foreground/60">
                         {formData.nfCpfCnpj.replace(/\D/g, "").length < 12
                           ? "CPF: validado automaticamente ao digitar 11 dígitos"
                           : "CNPJ: dados preenchidos automaticamente ao digitar 14 dígitos"}
@@ -1398,7 +1398,7 @@ export default function CadastroForm({
                   <div>
                     <Label
                       htmlFor="nfNomeCompleto"
-                      className="text-sm font-medium text-slate-700"
+                      className="text-sm font-medium text-foreground/80"
                     >
                       Nome Completo *
                     </Label>
@@ -1420,7 +1420,7 @@ export default function CadastroForm({
                   <div>
                     <Label
                       htmlFor="nfCep"
-                      className="text-sm font-medium text-slate-700"
+                      className="text-sm font-medium text-foreground/80"
                     >
                       CEP
                     </Label>
@@ -1435,13 +1435,13 @@ export default function CadastroForm({
                       />
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                         {nfCepLoading ? (
-                          <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                          <Loader2 className="w-4 h-4 text-muted-foreground/60 animate-spin" />
                         ) : (
-                          <Search className="w-4 h-4 text-slate-300" />
+                          <Search className="w-4 h-4 text-muted-foreground/30" />
                         )}
                       </div>
                     </div>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-muted-foreground/60">
                       Endereço preenchido automaticamente ao digitar o CEP
                       completo
                     </p>
@@ -1452,7 +1452,7 @@ export default function CadastroForm({
                     <div className="md:col-span-2">
                       <Label
                         htmlFor="nfRua"
-                        className="text-sm font-medium text-slate-700"
+                        className="text-sm font-medium text-foreground/80"
                       >
                         Rua
                       </Label>
@@ -1466,13 +1466,13 @@ export default function CadastroForm({
                             nfRua: e.target.value,
                           }))
                         }
-                        className="mt-2 bg-slate-50"
+                        className="mt-2 bg-muted/50"
                       />
                     </div>
                     <div>
                       <Label
                         htmlFor="nfNumero"
-                        className="text-sm font-medium text-slate-700"
+                        className="text-sm font-medium text-foreground/80"
                       >
                         Número
                       </Label>
@@ -1496,7 +1496,7 @@ export default function CadastroForm({
                     <div>
                       <Label
                         htmlFor="nfBairro"
-                        className="text-sm font-medium text-slate-700"
+                        className="text-sm font-medium text-foreground/80"
                       >
                         Bairro
                       </Label>
@@ -1510,13 +1510,13 @@ export default function CadastroForm({
                             nfBairro: e.target.value,
                           }))
                         }
-                        className="mt-2 bg-slate-50"
+                        className="mt-2 bg-muted/50"
                       />
                     </div>
                     <div>
                       <Label
                         htmlFor="nfComplemento"
-                        className="text-sm font-medium text-slate-700"
+                        className="text-sm font-medium text-foreground/80"
                       >
                         Complemento
                       </Label>
@@ -1539,7 +1539,7 @@ export default function CadastroForm({
                   <div>
                     <Label
                       htmlFor="nfCidade"
-                      className="text-sm font-medium text-slate-700"
+                      className="text-sm font-medium text-foreground/80"
                     >
                       Cidade
                     </Label>
@@ -1553,7 +1553,7 @@ export default function CadastroForm({
                           nfCidade: e.target.value,
                         }))
                       }
-                      className="mt-2 bg-slate-50"
+                      className="mt-2 bg-muted/50"
                     />
                   </div>
 
@@ -1561,7 +1561,7 @@ export default function CadastroForm({
                   <div>
                     <Label
                       htmlFor="nfTelefonCel"
-                      className="text-sm font-medium text-slate-700"
+                      className="text-sm font-medium text-foreground/80"
                     >
                       Telefone Celular
                     </Label>
@@ -1578,7 +1578,7 @@ export default function CadastroForm({
 
                 <div className="flex gap-2 justify-end mt-6">
                   <Button variant="outline">Cancelar</Button>
-                  <Button className="bg-emerald-600 hover:bg-emerald-700">
+                  <Button className="bg-primary hover:bg-primary/90">
                     Salvar Dados
                   </Button>
                 </div>
@@ -1600,7 +1600,7 @@ export default function CadastroForm({
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
         >
           {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
           {modoEdicao ? "Salvar Alterações" : "Salvar Cadastro"}

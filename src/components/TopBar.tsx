@@ -1,7 +1,15 @@
 "use client";
 
-import { Activity, Users, CalendarDays, DollarSign, LogOut, Settings } from "lucide-react";
+import { Activity, Users, CalendarDays, DollarSign, LogOut, Settings, User, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 
 interface TopBarProps {
   activePage: string;
@@ -9,28 +17,28 @@ interface TopBarProps {
 }
 
 const menuItems = [
-  { key: "cadastro", label: "Cadastro", icon: Users },
-  { key: "agenda", label: "Agenda", icon: CalendarDays },
-  { key: "financeiro", label: "Financeiro", icon: DollarSign },
-  { key: "configuracoes", label: "Configurações", icon: Settings },
+  { key: "cadastro",      label: "Cadastro",      icon: Users },
+  { key: "agenda",        label: "Agenda",         icon: CalendarDays },
+  { key: "financeiro",    label: "Financeiro",     icon: DollarSign },
 ];
 
 export default function TopBar({ activePage, onPageChange }: TopBarProps) {
   return (
-    <header className="w-full bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
+    <header className="w-full bg-card/80 glass border-b border-border/50 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo — Left */}
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-emerald-600">
-              <Activity className="w-5 h-5 text-white" />
+        <div className="flex items-center justify-between h-[60px]">
+
+          {/* ── Logo ──────────────────────────────────── */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-emerald-700 shadow-sm">
+              <Activity className="w-[18px] h-[18px] text-white" />
             </div>
-            <span className="text-xl font-bold text-slate-900 tracking-tight">
-              Fisio
+            <span className="text-[15px] font-bold text-foreground tracking-tight">
+              FisioSys
             </span>
           </div>
 
-          {/* Navigation — Center */}
+          {/* ── Navegação central ─────────────────────── */}
           <nav className="flex items-center gap-1">
             {menuItems.map(({ key, label, icon: Icon }) => {
               const isActive = activePage === key;
@@ -39,34 +47,92 @@ export default function TopBar({ activePage, onPageChange }: TopBarProps) {
                   key={key}
                   onClick={() => onPageChange(key)}
                   className={`
-                    flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                    transition-colors duration-150 cursor-pointer
+                    relative flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium
+                    transition-premium cursor-pointer
                     ${
                       isActive
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                        ? "text-foreground"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
                     }
                   `}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className={`w-4 h-4 ${isActive ? "text-primary" : ""}`} />
                   <span className="hidden sm:inline">{label}</span>
+                  {/* Indicador ativo — barra inferior animada */}
+                  <span
+                    className={`
+                      absolute -bottom-[1px] left-3 right-3 h-[2px] rounded-full
+                      bg-primary transition-all duration-250 ease-out
+                      ${isActive ? "opacity-100 scale-x-100" : "opacity-0 scale-x-0"}
+                    `}
+                  />
                 </button>
               );
             })}
           </nav>
 
-          {/* Logout — Right */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="flex items-center gap-2 text-slate-500 hover:text-red-600 hover:bg-red-50 cursor-pointer"
-            onClick={() => {
-              // TODO: implement logout logic
-            }}
-          >
-            <LogOut className="w-4 h-4" />
-            <span className="hidden sm:inline">Sair</span>
-          </Button>
+          {/* ── Account Card + Popover ─────────────────── */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-premium cursor-pointer outline-none">
+                {/* Avatar com iniciais */}
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-primary/90 to-emerald-700 text-white text-xs font-semibold shadow-sm">
+                  AD
+                </div>
+                <div className="hidden md:flex flex-col items-start">
+                  <span className="text-sm font-medium text-foreground leading-tight">
+                    Admin
+                  </span>
+                  <span className="text-[11px] text-muted-foreground leading-tight">
+                    Gerenciar conta
+                  </span>
+                </div>
+                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block" />
+              </button>
+            </DropdownMenuTrigger>
+
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex items-center gap-3 py-1">
+                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-primary/90 to-emerald-700 text-white text-xs font-semibold">
+                    AD
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-sm font-semibold text-foreground">Admin</span>
+                    <span className="text-xs text-muted-foreground">admin@fisiosys.com</span>
+                  </div>
+                </div>
+              </DropdownMenuLabel>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem
+                onClick={() => onPageChange("configuracoes")}
+                className="gap-2 cursor-pointer"
+              >
+                <Settings className="w-4 h-4 text-muted-foreground" />
+                <span>Configuracoes</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem className="gap-2 cursor-pointer">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <span>Meu Perfil</span>
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem
+                className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+                onClick={() => {
+                  // TODO: implementar logout
+                }}
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Sair</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
         </div>
       </div>
     </header>

@@ -28,7 +28,7 @@ Gerencia as contas a pagar e despesas gerais da clínica. Permite o registro, ca
 ### 3. Ações Rápidas
 - **Marcar como Pago:** Botão de check rápido para itens pendentes.
 - **Visualizar:** Modal de leitura com todos os detalhes do registro.
-- **Editar / Excluir:** Ações padrão de CRUD.
+- **Editar / Excluir:** Ações padrão de CRUD. A exclusão exibe um `ConfirmDeleteDialog` in-app (dialog harmonizado com o sistema) ao invés do `confirm()` nativo do navegador.
 
 ---
 
@@ -38,6 +38,7 @@ Gerencia as contas a pagar e despesas gerais da clínica. Permite o registro, ca
 |---|---|---|
 | `useState, useCallback, useMemo` | React Hooks | `react` |
 | `Card, Button, Input, Select` | UI Components | `@/components/ui/...` |
+| `ConfirmDeleteDialog` | UI Component | `@/components/ui/ConfirmDeleteDialog` |
 | `Pagamento, PagamentoInput` | Interfaces | `@/lib/types/financeiro` |
 | Ícones variados | Ícones | `lucide-react` |
 

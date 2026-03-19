@@ -64,16 +64,16 @@ function Campo({
 }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+      <span className="text-xs font-medium text-muted-foreground/60 uppercase tracking-wide">
         {label}
       </span>
       <span
         className={`text-sm ${
           destaque
-            ? "font-semibold text-slate-900"
+            ? "font-semibold text-foreground"
             : valor === "—"
-            ? "text-slate-400 italic"
-            : "text-slate-700"
+            ? "text-muted-foreground/60 italic"
+            : "text-foreground/80"
         }`}
       >
         {valor}
@@ -95,13 +95,13 @@ function Secao({
   children: React.ReactNode;
 }) {
   return (
-    <Card className="border-slate-200 shadow-sm">
+    <Card className="border-border shadow-sm">
       <div className="p-5">
-        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-          <div className="w-7 h-7 rounded-md bg-emerald-50 flex items-center justify-center">
-            <Icone className="w-4 h-4 text-emerald-600" />
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-border/60">
+          <div className="w-7 h-7 rounded-md bg-accent flex items-center justify-center">
+            <Icone className="w-4 h-4 text-primary" />
           </div>
-          <h3 className="text-sm font-semibold text-slate-700">{titulo}</h3>
+          <h3 className="text-sm font-semibold text-foreground/80">{titulo}</h3>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-4">
           {children}
@@ -173,8 +173,8 @@ export default function PacienteVisualizacao({
   // ── Loading ───────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
-        <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground/60">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
         <span className="text-sm">Carregando dados do paciente...</span>
       </div>
     );
@@ -183,7 +183,7 @@ export default function PacienteVisualizacao({
   // ── Erro ──────────────────────────────────────────────
   if (erro || !paciente) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-slate-400">
+      <div className="flex flex-col items-center justify-center py-20 gap-3 text-muted-foreground/60">
         <AlertCircle className="w-8 h-8 text-red-400" />
         <span className="text-sm text-red-500">{erro ?? "Paciente não encontrado."}</span>
         <Button variant="outline" size="sm" onClick={onVoltar}>
@@ -194,7 +194,7 @@ export default function PacienteVisualizacao({
     );
   }
 
-  const tipoCor = TIPO_USUARIO_COLOR[paciente.tipo_usuario] ?? "bg-slate-100 text-slate-600";
+  const tipoCor = TIPO_USUARIO_COLOR[paciente.tipo_usuario] ?? "bg-muted text-muted-foreground";
   const tipoLabel = TIPO_USUARIO_LABEL[paciente.tipo_usuario] ?? paciente.tipo_usuario;
 
   return (
@@ -206,7 +206,7 @@ export default function PacienteVisualizacao({
             variant="ghost"
             size="sm"
             onClick={onVoltar}
-            className="text-slate-500 hover:text-slate-700 -ml-2"
+            className="text-muted-foreground hover:text-foreground/80 -ml-2"
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
             Voltar
@@ -220,8 +220,8 @@ export default function PacienteVisualizacao({
             disabled={alterandoStatus}
             className={`gap-2 ${
               paciente.ativo
-                ? "border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300"
-                : "border-emerald-200 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-300"
+                ? "border-destructive/20 text-destructive hover:bg-destructive/10 hover:border-destructive/30"
+                : "border-primary/20 text-primary hover:bg-accent hover:border-primary/30"
             }`}
           >
             {alterandoStatus ? (
@@ -235,7 +235,7 @@ export default function PacienteVisualizacao({
           <Button
             onClick={onEditar}
             size="sm"
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
           >
             <Pencil className="w-4 h-4" />
             Editar Cadastro
@@ -246,21 +246,21 @@ export default function PacienteVisualizacao({
       {/* ── Banner de identificação ─────────────────────────────────────────────── */}
       <Card className={`shadow-sm ${
         paciente.ativo
-          ? "border-slate-200 bg-gradient-to-r from-emerald-50 to-white"
-          : "border-slate-300 bg-gradient-to-r from-slate-100 to-white"
+          ? "border-border bg-gradient-to-r from-accent/60 to-background"
+          : "border-border bg-gradient-to-r from-muted to-background"
       }`}>
         <div className="p-5 flex items-center gap-4">
           <div className={`w-14 h-14 rounded-full flex items-center justify-center shrink-0 ${
-            paciente.ativo ? "bg-emerald-100" : "bg-slate-200"
+            paciente.ativo ? "bg-primary/10" : "bg-muted"
           }`}>
             <UserRound className={`w-7 h-7 ${
-              paciente.ativo ? "text-emerald-600" : "text-slate-400"
+              paciente.ativo ? "text-primary" : "text-muted-foreground/60"
             }`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <h2 className={`text-xl font-bold truncate ${
-                paciente.ativo ? "text-slate-900" : "text-slate-500"
+                paciente.ativo ? "text-foreground" : "text-muted-foreground"
               }`}>
                 {paciente.nome_completo}
               </h2>
@@ -268,11 +268,11 @@ export default function PacienteVisualizacao({
                 {tipoLabel}
               </span>
               {!paciente.ativo && (
-                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                   Inativo
                 </span>
               )}
-            </div>   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+            </div>   <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
               <span className="font-mono">CPF: {vazio(paciente.cpf)}</span>
               {paciente.telefone_cel && (
                 <span className="flex items-center gap-1">
@@ -288,9 +288,9 @@ export default function PacienteVisualizacao({
               )}
             </div>
           </div>
-          <div className="hidden md:flex flex-col items-end gap-1 text-xs text-slate-400 shrink-0">
+          <div className="hidden md:flex flex-col items-end gap-1 text-xs text-muted-foreground/60 shrink-0">
             <span>Cadastrado em</span>
-            <span className="font-medium text-slate-600">
+            <span className="font-medium text-muted-foreground">
               {formatarDataHora(paciente.created_at)}
             </span>
           </div>
@@ -364,7 +364,7 @@ export default function PacienteVisualizacao({
         <Button
           onClick={onEditar}
           size="sm"
-          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
         >
           <Pencil className="w-4 h-4" />
           Editar Cadastro

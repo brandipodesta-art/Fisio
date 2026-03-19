@@ -13,9 +13,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Search,
   X,
-  UserRound,
   Phone,
   Calendar,
   Users,
@@ -26,6 +31,9 @@ import {
   RefreshCw,
   Pencil,
   Eye,
+  MoreHorizontal,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -38,8 +46,7 @@ import { TIPO_USUARIO_LABEL, TIPO_USUARIO_COLOR } from "@/lib/types/paciente";
 
 /** Formata a data ISO do Supabase para DD/MM/AAAA */
 function formatarData(iso: string): string {
-  if (!iso) return "—";
-  // Se já está no formato DD/MM/AAAA, retorna direto
+  if (!iso) return "\u2014";
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(iso)) return iso;
   try {
     const d = new Date(iso);
@@ -47,6 +54,34 @@ function formatarData(iso: string): string {
   } catch {
     return iso;
   }
+}
+
+/** Gera iniciais a partir do nome */
+function getIniciais(nome: string): string {
+  const partes = nome.trim().split(/\s+/);
+  if (partes.length >= 2) {
+    return (partes[0][0] + partes[partes.length - 1][0]).toUpperCase();
+  }
+  return nome.slice(0, 2).toUpperCase();
+}
+
+/** Gera uma cor baseada no hash do nome */
+function getAvatarColor(nome: string): string {
+  const cores = [
+    "from-emerald-500 to-emerald-700",
+    "from-blue-500 to-blue-700",
+    "from-violet-500 to-violet-700",
+    "from-amber-500 to-amber-700",
+    "from-rose-500 to-rose-700",
+    "from-cyan-500 to-cyan-700",
+    "from-indigo-500 to-indigo-700",
+    "from-teal-500 to-teal-700",
+  ];
+  let hash = 0;
+  for (let i = 0; i < nome.length; i++) {
+    hash = nome.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return cores[Math.abs(hash) % cores.length];
 }
 
 // ─────────────────────────────────────────────────────────
@@ -88,7 +123,6 @@ export default function ClientesListagem({
   // Refs para debounce dos filtros de texto
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Busca de dados ──────────────────────────────────
   // ── Alternar status ativo/inativo ────────────────────────────────────
   const alternarStatus = async (cliente: PacienteResumo) => {
     try {
@@ -98,7 +132,6 @@ export default function ClientesListagem({
         body: JSON.stringify({ ativo: !cliente.ativo }),
       });
       if (!res.ok) throw new Error("Erro ao atualizar status");
-      // Atualiza localmente sem recarregar tudo
       setClientes((prev) =>
         prev.map((c) =>
           c.id === cliente.id ? { ...c, ativo: !cliente.ativo } : c
@@ -129,7 +162,6 @@ export default function ClientesListagem({
         const data: PacienteResumo[] = await res.json();
         setClientes(data);
 
-        // Atualiza o total geral apenas quando não há filtros ativos
         if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos") && (!profissional || profissional === "todos") && (!status || status === "todos")) {
           setTotalGeral(data.length);
         }
@@ -142,12 +174,12 @@ export default function ClientesListagem({
     []
   );
 
-  // Busca inicial (sem filtros) para obter o total
+  // Busca inicial
   useEffect(() => {
     buscarClientes("", "", "todos", "", "todos");
   }, [buscarClientes]);
 
-  // Dispara nova busca com debounce ao alterar filtros
+  // Debounce ao alterar filtros
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
@@ -182,22 +214,29 @@ export default function ClientesListagem({
   // ── Render ────────────────────────────────────────────
   return (
     <div className="space-y-6">
-      {/* Cabeçalho */}
+      {/* Cabecalho */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">
+          <h2 className="text-xl font-semibold text-foreground">
             Clientes Cadastrados
           </h2>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <p className="text-sm text-muted-foreground mt-1">
             {loading ? (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5">
                 <Loader2 className="w-3 h-3 animate-spin" />
                 Carregando...
               </span>
             ) : (
               <>
-                {clientes.length} de {totalGeral} clientes
-                {filtrosAtivos && " (filtros aplicados)"}
+                <span className="font-medium text-foreground">{clientes.length}</span>
+                {" de "}
+                <span className="font-medium text-foreground">{totalGeral}</span>
+                {" clientes"}
+                {filtrosAtivos && (
+                  <span className="ml-1.5 text-xs font-medium text-primary bg-accent px-2 py-0.5 rounded-full">
+                    filtros aplicados
+                  </span>
+                )}
               </>
             )}
           </p>
@@ -207,15 +246,15 @@ export default function ClientesListagem({
             variant="outline"
             size="sm"
             onClick={() => buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroProfissional)}
-            className="gap-1.5 text-slate-600"
+            className="gap-1.5 text-muted-foreground"
             disabled={loading}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-            Atualizar
+            <span className="hidden sm:inline">Atualizar</span>
           </Button>
           <Button
             onClick={onNovoCadastro}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shrink-0"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shrink-0 shadow-sm"
           >
             <UserCheck className="w-4 h-4" />
             Novo Cadastro
@@ -224,16 +263,16 @@ export default function ClientesListagem({
       </div>
 
       {/* Painel de Filtros */}
-      <Card className="p-5 border-slate-200 shadow-sm">
+      <Card className="p-5 border-border shadow-sm">
         <div className="flex items-center gap-2 mb-4">
-          <Filter className="w-4 h-4 text-slate-500" />
-          <span className="text-sm font-medium text-slate-700">
+          <Filter className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground/80">
             Filtros de Busca
           </span>
           {filtrosAtivos && (
             <button
               onClick={limparFiltros}
-              className="ml-auto flex items-center gap-1 text-xs text-slate-400 hover:text-red-500 transition-colors"
+              className="ml-auto flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-premium"
             >
               <X className="w-3 h-3" />
               Limpar filtros
@@ -244,11 +283,11 @@ export default function ClientesListagem({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {/* Filtro: Nome Completo */}
           <div>
-            <Label className="text-xs font-medium text-slate-600 mb-1.5 block">
+            <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
               Nome Completo
             </Label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
               <Input
                 placeholder="Buscar por nome..."
                 value={filtroNome}
@@ -258,7 +297,7 @@ export default function ClientesListagem({
               {filtroNome && (
                 <button
                   onClick={() => setFiltroNome("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-premium"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -268,11 +307,11 @@ export default function ClientesListagem({
 
           {/* Filtro: CPF */}
           <div>
-            <Label className="text-xs font-medium text-slate-600 mb-1.5 block">
+            <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
               CPF
             </Label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50 pointer-events-none" />
               <Input
                 placeholder="000.000.000-00"
                 value={filtroCpf}
@@ -283,7 +322,7 @@ export default function ClientesListagem({
               {filtroCpf && (
                 <button
                   onClick={() => setFiltroCpf("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/50 hover:text-muted-foreground transition-premium"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -291,10 +330,10 @@ export default function ClientesListagem({
             </div>
           </div>
 
-          {/* Filtro: Tipo de Usuário */}
+          {/* Filtro: Tipo de Usuario */}
           <div>
-            <Label className="text-xs font-medium text-slate-600 mb-1.5 block">
-              Tipo de Usuário
+            <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Tipo de Usuario
             </Label>
             <Select value={filtroTipo} onValueChange={setFiltroTipo}>
               <SelectTrigger className="text-sm">
@@ -303,17 +342,17 @@ export default function ClientesListagem({
               <SelectContent>
                 <SelectItem value="todos">Todos os tipos</SelectItem>
                 <SelectItem value="paciente">Paciente</SelectItem>
-                <SelectItem value="funcionario">Funcionário</SelectItem>
+                <SelectItem value="funcionario">Funcionario</SelectItem>
                 <SelectItem value="admin">Admin</SelectItem>
                 <SelectItem value="financeiro">Financeiro</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {/* Filtro: Profissional Responsável */}
+          {/* Filtro: Profissional Responsavel */}
           <div>
-            <Label className="text-xs font-medium text-slate-600 mb-1.5 block">
-              Profissional Responsável
+            <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
+              Profissional Responsavel
             </Label>
             <Select value={filtroProfissional} onValueChange={setFiltroProfissional}>
               <SelectTrigger className="text-sm">
@@ -330,7 +369,7 @@ export default function ClientesListagem({
 
           {/* Filtro: Status */}
           <div>
-            <Label className="text-xs font-medium text-slate-600 mb-1.5 block">
+            <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
               Status
             </Label>
             <Select value={filtroStatus} onValueChange={setFiltroStatus}>
@@ -349,20 +388,20 @@ export default function ClientesListagem({
 
       {/* Estado de erro */}
       {erro && (
-        <Card className="p-6 border-red-200 bg-red-50 shadow-sm">
+        <Card className="p-6 border-destructive/30 bg-destructive/5 shadow-sm">
           <div className="flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-red-500 shrink-0" />
+            <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
             <div>
-              <p className="text-red-700 font-medium text-sm">
+              <p className="text-destructive font-medium text-sm">
                 Erro ao carregar clientes
               </p>
-              <p className="text-red-500 text-xs mt-0.5">{erro}</p>
+              <p className="text-destructive/70 text-xs mt-0.5">{erro}</p>
             </div>
             <Button
               variant="outline"
               size="sm"
               onClick={() => buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroProfissional)}
-              className="ml-auto border-red-300 text-red-600 hover:bg-red-100"
+              className="ml-auto border-destructive/30 text-destructive hover:bg-destructive/10"
             >
               Tentar novamente
             </Button>
@@ -374,12 +413,12 @@ export default function ClientesListagem({
       {loading && !erro && (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="p-4 border-slate-200 animate-pulse">
+            <Card key={i} className="p-4 border-border animate-pulse">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-slate-200" />
+                <div className="w-10 h-10 rounded-full bg-muted" />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-slate-200 rounded w-1/3" />
-                  <div className="h-3 bg-slate-100 rounded w-2/3" />
+                  <div className="h-4 bg-muted rounded w-1/3" />
+                  <div className="h-3 bg-muted rounded w-2/3" />
                 </div>
               </div>
             </Card>
@@ -387,16 +426,18 @@ export default function ClientesListagem({
         </div>
       )}
 
-      {/* Lista de clientes */}
+      {/* Lista vazia */}
       {!loading && !erro && clientes.length === 0 && (
-        <Card className="p-12 border-slate-200 shadow-sm text-center">
-          <Users className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-          <p className="text-slate-500 font-medium">
+        <Card className="p-12 border-border shadow-sm text-center">
+          <div className="flex items-center justify-center w-14 h-14 rounded-full bg-muted mx-auto mb-4">
+            <Users className="w-7 h-7 text-muted-foreground/40" />
+          </div>
+          <p className="text-foreground font-medium">
             {filtrosAtivos
               ? "Nenhum cliente encontrado com esses filtros"
               : "Nenhum cliente cadastrado ainda"}
           </p>
-          <p className="text-slate-400 text-sm mt-1">
+          <p className="text-muted-foreground text-sm mt-1.5">
             {filtrosAtivos
               ? "Tente ajustar os filtros de busca."
               : "Clique em \"Novo Cadastro\" para adicionar o primeiro cliente."}
@@ -414,48 +455,45 @@ export default function ClientesListagem({
         </Card>
       )}
 
+      {/* Lista de clientes */}
       {!loading && !erro && clientes.length > 0 && (
         <div className="space-y-2">
           {clientes.map((cliente) => (
             <Card
               key={cliente.id}
-              className={`shadow-sm hover:shadow-md transition-all duration-150 ${
+              className={`hover-lift shadow-sm ${
                 cliente.ativo
-                  ? "border-slate-200 hover:border-slate-300"
-                  : "border-slate-200 bg-slate-50 opacity-75 hover:border-slate-300"
+                  ? "border-border"
+                  : "border-border bg-muted/30 opacity-70"
               }`}
             >
               <div className="p-4 flex items-center gap-4">
-                {/* Avatar */}
+                {/* Avatar com iniciais */}
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                    cliente.ativo ? "bg-emerald-100" : "bg-slate-200"
+                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold shadow-sm bg-gradient-to-br ${
+                    cliente.ativo ? getAvatarColor(cliente.nome_completo) : "from-gray-400 to-gray-500"
                   }`}
                 >
-                  <UserRound
-                    className={`w-5 h-5 ${
-                      cliente.ativo ? "text-emerald-600" : "text-slate-400"
-                    }`}
-                  />
+                  {getIniciais(cliente.nome_completo)}
                 </div>
 
                 {/* Dados principais */}
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className={`font-semibold truncate ${
-                      cliente.ativo ? "text-slate-900" : "text-slate-400"
+                    <span className={`font-semibold text-sm truncate ${
+                      cliente.ativo ? "text-foreground" : "text-muted-foreground"
                     }`}>
                       {cliente.nome_completo}
                     </span>
                     {!cliente.ativo && (
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
                         Inativo
                       </span>
                     )}
                     <span
-                      className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                      className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
                         TIPO_USUARIO_COLOR[cliente.tipo_usuario] ??
-                        "bg-slate-100 text-slate-600"
+                        "bg-muted text-muted-foreground"
                       }`}
                     >
                       {TIPO_USUARIO_LABEL[cliente.tipo_usuario] ??
@@ -463,7 +501,7 @@ export default function ClientesListagem({
                     </span>
                   </div>
 
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
                     <span className="font-mono">{cliente.cpf}</span>
                     {cliente.telefone_cel && (
                       <span className="flex items-center gap-1">
@@ -479,7 +517,7 @@ export default function ClientesListagem({
                     )}
                     {cliente.profissional_responsavel && (
                       <span className="hidden sm:inline">
-                        Responsável:{" "}
+                        Responsavel:{" "}
                         {cliente.profissional_responsavel
                           .replace(/-/g, " ")
                           .replace(/\b\w/g, (c) => c.toUpperCase())}
@@ -490,33 +528,56 @@ export default function ClientesListagem({
 
                 {/* Data de cadastro + cidade */}
                 <div className="hidden md:flex flex-col items-end gap-1 shrink-0">
-                  <span className="text-xs text-slate-400">
+                  <span className="text-[11px] text-muted-foreground/60">
                     Cadastro: {formatarData(cliente.created_at)}
                   </span>
                   {cliente.cidade && (
-                    <span className="text-xs text-slate-400">
+                    <span className="text-[11px] text-muted-foreground/60">
                       {cliente.cidade}
                     </span>
                   )}
                 </div>
 
-                {/* Ícones de ação */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    title="Visualizar"
-                    onClick={() => onVisualizarCliente?.(cliente)}
-                    className="p-1.5 rounded-md text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-colors"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  <button
-                    title="Editar"
-                    onClick={() => onEditarCliente?.(cliente)}
-                    className="p-1.5 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                </div>
+                {/* Menu de acoes (tres pontos) */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-2 rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-premium outline-none">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-44">
+                    <DropdownMenuItem
+                      onClick={() => onVisualizarCliente?.(cliente)}
+                      className="gap-2 cursor-pointer"
+                    >
+                      <Eye className="w-4 h-4 text-info" />
+                      <span>Visualizar</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => onEditarCliente?.(cliente)}
+                      className="gap-2 cursor-pointer"
+                    >
+                      <Pencil className="w-4 h-4 text-muted-foreground" />
+                      <span>Editar</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => alternarStatus(cliente)}
+                      className="gap-2 cursor-pointer"
+                    >
+                      {cliente.ativo ? (
+                        <>
+                          <ToggleLeft className="w-4 h-4 text-warning" />
+                          <span>Desativar</span>
+                        </>
+                      ) : (
+                        <>
+                          <ToggleRight className="w-4 h-4 text-success" />
+                          <span>Ativar</span>
+                        </>
+                      )}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </Card>
           ))}

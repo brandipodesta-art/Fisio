@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -26,6 +27,7 @@ export default function EvolucaoField() {
   const [textoAtual, setTextoAtual] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [deletandoId, setDeletandoId] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -126,29 +128,29 @@ export default function EvolucaoField() {
       {!showForm ? (
         <Button
           onClick={() => setShowForm(true)}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2"
+          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2"
         >
           <Plus className="w-4 h-4" />
           Adicionar Nova Evolução
         </Button>
       ) : (
-        <Card className="p-6 border-slate-200 shadow-sm bg-emerald-50">
-          <h3 className="text-lg font-semibold text-slate-900 mb-4">
+        <Card className="p-6 border-border shadow-sm bg-accent">
+          <h3 className="text-lg font-semibold text-foreground mb-4">
             Nova Evolução
           </h3>
 
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-slate-700 block mb-2">
+              <label className="text-sm font-medium text-foreground/80 block mb-2">
                 Descrição da Evolução do Paciente *
               </label>
               <Textarea
                 placeholder="Descreva a evolução clínica do paciente, melhorias, dificuldades, etc."
                 value={textoAtual}
                 onChange={(e) => setTextoAtual(e.target.value)}
-                className="min-h-32 resize-none border-slate-200"
+                className="min-h-32 resize-none border-border"
               />
-              <p className="text-xs text-slate-500 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 {textoAtual.length} caracteres
               </p>
             </div>
@@ -165,7 +167,7 @@ export default function EvolucaoField() {
               </Button>
               <Button
                 onClick={handleSalvarEvolucao}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground"
               >
                 Salvar Evolução
               </Button>
@@ -176,19 +178,19 @@ export default function EvolucaoField() {
 
       {/* Histórico de Evoluções */}
       <div className="space-y-3">
-        <h3 className="text-lg font-semibold text-slate-900">
+        <h3 className="text-lg font-semibold text-foreground">
           Histórico de Evoluções ({evolucoes.length})
         </h3>
 
         {isLoading ? (
-          <Card className="p-6 border-slate-200 shadow-sm text-center">
-            <p className="text-slate-500">
+          <Card className="p-6 border-border shadow-sm text-center">
+            <p className="text-muted-foreground">
               Carregando evoluções...
             </p>
           </Card>
         ) : evolucoes.length === 0 ? (
-          <Card className="p-6 border-slate-200 shadow-sm text-center">
-            <p className="text-slate-500">
+          <Card className="p-6 border-border shadow-sm text-center">
+            <p className="text-muted-foreground">
               Nenhuma evolução registrada ainda. Clique em "Adicionar Nova
               Evolução" para começar.
             </p>
@@ -197,16 +199,16 @@ export default function EvolucaoField() {
           evolucoes.map((evolucao, index) => (
             <Card
               key={evolucao.id}
-              className="p-6 border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+              className="p-6 border-border shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Lock className="w-4 h-4 text-emerald-600" />
+                  <Lock className="w-4 h-4 text-primary" />
                   <div>
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className="text-sm font-medium text-foreground">
                       Evolução #{evolucoes.length - index}
                     </p>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-muted-foreground">
                       {evolucao.dataSalva} às {evolucao.horaSalva}
                     </p>
                   </div>
@@ -214,20 +216,20 @@ export default function EvolucaoField() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => handleDeletarEvolucao(evolucao.id)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => setDeletandoId(evolucao.id)}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>
               </div>
 
-              <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
-                <p className="text-slate-700 whitespace-pre-wrap text-sm leading-relaxed">
+              <div className="bg-muted/50 rounded-lg p-4 border border-border">
+                <p className="text-foreground/80 whitespace-pre-wrap text-sm leading-relaxed">
                   {evolucao.texto}
                 </p>
               </div>
 
-              <div className="mt-3 flex items-center gap-2 text-xs text-slate-500">
+              <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                 <Lock className="w-3 h-3" />
                 <span>Este registro não pode ser editado</span>
               </div>
@@ -235,6 +237,15 @@ export default function EvolucaoField() {
           ))
         )}
       </div>
+
+      {/* Dialog de Confirmação de Exclusão */}
+      <ConfirmDeleteDialog
+        open={!!deletandoId}
+        onOpenChange={(open) => { if (!open) setDeletandoId(null); }}
+        onConfirm={() => { if (deletandoId) { handleDeletarEvolucao(deletandoId); setDeletandoId(null); } }}
+        titulo="Excluir Evolução"
+        mensagem="Tem certeza que deseja excluir esta evolução? Esta ação não pode ser desfeita."
+      />
     </div>
   );
 }

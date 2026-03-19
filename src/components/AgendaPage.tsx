@@ -167,7 +167,7 @@ export default function AgendaPage() {
   return (
     <div className="space-y-4">
       {/* Toolbar */}
-      <Card className="p-4 border-slate-200 shadow-sm">
+      <Card className="p-4 border-border shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Left: Navigation */}
           <div className="flex items-center gap-2">
@@ -187,7 +187,7 @@ export default function AgendaPage() {
                 <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
-            <h2 className="text-lg font-semibold text-slate-900 ml-2">
+            <h2 className="text-lg font-semibold text-foreground ml-2">
               {viewMode === "day" ? (
                 <>
                   <span className="hidden sm:inline">{getDayName(currentDate)}, </span>
@@ -208,13 +208,13 @@ export default function AgendaPage() {
 
           {/* Right: View toggle + New */}
           <div className="flex items-center gap-2">
-            <div className="flex border border-slate-200 rounded-lg overflow-hidden">
+            <div className="flex border border-border rounded-lg overflow-hidden">
               <button
                 onClick={() => setViewMode("day")}
                 className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                   viewMode === "day"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-white text-slate-600 hover:bg-slate-50"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground hover:bg-muted/50"
                 }`}
               >
                 Dia
@@ -223,8 +223,8 @@ export default function AgendaPage() {
                 onClick={() => setViewMode("week")}
                 className={`px-3 py-1.5 text-sm font-medium transition-colors ${
                   viewMode === "week"
-                    ? "bg-emerald-600 text-white"
-                    : "bg-white text-slate-600 hover:bg-slate-50"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground hover:bg-muted/50"
                 }`}
               >
                 Semana
@@ -232,7 +232,7 @@ export default function AgendaPage() {
             </div>
             <Button
               onClick={() => openNewDialog()}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm"
             >
               <Plus className="w-4 h-4 mr-1" />
               <span className="hidden sm:inline">Novo Agendamento</span>
@@ -245,8 +245,8 @@ export default function AgendaPage() {
       {/* Main content: Sidebar + Grid */}
       <div className="flex gap-4">
         {/* Sidebar: Professional filters */}
-        <Card className="p-4 border-slate-200 shadow-sm w-48 shrink-0 hidden md:block">
-          <h3 className="text-sm font-semibold text-slate-900 mb-3">Profissionais</h3>
+        <Card className="p-4 border-border shadow-sm w-48 shrink-0 hidden md:block">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Profissionais</h3>
           <div className="space-y-2">
             {/* Toggle all */}
             <label className="flex items-center gap-2 cursor-pointer group">
@@ -254,13 +254,13 @@ export default function AgendaPage() {
                 type="checkbox"
                 checked={selectedProfessionals.length === PROFESSIONALS.length}
                 onChange={toggleAllProfessionals}
-                className="w-4 h-4 rounded accent-emerald-600"
+                className="w-4 h-4 rounded accent-primary"
               />
-              <span className="text-sm text-slate-600 group-hover:text-slate-900 font-medium">
+              <span className="text-sm text-muted-foreground group-hover:text-foreground font-medium">
                 Todos
               </span>
             </label>
-            <div className="border-t border-slate-200 my-2" />
+            <div className="border-t border-border my-2" />
             {/* Individual professionals */}
             {PROFESSIONALS.map((prof) => (
               <label
@@ -278,7 +278,7 @@ export default function AgendaPage() {
                   className="w-2.5 h-2.5 rounded-full"
                   style={{ backgroundColor: prof.color }}
                 />
-                <span className="text-sm text-slate-600 group-hover:text-slate-900 truncate">
+                <span className="text-sm text-muted-foreground group-hover:text-foreground truncate">
                   {prof.shortName}
                 </span>
               </label>
@@ -287,26 +287,26 @@ export default function AgendaPage() {
         </Card>
 
         {/* Calendar Grid */}
-        <Card className="flex-1 border-slate-200 shadow-sm overflow-hidden">
+        <Card className="flex-1 border-border shadow-sm overflow-hidden">
           {/* Week header (only in week view) */}
           {viewMode === "week" && (
-            <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-slate-200 bg-slate-50">
+            <div className="grid grid-cols-[60px_repeat(7,1fr)] border-b border-border bg-muted/50">
               <div className="p-2" />
               {weekDays.map((day, i) => (
                 <div
                   key={i}
-                  className={`p-2 text-center border-l border-slate-200 ${
-                    isToday(day) ? "bg-emerald-50" : ""
+                  className={`p-2 text-center border-l border-border ${
+                    isToday(day) ? "bg-accent" : ""
                   }`}
                 >
-                  <div className="text-xs text-slate-500 font-medium">
+                  <div className="text-xs text-muted-foreground font-medium">
                     {getDayName(day, true)}
                   </div>
                   <div
                     className={`text-lg font-bold ${
                       isToday(day)
-                        ? "text-white bg-emerald-600 w-8 h-8 rounded-full flex items-center justify-center mx-auto"
-                        : "text-slate-900"
+                        ? "text-white bg-primary w-8 h-8 rounded-full flex items-center justify-center mx-auto"
+                        : "text-foreground"
                     }`}
                   >
                     {day.getDate()}
@@ -319,8 +319,8 @@ export default function AgendaPage() {
           {/* Time grid */}
           <div className="overflow-y-auto max-h-[calc(100vh-320px)] relative">
             {isLoading && (
-              <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
-                <span className="text-sm font-medium text-slate-500">Carregando agenda...</span>
+              <div className="absolute inset-0 bg-card/50 z-10 flex items-center justify-center">
+                <span className="text-sm font-medium text-muted-foreground">Carregando agenda...</span>
               </div>
             )}
             {TIME_SLOTS.map((slot) => (
@@ -331,18 +331,18 @@ export default function AgendaPage() {
                     ? "grid grid-cols-[60px_1fr]"
                     : "grid grid-cols-[60px_repeat(7,1fr)]"
                   }
-                  min-h-[72px] border-b border-slate-100
+                  min-h-[72px] border-b border-border/60
                 `}
               >
                 {/* Time label */}
-                <div className="p-2 text-xs text-slate-400 font-medium text-right pr-3 pt-1 border-r border-slate-200">
+                <div className="p-2 text-xs text-muted-foreground/60 font-medium text-right pr-3 pt-1 border-r border-border">
                   {slot.label}
                 </div>
 
                 {viewMode === "day" ? (
                   /* Day view: single column */
                   <div
-                    className="p-1 hover:bg-slate-50/50 cursor-pointer transition-colors relative"
+                    className="p-1 hover:bg-muted/50/50 cursor-pointer transition-colors relative"
                     onClick={() =>
                       openNewDialog(formatDateISO(currentDate), slot.label)
                     }
@@ -368,8 +368,8 @@ export default function AgendaPage() {
                     return (
                       <div
                         key={i}
-                        className={`p-0.5 border-l border-slate-100 hover:bg-slate-50/50 cursor-pointer transition-colors ${
-                          isToday(day) ? "bg-emerald-50/30" : ""
+                        className={`p-0.5 border-l border-border/60 hover:bg-muted/50/50 cursor-pointer transition-colors ${
+                          isToday(day) ? "bg-accent/30" : ""
                         }`}
                         onClick={() => openNewDialog(dateStr, slot.label)}
                       >
@@ -392,11 +392,11 @@ export default function AgendaPage() {
           {/* Empty state */}
           {filteredAppointments.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Calendar className="w-12 h-12 text-slate-300 mb-4" />
-              <h3 className="text-lg font-semibold text-slate-600 mb-1">
+              <Calendar className="w-12 h-12 text-muted-foreground/30 mb-4" />
+              <h3 className="text-lg font-semibold text-muted-foreground mb-1">
                 Nenhum agendamento
               </h3>
-              <p className="text-sm text-slate-400 mb-4">
+              <p className="text-sm text-muted-foreground/60 mb-4">
                 {selectedProfessionals.length === 0
                   ? "Selecione pelo menos um profissional na barra lateral"
                   : "Nenhum agendamento para este período"}
@@ -404,7 +404,7 @@ export default function AgendaPage() {
               {selectedProfessionals.length > 0 && (
                 <Button
                   onClick={() => openNewDialog()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
                 >
                   <Plus className="w-4 h-4 mr-1" />
                   Criar Agendamento
@@ -416,8 +416,8 @@ export default function AgendaPage() {
       </div>
 
       {/* Mobile professional filter (shown below grid on small screens) */}
-      <Card className="p-4 border-slate-200 shadow-sm md:hidden">
-        <h3 className="text-sm font-semibold text-slate-900 mb-3">Filtrar Profissionais</h3>
+      <Card className="p-4 border-border shadow-sm md:hidden">
+        <h3 className="text-sm font-semibold text-foreground mb-3">Filtrar Profissionais</h3>
         <div className="flex flex-wrap gap-2">
           {PROFESSIONALS.map((prof) => (
             <button
@@ -429,7 +429,7 @@ export default function AgendaPage() {
                 ${
                   selectedProfessionals.includes(prof.id)
                     ? `${prof.bgColor} ${prof.borderColor} ${prof.textColor}`
-                    : "bg-white border-slate-200 text-slate-400"
+                    : "bg-card border-border text-muted-foreground/60"
                 }
               `}
             >

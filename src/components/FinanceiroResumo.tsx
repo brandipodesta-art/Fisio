@@ -15,7 +15,7 @@ function fmt(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-// ─── Gráfico de barras simples (sem lib externa) ──────────────────────────────
+// ─── Grafico de barras premium (sem lib externa) ──────────────────────────────
 
 interface BarChartProps {
   recebimentos: { mes: string; valor: number }[];
@@ -33,44 +33,86 @@ function BarChart({ recebimentos, pagamentos }: BarChartProps) {
     <div className="w-full overflow-x-auto">
       <div className="min-w-[600px]">
         {/* Legenda */}
-        <div className="flex items-center gap-6 mb-4 text-sm text-slate-600">
+        <div className="flex items-center gap-6 mb-5 text-xs text-muted-foreground">
           <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-sm bg-emerald-500 inline-block" />
+            <span className="w-3 h-3 rounded-sm bg-success inline-block" />
             Recebimentos
           </span>
           <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-sm bg-red-400 inline-block" />
+            <span className="w-3 h-3 rounded-sm bg-destructive/70 inline-block" />
             Pagamentos
           </span>
         </div>
-        {/* Barras */}
-        <div className="flex items-end gap-1 h-40">
-          {recebimentos.map((r, i) => {
-            const altRec = maxValor > 0 ? (r.valor / maxValor) * 100 : 0;
-            const altPag = maxValor > 0 ? (pagamentos[i].valor / maxValor) * 100 : 0;
-            return (
-              <div key={r.mes} className="flex-1 flex flex-col items-center gap-0.5">
-                <div className="w-full flex items-end gap-0.5 h-32">
-                  {/* Barra recebimento */}
-                  <div
-                    className="flex-1 bg-emerald-500 rounded-t-sm transition-all duration-500"
-                    style={{ height: `${altRec}%`, minHeight: altRec > 0 ? 2 : 0 }}
-                    title={`Recebido: ${fmt(r.valor)}`}
-                  />
-                  {/* Barra pagamento */}
-                  <div
-                    className="flex-1 bg-red-400 rounded-t-sm transition-all duration-500"
-                    style={{ height: `${altPag}%`, minHeight: altPag > 0 ? 2 : 0 }}
-                    title={`Pago: ${fmt(pagamentos[i].valor)}`}
-                  />
+        {/* Grid lines + Barras */}
+        <div className="relative">
+          {/* Grid lines horizontais sutis */}
+          <div className="absolute inset-0 flex flex-col justify-between pointer-events-none">
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="border-t border-border/40" />
+            ))}
+          </div>
+          <div className="flex items-end gap-1.5 h-44 relative z-10">
+            {recebimentos.map((r, i) => {
+              const altRec = maxValor > 0 ? (r.valor / maxValor) * 100 : 0;
+              const altPag = maxValor > 0 ? (pagamentos[i].valor / maxValor) * 100 : 0;
+              return (
+                <div key={r.mes} className="flex-1 flex flex-col items-center gap-0.5">
+                  <div className="w-full flex items-end gap-1 h-36">
+                    {/* Barra recebimento */}
+                    <div
+                      className="flex-1 bg-success/80 rounded-t-md transition-all duration-500 hover:bg-success"
+                      style={{ height: `${altRec}%`, minHeight: altRec > 0 ? 2 : 0 }}
+                      title={`Recebido: ${fmt(r.valor)}`}
+                    />
+                    {/* Barra pagamento */}
+                    <div
+                      className="flex-1 bg-destructive/50 rounded-t-md transition-all duration-500 hover:bg-destructive/70"
+                      style={{ height: `${altPag}%`, minHeight: altPag > 0 ? 2 : 0 }}
+                      title={`Pago: ${fmt(pagamentos[i].valor)}`}
+                    />
+                  </div>
+                  <span className="text-[10px] text-muted-foreground mt-1.5 font-medium">{r.mes}</span>
                 </div>
-                <span className="text-[10px] text-slate-500 mt-1">{r.mes}</span>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── KPI Card individual ─────────────────────────────────────────────────────
+
+interface KpiCardProps {
+  label: string;
+  valor: number;
+  icon: React.ElementType;
+  variant: "success" | "info" | "warning" | "destructive" | "neutral";
+}
+
+function KpiCard({ label, valor, icon: Icon, variant }: KpiCardProps) {
+  const variantStyles = {
+    success:     { bg: "bg-success/10", icon: "text-success", text: "text-success" },
+    info:        { bg: "bg-info/10", icon: "text-info", text: "text-info" },
+    warning:     { bg: "bg-warning/10", icon: "text-warning", text: "text-warning" },
+    destructive: { bg: "bg-destructive/10", icon: "text-destructive", text: "text-destructive" },
+    neutral:     { bg: "bg-muted", icon: "text-muted-foreground", text: "text-foreground" },
+  };
+  const s = variantStyles[variant];
+
+  return (
+    <Card className="p-5 border-border shadow-sm hover-lift">
+      <div className="flex items-center gap-3 mb-2">
+        <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${s.bg}`}>
+          <Icon className={`w-[18px] h-[18px] ${s.icon}`} />
+        </div>
+        <p className="text-xs text-muted-foreground leading-tight font-medium">{label}</p>
+      </div>
+      <p className={`text-xl font-bold ${valor >= 0 ? s.text : "text-destructive"} mt-1`}>
+        {fmt(valor)}
+      </p>
+    </Card>
   );
 }
 
@@ -99,78 +141,41 @@ export default function FinanceiroResumo() {
 
   useEffect(() => { buscarResumo(); }, [buscarResumo]);
 
-  // ── Cards de totais ──────────────────────────────────────────────────────────
+  // ── Cards KPI ──────────────────────────────────────────────────────────
 
-  const cards = resumo
+  const cards: KpiCardProps[] = resumo
     ? [
+        { label: "Total Recebido",         valor: resumo.totalRecebido, icon: TrendingUp,   variant: "success" },
+        { label: "A Receber (Pendente)",    valor: resumo.totalPendente, icon: Clock,        variant: "info" },
+        { label: "Recebimentos Atrasados",  valor: resumo.totalAtrasado, icon: AlertCircle,  variant: "warning" },
+        { label: "Total Pago (Despesas)",   valor: resumo.totalPago,    icon: TrendingDown,  variant: "destructive" },
+        { label: "Despesas Pendentes",      valor: resumo.totalDespesasPendentes, icon: AlertCircle, variant: "warning" },
         {
-          label: "Total Recebido",
-          valor: resumo.totalRecebido,
-          icon: TrendingUp,
-          cor: "bg-emerald-50",
-          iconCor: "text-emerald-600",
-          textCor: "text-emerald-700",
-        },
-        {
-          label: "A Receber (Pendente)",
-          valor: resumo.totalPendente,
-          icon: Clock,
-          cor: "bg-blue-50",
-          iconCor: "text-blue-500",
-          textCor: "text-blue-700",
-        },
-        {
-          label: "Recebimentos Atrasados",
-          valor: resumo.totalAtrasado,
-          icon: AlertCircle,
-          cor: "bg-orange-50",
-          iconCor: "text-orange-500",
-          textCor: "text-orange-700",
-        },
-        {
-          label: "Total Pago (Despesas)",
-          valor: resumo.totalPago,
-          icon: TrendingDown,
-          cor: "bg-red-50",
-          iconCor: "text-red-500",
-          textCor: "text-red-700",
-        },
-        {
-          label: "Despesas Pendentes",
-          valor: resumo.totalDespesasPendentes,
-          icon: AlertCircle,
-          cor: "bg-yellow-50",
-          iconCor: "text-yellow-600",
-          textCor: "text-yellow-700",
-        },
-        {
-          label: "Saldo Líquido",
+          label: "Saldo Liquido",
           valor: resumo.saldoLiquido,
           icon: DollarSign,
-          cor: resumo.saldoLiquido >= 0 ? "bg-emerald-50" : "bg-red-50",
-          iconCor: resumo.saldoLiquido >= 0 ? "text-emerald-600" : "text-red-500",
-          textCor: resumo.saldoLiquido >= 0 ? "text-emerald-700" : "text-red-700",
+          variant: resumo.saldoLiquido >= 0 ? "success" : "destructive",
         },
       ]
     : [];
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho com seletor de ano */}
+      {/* Cabecalho com seletor de ano */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">Resumo Financeiro</h2>
-          <p className="text-sm text-slate-500">Visão geral do fluxo financeiro da clínica</p>
+          <h2 className="text-xl font-semibold text-foreground">Resumo Financeiro</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Visao geral do fluxo financeiro da clinica</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setAno(a => a - 1)}>
+        <div className="flex items-center gap-1.5">
+          <Button variant="outline" size="sm" onClick={() => setAno(a => a - 1)} className="h-8 w-8 p-0">
             <ChevronLeft className="w-4 h-4" />
           </Button>
-          <span className="text-sm font-semibold text-slate-700 w-12 text-center">{ano}</span>
-          <Button variant="outline" size="sm" onClick={() => setAno(a => a + 1)} disabled={ano >= anoAtual}>
+          <span className="text-sm font-semibold text-foreground w-12 text-center tabular-nums">{ano}</span>
+          <Button variant="outline" size="sm" onClick={() => setAno(a => a + 1)} disabled={ano >= anoAtual} className="h-8 w-8 p-0">
             <ChevronRight className="w-4 h-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={buscarResumo} disabled={carregando}>
+          <Button variant="outline" size="sm" onClick={buscarResumo} disabled={carregando} className="h-8 w-8 p-0 ml-1">
             <RefreshCw className={`w-4 h-4 ${carregando ? "animate-spin" : ""}`} />
           </Button>
         </div>
@@ -178,41 +183,33 @@ export default function FinanceiroResumo() {
 
       {/* Erro */}
       {erro && (
-        <div className="p-4 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+        <div className="p-4 rounded-xl bg-destructive/5 border border-destructive/20 text-destructive text-sm">
           {erro}
         </div>
       )}
 
-      {/* Cards de totais */}
+      {/* Cards KPI */}
       {carregando ? (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[...Array(6)].map((_, i) => (
             <Card key={i} className="p-5 animate-pulse">
-              <div className="h-4 bg-slate-200 rounded w-2/3 mb-3" />
-              <div className="h-7 bg-slate-200 rounded w-1/2" />
+              <div className="h-4 bg-muted rounded w-2/3 mb-3" />
+              <div className="h-7 bg-muted rounded w-1/2" />
             </Card>
           ))}
         </div>
       ) : resumo ? (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {cards.map(({ label, valor, icon: Icon, cor, iconCor, textCor }) => (
-            <Card key={label} className="p-5 border-slate-200 shadow-sm">
-              <div className="flex items-center gap-3 mb-1">
-                <div className={`flex items-center justify-center w-9 h-9 rounded-lg ${cor}`}>
-                  <Icon className={`w-5 h-5 ${iconCor}`} />
-                </div>
-                <p className="text-xs text-slate-500 leading-tight">{label}</p>
-              </div>
-              <p className={`text-xl font-bold ${textCor} mt-2`}>{fmt(valor)}</p>
-            </Card>
+          {cards.map((card) => (
+            <KpiCard key={card.label} {...card} />
           ))}
         </div>
       ) : null}
 
-      {/* Gráfico mensal */}
+      {/* Grafico mensal */}
       {resumo && !carregando && (
-        <Card className="p-6 border-slate-200 shadow-sm">
-          <h3 className="text-sm font-semibold text-slate-700 mb-4">
+        <Card className="p-6 border-border shadow-sm">
+          <h3 className="text-sm font-semibold text-foreground/80 mb-5">
             Recebimentos vs. Pagamentos — {ano}
           </h3>
           <BarChart
@@ -225,13 +222,15 @@ export default function FinanceiroResumo() {
       {/* Estado vazio */}
       {resumo && !carregando &&
         resumo.totalRecebido === 0 && resumo.totalPago === 0 && (
-        <Card className="p-10 border-slate-200 shadow-sm text-center">
-          <div className="flex items-center justify-center w-14 h-14 rounded-full bg-slate-100 mx-auto mb-3">
-            <DollarSign className="w-7 h-7 text-slate-400" />
+        <Card className="p-10 border-border shadow-sm text-center">
+          <div className="flex items-center justify-center w-14 h-14 rounded-full bg-muted mx-auto mb-4">
+            <DollarSign className="w-7 h-7 text-muted-foreground/40" />
           </div>
-          <p className="text-slate-500 text-sm">
-            Nenhum lançamento financeiro em {ano}. Use as abas{" "}
-            <strong>Recebimentos</strong> e <strong>Pagamentos</strong> para registrar.
+          <p className="text-foreground font-medium">
+            Nenhum lancamento financeiro em {ano}
+          </p>
+          <p className="text-muted-foreground text-sm mt-1.5">
+            Use as abas <strong>Recebimentos</strong> e <strong>Pagamentos</strong> para registrar.
           </p>
         </Card>
       )}

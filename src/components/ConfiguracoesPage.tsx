@@ -86,7 +86,7 @@ function useCrud<T extends { id: string }>(tabela: string, select = "*", orderBy
   return { itens, carregando, erro, carregar, inserir, atualizar, excluir };
 }
 
-// ─── Componente de Seção Expansível ──────────────────────────────────────────
+// ─── Componente de Secao Expansivel ──────────────────────────────────────────
 function Secao({ titulo, icone: Icone, cor, children, iniciarFechada }: {
   titulo: string;
   icone: React.ElementType;
@@ -96,20 +96,20 @@ function Secao({ titulo, icone: Icone, cor, children, iniciarFechada }: {
 }) {
   const [aberta, setAberta] = useState(false);
   return (
-    <Card className="overflow-hidden border border-slate-200 shadow-sm">
+    <Card className="overflow-hidden border border-border shadow-sm rounded-xl">
       <button
         onClick={() => setAberta(v => !v)}
-        className="w-full flex items-center justify-between p-5 bg-white hover:bg-slate-50 transition-colors"
+        className="w-full flex items-center justify-between p-5 bg-card hover:bg-muted/40 transition-premium"
       >
         <div className="flex items-center gap-3">
-          <div className={`flex items-center justify-center w-9 h-9 rounded-lg ${cor}`}>
-            <Icone className="w-5 h-5 text-white" />
+          <div className={`flex items-center justify-center w-9 h-9 rounded-xl ${cor} shadow-sm`}>
+            <Icone className="w-[18px] h-[18px] text-white" />
           </div>
-          <span className="text-base font-semibold text-slate-900">{titulo}</span>
+          <span className="text-[15px] font-semibold text-foreground">{titulo}</span>
         </div>
-        {aberta ? <ChevronDown className="w-5 h-5 text-slate-400" /> : <ChevronRight className="w-5 h-5 text-slate-400" />}
+        <ChevronDown className={`w-4 h-4 text-muted-foreground/50 transition-transform duration-200 ${aberta ? "rotate-0" : "-rotate-90"}`} />
       </button>
-      {aberta && <div className="border-t border-slate-100">{children}</div>}
+      {aberta && <div className="border-t border-border/60">{children}</div>}
     </Card>
   );
 }
@@ -133,14 +133,14 @@ function ItemLinha({
   const [confirmando, setConfirmando] = useState(false);
   const msgConfirm = mensagemExclusao ?? "Confirmar exclusão?";
   return (
-    <div className={`flex items-center justify-between px-5 py-3 border-b border-slate-100 last:border-0 group ${inativo ? "opacity-50" : ""}`}>
+    <div className={`flex items-center justify-between px-5 py-3 border-b border-border/60 last:border-0 group ${inativo ? "opacity-50" : ""}`}>
       <div className="flex items-center gap-2">
-        <span className="text-sm font-medium text-slate-800">{label}</span>
-        {inativo && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">Inativo</span>}
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        {inativo && <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full">Inativo</span>}
       </div>
       <div className="flex items-center gap-3">
         {sublabel && (
-          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
+          <span className="text-xs font-semibold text-primary bg-accent border border-primary/10 px-2.5 py-1 rounded-full">
             {sublabel}
           </span>
         )}
@@ -150,16 +150,16 @@ function ItemLinha({
             <button onClick={() => { onExcluir(); setConfirmando(false); }} className="p-1.5 rounded text-red-600 hover:bg-red-50">
               <Check className="w-4 h-4" />
             </button>
-            <button onClick={() => setConfirmando(false)} className="p-1.5 rounded text-slate-500 hover:bg-slate-100">
+            <button onClick={() => setConfirmando(false)} className="p-1.5 rounded text-muted-foreground hover:bg-muted">
               <X className="w-4 h-4" />
             </button>
           </>
         ) : (
           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={onEditar} className="p-1.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+            <button onClick={onEditar} className="p-1.5 rounded text-muted-foreground/60 hover:text-foreground/80 hover:bg-muted">
               <Pencil className="w-4 h-4" />
             </button>
-            <button onClick={() => setConfirmando(true)} className="p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50">
+            <button onClick={() => setConfirmando(true)} className="p-1.5 rounded text-muted-foreground/60 hover:text-red-600 hover:bg-red-50">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -188,12 +188,12 @@ function FormInline({
   titulo: string;
 }) {
   return (
-    <div className="px-5 py-4 bg-slate-50 border-b border-slate-200">
-      <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">{titulo}</p>
+    <div className="px-5 py-4 bg-muted/60 border-b border-border">
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">{titulo}</p>
       <div className="flex flex-wrap gap-3 items-end">
         {campos.map(c => (
           <div key={c.key} className="flex-1 min-w-[160px]">
-            <label className="text-xs text-slate-500 mb-1 block">{c.label}</label>
+            <label className="text-xs text-muted-foreground mb-1 block">{c.label}</label>
             <Input
               type={c.tipo ?? "text"}
               placeholder={c.placeholder ?? c.label}
@@ -204,7 +204,7 @@ function FormInline({
           </div>
         ))}
         <div className="flex gap-2">
-          <Button size="sm" onClick={onSalvar} disabled={salvando} className="bg-emerald-600 hover:bg-emerald-700 text-white h-9">
+          <Button size="sm" onClick={onSalvar} disabled={salvando} className="bg-primary hover:bg-primary/90 text-primary-foreground h-9">
             {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
             <span className="ml-1">Salvar</span>
           </Button>
@@ -230,8 +230,8 @@ function ConfirmarExclusao({
   const [confirmando, setConfirmando] = useState(false);
   const iconSize = tamanho === "sm" ? "w-3.5 h-3.5" : "w-4 h-4";
   const btnClass = tamanho === "sm"
-    ? "p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50"
-    : "p-1.5 rounded text-slate-400 hover:text-red-600 hover:bg-red-50";
+    ? "p-1 rounded text-muted-foreground/60 hover:text-red-600 hover:bg-red-50"
+    : "p-1.5 rounded text-muted-foreground/60 hover:text-red-600 hover:bg-red-50";
   if (confirmando) {
     return (
       <div className="flex items-center gap-1">
@@ -241,7 +241,7 @@ function ConfirmarExclusao({
           <Check className={iconSize} />
         </button>
         <button onClick={() => setConfirmando(false)}
-          className="p-1 rounded text-slate-500 hover:bg-slate-100">
+          className="p-1 rounded text-muted-foreground hover:bg-muted">
           <X className={iconSize} />
         </button>
       </div>
@@ -270,18 +270,18 @@ function ProcedimentoLinha({
     : "—";
 
   return (
-    <div className={`flex items-center justify-between px-5 py-3 border-b border-slate-100 last:border-0 group ${!item.ativo ? "opacity-50" : ""}`}>
+    <div className={`flex items-center justify-between px-5 py-3 border-b border-border/60 last:border-0 group ${!item.ativo ? "opacity-50" : ""}`}>
       {/* Nome */}
       <div className="flex items-center gap-2 min-w-0">
-        <span className="text-sm font-medium text-slate-800 truncate">{item.nome}</span>
-        {!item.ativo && <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full flex-shrink-0">Inativo</span>}
+        <span className="text-sm font-medium text-foreground truncate">{item.nome}</span>
+        {!item.ativo && <span className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded-full flex-shrink-0">Inativo</span>}
       </div>
       {/* Valor + ações */}
       <div className="flex items-center gap-2 flex-shrink-0">
         {/* Valor padrão com lápis ao lado */}
         <button
           onClick={onEditar}
-          className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full hover:bg-emerald-100 transition-colors"
+          className="flex items-center gap-1.5 text-xs font-semibold text-primary bg-accent border border-primary/10 px-2.5 py-1 rounded-full hover:bg-primary/10 transition-colors"
           title="Clique para editar o valor"
         >
           <Pencil className="w-3 h-3" />
@@ -294,14 +294,14 @@ function ProcedimentoLinha({
             <button onClick={() => { onExcluir(); setConfirmando(false); }} className="p-1.5 rounded text-red-600 hover:bg-red-50">
               <Check className="w-4 h-4" />
             </button>
-            <button onClick={() => setConfirmando(false)} className="p-1.5 rounded text-slate-500 hover:bg-slate-100">
+            <button onClick={() => setConfirmando(false)} className="p-1.5 rounded text-muted-foreground hover:bg-muted">
               <X className="w-4 h-4" />
             </button>
           </div>
         ) : (
           <button
             onClick={() => setConfirmando(true)}
-            className="p-1.5 rounded text-slate-300 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+            className="p-1.5 rounded text-muted-foreground/40 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -353,10 +353,10 @@ function SecaoProcedimentos() {
   };
 
   return (
-    <Secao titulo="Tipos de Procedimentos" icone={Stethoscope} cor="bg-emerald-600">
-      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white">
-        <span className="text-xs text-slate-500">{itens.length} procedimento(s) cadastrado(s)</span>
-        <Button size="sm" onClick={abrirNovo} className="bg-emerald-600 hover:bg-emerald-700 text-white h-8 text-xs">
+    <Secao titulo="Tipos de Procedimentos" icone={Stethoscope} cor="bg-primary">
+      <div className="p-4 border-b border-border flex justify-between items-center bg-card">
+        <span className="text-xs text-muted-foreground">{itens.length} procedimento(s) cadastrado(s)</span>
+        <Button size="sm" onClick={abrirNovo} className="bg-primary hover:bg-primary/90 text-primary-foreground h-8 text-xs">
           <Plus className="w-3.5 h-3.5 mr-1" /> Novo Procedimento
         </Button>
       </div>
@@ -365,7 +365,7 @@ function SecaoProcedimentos() {
           onSalvar={salvar} onCancelar={() => setMostrando("nenhum")} salvando={salvando} titulo="Novo Procedimento" />
       )}
       {erroForm && <p className="px-5 py-2 text-xs text-red-600 bg-red-50">{erroForm}</p>}
-      {carregando && <p className="px-5 py-4 text-sm text-slate-400">Carregando...</p>}
+      {carregando && <p className="px-5 py-4 text-sm text-muted-foreground/60">Carregando...</p>}
       {erro && <p className="px-5 py-4 text-sm text-red-500">{erro}</p>}
       {!carregando && itens.map(item => (
         <div key={item.id}>
@@ -382,7 +382,7 @@ function SecaoProcedimentos() {
         </div>
       ))}
       {!carregando && itens.length === 0 && !erro && (
-        <p className="px-5 py-6 text-sm text-slate-400 text-center">Nenhum procedimento cadastrado.</p>
+        <p className="px-5 py-6 text-sm text-muted-foreground/60 text-center">Nenhum procedimento cadastrado.</p>
       )}
     </Secao>
   );
@@ -429,8 +429,8 @@ function SecaoFormasPagamentoRecebimento() {
 
   return (
     <Secao titulo="Formas de Pagamento — Recebimentos" icone={CreditCard} cor="bg-blue-600">
-      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white">
-        <span className="text-xs text-slate-500">{itensFiltrados.length} forma(s) cadastrada(s)</span>
+      <div className="p-4 border-b border-border flex justify-between items-center bg-card">
+        <span className="text-xs text-muted-foreground">{itensFiltrados.length} forma(s) cadastrada(s)</span>
         <Button size="sm" onClick={abrirNovo} className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs">
           <Plus className="w-3.5 h-3.5 mr-1" /> Nova Forma
         </Button>
@@ -440,7 +440,7 @@ function SecaoFormasPagamentoRecebimento() {
           onSalvar={salvar} onCancelar={() => setMostrando("nenhum")} salvando={salvando} titulo="Nova Forma de Pagamento" />
       )}
       {erroForm && <p className="px-5 py-2 text-xs text-red-600 bg-red-50">{erroForm}</p>}
-      {carregando && <p className="px-5 py-4 text-sm text-slate-400">Carregando...</p>}
+      {carregando && <p className="px-5 py-4 text-sm text-muted-foreground/60">Carregando...</p>}
       {erro && <p className="px-5 py-4 text-sm text-red-500">{erro}</p>}
       {!carregando && itensFiltrados.map(item => (
         <div key={item.id}>
@@ -454,7 +454,7 @@ function SecaoFormasPagamentoRecebimento() {
         </div>
       ))}
       {!carregando && itensFiltrados.length === 0 && !erro && (
-        <p className="px-5 py-6 text-sm text-slate-400 text-center">Nenhuma forma de pagamento cadastrada.</p>
+        <p className="px-5 py-6 text-sm text-muted-foreground/60 text-center">Nenhuma forma de pagamento cadastrada.</p>
       )}
     </Secao>
   );
@@ -500,8 +500,8 @@ function SecaoCategoriasPagamento() {
 
   return (
     <Secao titulo="Categorias de Pagamento" icone={Tag} cor="bg-violet-600">
-      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white">
-        <span className="text-xs text-slate-500">{itens.length} categoria(s) cadastrada(s)</span>
+      <div className="p-4 border-b border-border flex justify-between items-center bg-card">
+        <span className="text-xs text-muted-foreground">{itens.length} categoria(s) cadastrada(s)</span>
         <Button size="sm" onClick={abrirNovo} className="bg-violet-600 hover:bg-violet-700 text-white h-8 text-xs">
           <Plus className="w-3.5 h-3.5 mr-1" /> Nova Categoria
         </Button>
@@ -511,7 +511,7 @@ function SecaoCategoriasPagamento() {
           onSalvar={salvar} onCancelar={() => setMostrando("nenhum")} salvando={salvando} titulo="Nova Categoria" />
       )}
       {erroForm && <p className="px-5 py-2 text-xs text-red-600 bg-red-50">{erroForm}</p>}
-      {carregando && <p className="px-5 py-4 text-sm text-slate-400">Carregando...</p>}
+      {carregando && <p className="px-5 py-4 text-sm text-muted-foreground/60">Carregando...</p>}
       {erro && <p className="px-5 py-4 text-sm text-red-500">{erro}</p>}
       {!carregando && itens.map(item => (
         <div key={item.id}>
@@ -525,7 +525,7 @@ function SecaoCategoriasPagamento() {
         </div>
       ))}
       {!carregando && itens.length === 0 && !erro && (
-        <p className="px-5 py-6 text-sm text-slate-400 text-center">Nenhuma categoria cadastrada.</p>
+        <p className="px-5 py-6 text-sm text-muted-foreground/60 text-center">Nenhuma categoria cadastrada.</p>
       )}
     </Secao>
   );
@@ -572,8 +572,8 @@ function SecaoFormasPagamentoDespesa() {
 
   return (
     <Secao titulo="Formas de Pagamento — Despesas" icone={DollarSign} cor="bg-orange-600">
-      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white">
-        <span className="text-xs text-slate-500">{itensFiltrados.length} forma(s) cadastrada(s)</span>
+      <div className="p-4 border-b border-border flex justify-between items-center bg-card">
+        <span className="text-xs text-muted-foreground">{itensFiltrados.length} forma(s) cadastrada(s)</span>
         <Button size="sm" onClick={abrirNovo} className="bg-orange-600 hover:bg-orange-700 text-white h-8 text-xs">
           <Plus className="w-3.5 h-3.5 mr-1" /> Nova Forma
         </Button>
@@ -583,7 +583,7 @@ function SecaoFormasPagamentoDespesa() {
           onSalvar={salvar} onCancelar={() => setMostrando("nenhum")} salvando={salvando} titulo="Nova Forma de Pagamento" />
       )}
       {erroForm && <p className="px-5 py-2 text-xs text-red-600 bg-red-50">{erroForm}</p>}
-      {carregando && <p className="px-5 py-4 text-sm text-slate-400">Carregando...</p>}
+      {carregando && <p className="px-5 py-4 text-sm text-muted-foreground/60">Carregando...</p>}
       {erro && <p className="px-5 py-4 text-sm text-red-500">{erro}</p>}
       {!carregando && itensFiltrados.map(item => (
         <div key={item.id}>
@@ -597,7 +597,7 @@ function SecaoFormasPagamentoDespesa() {
         </div>
       ))}
       {!carregando && itensFiltrados.length === 0 && !erro && (
-        <p className="px-5 py-6 text-sm text-slate-400 text-center">Nenhuma forma de pagamento cadastrada.</p>
+        <p className="px-5 py-6 text-sm text-muted-foreground/60 text-center">Nenhuma forma de pagamento cadastrada.</p>
       )}
     </Secao>
   );
@@ -678,8 +678,8 @@ function SecaoProfissionais() {
 
   return (
     <Secao titulo="Profissionais e Comissões" icone={Users} cor="bg-rose-600">
-      <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white">
-        <span className="text-xs text-slate-500">{profissionais.length} profissional(is) cadastrado(s)</span>
+      <div className="p-4 border-b border-border flex justify-between items-center bg-card">
+        <span className="text-xs text-muted-foreground">{profissionais.length} profissional(is) cadastrado(s)</span>
         <Button size="sm" onClick={abrirNovo} className="bg-rose-600 hover:bg-rose-700 text-white h-8 text-xs">
           <Plus className="w-3.5 h-3.5 mr-1" /> Novo Profissional
         </Button>
@@ -689,11 +689,11 @@ function SecaoProfissionais() {
           onSalvar={salvarProf} onCancelar={() => setMostrando("nenhum")} salvando={salvando} titulo="Novo Profissional" />
       )}
       {erroForm && <p className="px-5 py-2 text-xs text-red-600 bg-red-50">{erroForm}</p>}
-      {carregandoProf && <p className="px-5 py-4 text-sm text-slate-400">Carregando...</p>}
+      {carregandoProf && <p className="px-5 py-4 text-sm text-muted-foreground/60">Carregando...</p>}
       {erroProf && <p className="px-5 py-4 text-sm text-red-500">{erroProf}</p>}
 
       {!carregandoProf && profissionais.map(prof => (
-        <div key={prof.id} className="border-b border-slate-100 last:border-0">
+        <div key={prof.id} className="border-b border-border/60 last:border-0">
           {mostrando === prof.id ? (
             <FormInline campos={camposProf} valores={form} onChange={(k, v) => setForm(f => ({ ...f, [k]: v }))}
               onSalvar={salvarProf} onCancelar={() => setMostrando("nenhum")} salvando={salvando} titulo={`Editar: ${prof.name}`} />
@@ -702,19 +702,19 @@ function SecaoProfissionais() {
               <div className="flex items-center justify-between px-5 py-3">
                 <button
                   onClick={() => setProfSelecionado(profSelecionado === prof.id ? null : prof.id)}
-                  className="flex items-center gap-2 text-sm font-semibold text-slate-800 hover:text-emerald-700"
+                  className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary"
                 >
                   {profSelecionado === prof.id
                     ? <ChevronDown className="w-4 h-4" />
                     : <ChevronRight className="w-4 h-4" />
                   }
                   {prof.name}
-                  <span className="text-xs text-slate-400 font-normal">
+                  <span className="text-xs text-muted-foreground/60 font-normal">
                     ({comissoesDoProfissional(prof.id).length} comissão/ões)
                   </span>
                 </button>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => abrirEditar(prof)} className="p-1.5 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+                  <button onClick={() => abrirEditar(prof)} className="p-1.5 rounded text-muted-foreground/60 hover:text-foreground/80 hover:bg-muted">
                     <Pencil className="w-4 h-4" />
                   </button>
                   <ConfirmarExclusao
@@ -725,26 +725,26 @@ function SecaoProfissionais() {
               </div>
 
               {profSelecionado === prof.id && (
-                <div className="ml-8 mr-4 mb-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200">
-                    <span className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
+                <div className="ml-8 mr-4 mb-4 bg-muted/50 rounded-lg border border-border">
+                  <div className="flex items-center justify-between px-4 py-2 border-b border-border">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
                       <Percent className="w-3.5 h-3.5" /> Comissões por Procedimento
                     </span>
                     <Button size="sm" variant="ghost" onClick={() => { setMostraComissao("novo"); setFormCom({ profissional_id: prof.id }); }}
-                      className="h-7 text-xs text-emerald-700 hover:bg-emerald-50">
+                      className="h-7 text-xs text-primary hover:bg-accent">
                       <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar
                     </Button>
                   </div>
 
                   {mostraComissao === "novo" && formCom.profissional_id === prof.id && (
-                    <div className="px-4 py-3 border-b border-slate-200 bg-white">
+                    <div className="px-4 py-3 border-b border-border bg-card">
                       <div className="flex gap-3 items-end">
                         <div className="flex-1">
-                          <label className="text-xs text-slate-500 mb-1 block">Procedimento</label>
+                          <label className="text-xs text-muted-foreground mb-1 block">Procedimento</label>
                           <select
                             value={formCom.procedimento_id ?? ""}
                             onChange={e => setFormCom(f => ({ ...f, procedimento_id: e.target.value }))}
-                            className="w-full h-9 text-sm border border-slate-200 rounded-md px-2 bg-white"
+                            className="w-full h-9 text-sm border border-border rounded-md px-2 bg-background text-foreground"
                           >
                             <option value="">Selecione...</option>
                             {procedimentos
@@ -754,7 +754,7 @@ function SecaoProfissionais() {
                           </select>
                         </div>
                         <div className="w-28">
-                          <label className="text-xs text-slate-500 mb-1 block">% Comissão</label>
+                          <label className="text-xs text-muted-foreground mb-1 block">% Comissão</label>
                           <Input type="number" min="0" max="100" placeholder="0"
                             value={formCom.percentual ?? ""}
                             onChange={e => setFormCom(f => ({ ...f, percentual: e.target.value }))}
@@ -762,7 +762,7 @@ function SecaoProfissionais() {
                         </div>
                         <div className="flex gap-2">
                           <Button size="sm" onClick={() => salvarComissao(prof.id)} disabled={salvandoCom}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white h-9">
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground h-9">
                             {salvandoCom ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                           </Button>
                           <Button size="sm" variant="ghost" onClick={() => { setMostraComissao("nenhum"); setFormCom({}); }} className="h-9">
@@ -776,19 +776,19 @@ function SecaoProfissionais() {
                     </div>
                   )}
 
-                  {carregandoCom && <p className="px-4 py-3 text-xs text-slate-400">Carregando...</p>}
+                  {carregandoCom && <p className="px-4 py-3 text-xs text-muted-foreground/60">Carregando...</p>}
                   {comissoesDoProfissional(prof.id).length === 0 && !carregandoCom && (
-                    <p className="px-4 py-3 text-xs text-slate-400">Nenhuma comissão cadastrada.</p>
+                    <p className="px-4 py-3 text-xs text-muted-foreground/60">Nenhuma comissão cadastrada.</p>
                   )}
                   {comissoesDoProfissional(prof.id).map(com => {
                     const procNome = procedimentos.find(p => p.id === com.procedimento_id)?.nome ?? com.procedimento_id;
                     return (
-                      <div key={com.id} className="flex items-center justify-between px-4 py-2 border-b border-slate-100 last:border-0 group/com">
+                      <div key={com.id} className="flex items-center justify-between px-4 py-2 border-b border-border/60 last:border-0 group/com">
                         {mostraComissao === com.id ? (
                           <div className="flex flex-col gap-1 w-full">
                             <div className="flex gap-3 items-end">
                               <div className="w-28">
-                                <label className="text-xs text-slate-500 mb-1 block">% Comissão</label>
+                                <label className="text-xs text-muted-foreground mb-1 block">% Comissão</label>
                                 <Input type="number" min="0" max="100"
                                   value={formCom.percentual ?? com.percentual.toString()}
                                   onChange={e => setFormCom(f => ({ ...f, percentual: e.target.value }))}
@@ -796,7 +796,7 @@ function SecaoProfissionais() {
                               </div>
                               <div className="flex gap-2">
                                 <Button size="sm" onClick={() => salvarComissao(prof.id)} disabled={salvandoCom}
-                                  className="bg-emerald-600 hover:bg-emerald-700 text-white h-9">
+                                  className="bg-primary hover:bg-primary/90 text-primary-foreground h-9">
                                   {salvandoCom ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                                 </Button>
                                 <Button size="sm" variant="ghost" onClick={() => { setMostraComissao("nenhum"); setFormCom({}); setErroComissao(null); }} className="h-9">
@@ -810,14 +810,14 @@ function SecaoProfissionais() {
                           </div>
                         ) : (
                           <>
-                            <span className="text-xs text-slate-700">{procNome}</span>
+                            <span className="text-xs text-foreground/80">{procNome}</span>
                             <div className="flex items-center gap-3">
-                              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full">
+                              <span className="text-xs font-semibold text-primary bg-accent px-2 py-0.5 rounded-full">
                                 {com.percentual}%
                               </span>
                               <div className="flex gap-1 opacity-0 group-hover/com:opacity-100 transition-opacity">
                                 <button onClick={() => { setMostraComissao(com.id); setFormCom({ percentual: com.percentual.toString() }); setErroComissao(null); }}
-                                  className="p-1 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100">
+                                  className="p-1 rounded text-muted-foreground/60 hover:text-foreground/80 hover:bg-muted">
                                   <Pencil className="w-3.5 h-3.5" />
                                 </button>
                                 <ConfirmarExclusao
@@ -838,7 +838,7 @@ function SecaoProfissionais() {
         </div>
       ))}
       {!carregandoProf && profissionais.length === 0 && !erroProf && (
-        <p className="px-5 py-6 text-sm text-slate-400 text-center">Nenhum profissional cadastrado.</p>
+        <p className="px-5 py-6 text-sm text-muted-foreground/60 text-center">Nenhum profissional cadastrado.</p>
       )}
     </Secao>
   );
@@ -946,20 +946,20 @@ function SecaoAlertasEmail() {
   return (
     <Secao titulo="Alertas de E-mail" icone={Bell} cor="bg-blue-600" iniciarFechada>
       {carregando ? (
-        <p className="px-5 py-4 text-sm text-slate-400">Carregando...</p>
+        <p className="px-5 py-4 text-sm text-muted-foreground/60">Carregando...</p>
       ) : (
         <div className="p-5 space-y-5">
 
           {/* Toggle ativo */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-semibold text-slate-800">Alerta de Pagamentos Vencidos</p>
-              <p className="text-xs text-slate-500 mt-0.5">Envia e-mail diário com pagamentos vencidos e não quitados</p>
+              <p className="text-sm font-semibold text-foreground">Alerta de Pagamentos Vencidos</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Envia e-mail diário com pagamentos vencidos e não quitados</p>
             </div>
             <button
               onClick={() => setAtivo(v => !v)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                ativo ? "bg-blue-600" : "bg-slate-200"
+                ativo ? "bg-blue-600" : "bg-muted"
               }`}
             >
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
@@ -968,11 +968,11 @@ function SecaoAlertasEmail() {
             </button>
           </div>
 
-          <div className="border-t border-slate-100" />
+          <div className="border-t border-border/60" />
 
           {/* Dias da semana */}
           <div>
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">
               <Clock className="w-3.5 h-3.5" /> Dias de Envio
             </label>
             <div className="flex gap-2 flex-wrap">
@@ -983,7 +983,7 @@ function SecaoAlertasEmail() {
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                     diasSemana.includes(d.valor)
                       ? "bg-blue-600 text-white border-blue-600"
-                      : "bg-white text-slate-500 border-slate-200 hover:border-blue-300"
+                      : "bg-card text-muted-foreground border-border hover:border-blue-300"
                   }`}
                 >
                   {d.label}
@@ -994,7 +994,7 @@ function SecaoAlertasEmail() {
 
           {/* Horário */}
           <div>
-            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
               <Clock className="w-3.5 h-3.5" /> Horário de Envio
             </label>
             <Input
@@ -1005,12 +1005,12 @@ function SecaoAlertasEmail() {
             />
           </div>
 
-          <div className="border-t border-slate-100" />
+          <div className="border-t border-border/60" />
 
           {/* E-mails */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 <Mail className="w-3.5 h-3.5" /> E-mail de Destino
               </label>
               <Input
@@ -1020,10 +1020,10 @@ function SecaoAlertasEmail() {
                 placeholder="destinatario@email.com"
                 className="text-sm"
               />
-              <p className="text-xs text-slate-400 mt-1">Quem vai receber o alerta</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Quem vai receber o alerta</p>
             </div>
             <div>
-              <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">
+              <label className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                 <Mail className="w-3.5 h-3.5" /> E-mail Remetente
               </label>
               <Input
@@ -1033,7 +1033,7 @@ function SecaoAlertasEmail() {
                 placeholder="remetente@gmail.com"
                 className="text-sm"
               />
-              <p className="text-xs text-slate-400 mt-1">Conta Gmail com senha de app configurada</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Conta Gmail com senha de app configurada</p>
             </div>
           </div>
 
@@ -1056,7 +1056,7 @@ function SecaoAlertasEmail() {
               {salvando ? "Salvando..." : "Salvar Configurações"}
             </Button>
             {salvo && (
-              <span className="flex items-center gap-1.5 text-sm text-emerald-600 font-medium">
+              <span className="flex items-center gap-1.5 text-sm text-primary font-medium">
                 <Check className="w-4 h-4" /> Salvo com sucesso!
               </span>
             )}
@@ -1085,26 +1085,21 @@ function AvisoSQL() {
   );
 }
 
-// ─── Página Principal ─────────────────────────────────────────────
+// ─── Pagina Principal ─────────────────────────────────────────────
 export default function ConfiguracoesPage() {
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Cabeçalho */}
-      <div className="mb-10">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-slate-800">
-            <Settings className="w-5 h-5 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900">Configurações</h1>
-        </div>
-        <p className="text-slate-500 ml-13">Gerencie procedimentos, formas de pagamento, categorias e profissionais da clínica.</p>
+      {/* Cabecalho */}
+      <div className="mb-8">
+        <h1 className="text-xl font-semibold text-foreground">Configuracoes</h1>
+        <p className="text-sm text-muted-foreground mt-1">Gerencie procedimentos, formas de pagamento, categorias e profissionais da clinica</p>
       </div>
 
       {/* Grid de duas colunas: Recebimentos | Pagamentos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Coluna Esquerda: Recebimentos */}
         <div>
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Recebimentos</h2>
+          <h2 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-4 px-1">Recebimentos</h2>
           <div className="space-y-4">
             <SecaoProcedimentos />
             <SecaoFormasPagamentoRecebimento />
@@ -1113,7 +1108,7 @@ export default function ConfiguracoesPage() {
 
         {/* Coluna Direita: Pagamentos */}
         <div>
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Pagamentos</h2>
+          <h2 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-4 px-1">Pagamentos</h2>
           <div className="space-y-4">
             <SecaoCategoriasPagamento />
             <SecaoFormasPagamentoDespesa />
@@ -1124,11 +1119,11 @@ export default function ConfiguracoesPage() {
       {/* Grid de duas colunas: Profissionais | Notificações */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div>
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Profissionais</h2>
+          <h2 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-4 px-1">Profissionais</h2>
           <SecaoProfissionais />
         </div>
         <div>
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 px-1">Notificações</h2>
+          <h2 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-4 px-1">Notificações</h2>
           <SecaoAlertasEmail />
         </div>
       </div>
