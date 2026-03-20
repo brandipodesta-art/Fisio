@@ -18,6 +18,8 @@ export interface Appointment {
   patientName: string;
   pacienteId?: string;
   professionalId: string;
+  procedimentoId?: string;
+  procedimentoNome?: string;
   date: string;
   startTime: string;
   endTime: string;

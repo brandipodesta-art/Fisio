@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Plus, Calendar } from "lucide-react";
-import type { Appointment, Professional, ViewMode } from "./agendaTypes";
+import type { Appointment, AppointmentStatus, Professional, ViewMode } from "./agendaTypes";
 import {
   mapDbProfessional,
   TIME_SLOTS,
@@ -20,7 +20,8 @@ import AgendaNewEventDialog from "./AgendaNewEventDialog";
 /**
  * AgendaPage - Main scheduling page (Google Calendar style)
  * Features: toolbar with navigation, sidebar with professional filters,
- * time grid with events, day/week view toggle, new appointment dialog
+ * time grid with events, day/week view toggle, new/edit appointment dialog,
+ * status management
  */
 
 export default function AgendaPage() {
@@ -34,6 +35,7 @@ export default function AgendaPage() {
     date?: string;
     time?: string;
   }>({});
+  const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const supabase = createClient();
@@ -54,16 +56,27 @@ export default function AgendaPage() {
     fetchProfessionals();
   }, []);
 
-  // Buscar agendamentos do Supabase
+  // Buscar agendamentos do Supabase (tenta join com procedimentos, fallback para select *)
   useEffect(() => {
     async function fetchAppointments() {
-      const { data } = await supabase.from("agendamentos").select("*");
+      let { data, error } = await supabase
+        .from("agendamentos")
+        .select("*, procedimentos(nome)");
+
+      // Fallback: se join falhar (coluna procedimento_id ainda não existe), buscar sem join
+      if (error || !data) {
+        const res = await supabase.from("agendamentos").select("*");
+        data = res.data;
+      }
+
       if (data) {
         const mapped: Appointment[] = data.map((d: any) => ({
           id: d.id,
           patientName: d.patient_name,
           pacienteId: d.paciente_id || undefined,
           professionalId: d.professional_id,
+          procedimentoId: d.procedimento_id || undefined,
+          procedimentoNome: d.procedimentos?.nome || undefined,
           date: d.date,
           startTime: d.start_time,
           endTime: d.end_time,
@@ -129,9 +142,17 @@ export default function AgendaPage() {
     });
   };
 
-  // Open dialog with defaults
+  // Open dialog for NEW appointment
   const openNewDialog = (date?: string, time?: string) => {
+    setEditingAppointment(null);
     setDialogDefaults({ date, time });
+    setDialogOpen(true);
+  };
+
+  // Open dialog for EDITING appointment
+  const handleEditClick = (apt: Appointment) => {
+    setEditingAppointment(apt);
+    setDialogDefaults({});
     setDialogOpen(true);
   };
 
@@ -139,28 +160,74 @@ export default function AgendaPage() {
   const handleSaveAppointment = async (apt: Appointment) => {
     const backup = [...appointments];
     setAppointments((prev) => [...prev, apt]);
-    
-    // Insert without the mock ID so generated one is used, or use apt.id if that's UUID
-    const { id, ...aptData } = apt;
-    
+
+    const { id, procedimentoNome, ...rest } = apt;
+
     const { error } = await supabase.from("agendamentos").insert({
-      patient_name: aptData.patientName,
-      paciente_id: aptData.pacienteId || null,
-      professional_id: aptData.professionalId,
-      date: aptData.date,
-      start_time: aptData.startTime,
-      end_time: aptData.endTime,
-      duration: aptData.duration,
-      status: aptData.status,
-      notes: aptData.notes,
+      patient_name: rest.patientName,
+      paciente_id: rest.pacienteId || null,
+      professional_id: rest.professionalId,
+      procedimento_id: rest.procedimentoId || null,
+      date: rest.date,
+      start_time: rest.startTime,
+      end_time: rest.endTime,
+      duration: rest.duration,
+      status: rest.status,
+      notes: rest.notes,
     });
 
     if (error) {
       console.error(error);
       setAppointments(backup);
-    } else {
-      // Refresh to get actual UUID from Supabase, or we would return the inserted ID 
-      // but for MVP updating UI is fine until reload
+    }
+  };
+
+  // Update existing appointment
+  const handleUpdateAppointment = async (apt: Appointment) => {
+    const backup = [...appointments];
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === apt.id ? apt : a))
+    );
+
+    const { error } = await supabase
+      .from("agendamentos")
+      .update({
+        patient_name: apt.patientName,
+        paciente_id: apt.pacienteId || null,
+        professional_id: apt.professionalId,
+        procedimento_id: apt.procedimentoId || null,
+        date: apt.date,
+        start_time: apt.startTime,
+        end_time: apt.endTime,
+        duration: apt.duration,
+        status: apt.status,
+        notes: apt.notes,
+      })
+      .eq("id", apt.id);
+
+    if (error) {
+      console.error(error);
+      setAppointments(backup);
+    }
+  };
+
+  // Change appointment status
+  const handleStatusChange = async (appointmentId: string, newStatus: AppointmentStatus) => {
+    const backup = [...appointments];
+    setAppointments((prev) =>
+      prev.map((a) =>
+        a.id === appointmentId ? { ...a, status: newStatus } : a
+      )
+    );
+
+    const { error } = await supabase
+      .from("agendamentos")
+      .update({ status: newStatus })
+      .eq("id", appointmentId);
+
+    if (error) {
+      console.error(error);
+      setAppointments(backup);
     }
   };
 
@@ -377,6 +444,8 @@ export default function AgendaPage() {
                           key={apt.id}
                           appointment={apt}
                           professional={getProfessional(apt.professionalId)}
+                          onClick={handleEditClick}
+                          onStatusChange={handleStatusChange}
                         />
                       ))}
                     </div>
@@ -403,6 +472,8 @@ export default function AgendaPage() {
                             appointment={apt}
                             professional={getProfessional(apt.professionalId)}
                             compact
+                            onClick={handleEditClick}
+                            onStatusChange={handleStatusChange}
                           />
                         ))}
                       </div>
@@ -467,11 +538,16 @@ export default function AgendaPage() {
         </div>
       </Card>
 
-      {/* New Event Dialog */}
+      {/* New/Edit Event Dialog */}
       <AgendaNewEventDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={(isOpen) => {
+          setDialogOpen(isOpen);
+          if (!isOpen) setEditingAppointment(null);
+        }}
         onSave={handleSaveAppointment}
+        onUpdate={handleUpdateAppointment}
+        appointmentToEdit={editingAppointment}
         defaultDate={dialogDefaults.date}
         defaultTime={dialogDefaults.time}
         professionals={professionals}

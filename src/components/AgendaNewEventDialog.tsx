@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarPlus, Search } from "lucide-react";
+import { CalendarPlus, Pencil, Search } from "lucide-react";
 import { toast } from "sonner";
 import type { Appointment, Professional } from "./agendaTypes";
 import { DURATION_OPTIONS } from "./agendaTypes";
@@ -29,6 +29,8 @@ interface AgendaNewEventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (appointment: Appointment) => void;
+  onUpdate?: (appointment: Appointment) => void;
+  appointmentToEdit?: Appointment | null;
   defaultDate?: string;
   defaultTime?: string;
   professionals: Professional[];
@@ -38,6 +40,8 @@ export default function AgendaNewEventDialog({
   open,
   onOpenChange,
   onSave,
+  onUpdate,
+  appointmentToEdit,
   defaultDate,
   defaultTime,
   professionals,
@@ -52,6 +56,10 @@ export default function AgendaNewEventDialog({
   >([]);
   const [showPatientDropdown, setShowPatientDropdown] = useState(false);
   const [professionalId, setProfessionalId] = useState("");
+  const [procedimentoId, setProcedimentoId] = useState("");
+  const [procedimentos, setProcedimentos] = useState<
+    { id: string; nome: string }[]
+  >([]);
   const [date, setDate] = useState(defaultDate || formatDateISO(new Date()));
   const [startTime, setStartTime] = useState(defaultTime || "08:00");
   const [duration, setDuration] = useState("50");
@@ -59,6 +67,42 @@ export default function AgendaNewEventDialog({
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const supabase = createClient();
+
+  const isEditing = !!appointmentToEdit;
+
+  // Buscar procedimentos ativos
+  useEffect(() => {
+    async function fetchProcedimentos() {
+      const { data } = await supabase
+        .from("procedimentos")
+        .select("id, nome")
+        .eq("ativo", true)
+        .order("nome");
+      if (data) setProcedimentos(data);
+    }
+    fetchProcedimentos();
+  }, []);
+
+  // Preencher formulário ao editar
+  useEffect(() => {
+    if (appointmentToEdit && open) {
+      setPatientSearch(appointmentToEdit.patientName);
+      if (appointmentToEdit.pacienteId) {
+        setSelectedPatient({
+          id: appointmentToEdit.pacienteId,
+          nome_completo: appointmentToEdit.patientName,
+        });
+      } else {
+        setSelectedPatient(null);
+      }
+      setProfessionalId(appointmentToEdit.professionalId);
+      setProcedimentoId(appointmentToEdit.procedimentoId || "");
+      setDate(appointmentToEdit.date);
+      setStartTime(appointmentToEdit.startTime);
+      setDuration(String(appointmentToEdit.duration));
+      setNotes(appointmentToEdit.notes || "");
+    }
+  }, [appointmentToEdit, open]);
 
   // Buscar pacientes com debounce
   useEffect(() => {
@@ -99,6 +143,7 @@ export default function AgendaNewEventDialog({
     setPatientResults([]);
     setShowPatientDropdown(false);
     setProfessionalId("");
+    setProcedimentoId("");
     setDate(defaultDate || formatDateISO(new Date()));
     setStartTime(defaultTime || "08:00");
     setDuration("50");
@@ -118,23 +163,36 @@ export default function AgendaNewEventDialog({
     const durationNum = parseInt(duration);
     const endTime = calculateEndTime(startTime, durationNum);
 
-    const newAppointment: Appointment = {
-      id: Date.now().toString(),
+    // Buscar nome do procedimento selecionado
+    const procNome = procedimentoId
+      ? procedimentos.find((p) => p.id === procedimentoId)?.nome
+      : undefined;
+
+    const appointment: Appointment = {
+      id: isEditing ? appointmentToEdit!.id : Date.now().toString(),
       patientName: selectedPatient?.nome_completo || patientSearch.trim(),
       pacienteId: selectedPatient?.id,
       professionalId,
+      procedimentoId: procedimentoId || undefined,
+      procedimentoNome: procNome,
       date,
       startTime,
       endTime,
       duration: durationNum,
-      status: "agendado",
+      status: isEditing ? appointmentToEdit!.status : "agendado",
       notes: notes.trim() || undefined,
     };
 
-    onSave(newAppointment);
+    if (isEditing && onUpdate) {
+      onUpdate(appointment);
+      toast.success("Agendamento atualizado com sucesso!");
+    } else {
+      onSave(appointment);
+      toast.success("Agendamento criado com sucesso!");
+    }
+
     resetForm();
     onOpenChange(false);
-    toast.success("Agendamento criado com sucesso!");
   };
 
   const handleOpenChange = (isOpen: boolean) => {
@@ -147,11 +205,22 @@ export default function AgendaNewEventDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CalendarPlus className="w-5 h-5 text-primary" />
-            Novo Agendamento
+            {isEditing ? (
+              <>
+                <Pencil className="w-5 h-5 text-primary" />
+                Editar Agendamento
+              </>
+            ) : (
+              <>
+                <CalendarPlus className="w-5 h-5 text-primary" />
+                Novo Agendamento
+              </>
+            )}
           </DialogTitle>
           <DialogDescription>
-            Preencha os dados para agendar uma sessão
+            {isEditing
+              ? "Altere os dados do agendamento"
+              : "Preencha os dados para agendar uma sessão"}
           </DialogDescription>
         </DialogHeader>
 
@@ -180,7 +249,6 @@ export default function AgendaNewEventDialog({
                   }
                 }}
                 className="pl-9"
-                autoFocus
                 autoComplete="off"
               />
               {showPatientDropdown && patientResults.length > 0 && (
@@ -233,6 +301,25 @@ export default function AgendaNewEventDialog({
                       />
                       {prof.name}
                     </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Procedimento */}
+          <div>
+            <Label htmlFor="procedimento" className="text-sm font-medium text-foreground/80">
+              Procedimento
+            </Label>
+            <Select value={procedimentoId} onValueChange={setProcedimentoId}>
+              <SelectTrigger id="procedimento" className="mt-1.5">
+                <SelectValue placeholder="Selecione o procedimento" />
+              </SelectTrigger>
+              <SelectContent>
+                {procedimentos.map((proc) => (
+                  <SelectItem key={proc.id} value={proc.id}>
+                    {proc.nome}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -315,7 +402,7 @@ export default function AgendaNewEventDialog({
             onClick={handleSave}
             className="bg-primary hover:bg-primary/90 text-primary-foreground"
           >
-            Agendar
+            {isEditing ? "Salvar" : "Agendar"}
           </Button>
         </div>
       </DialogContent>
