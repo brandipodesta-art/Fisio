@@ -16,6 +16,7 @@ export interface Professional {
 export interface Appointment {
   id: string;
   patientName: string;
+  pacienteId?: string;
   professionalId: string;
   date: string;
   startTime: string;

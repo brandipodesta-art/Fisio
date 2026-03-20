@@ -5,11 +5,10 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ChevronLeft, ChevronRight, Plus, Calendar } from "lucide-react";
-import type { Appointment, ViewMode } from "./agendaTypes";
+import type { Appointment, Professional, ViewMode } from "./agendaTypes";
 import {
-  PROFESSIONALS,
+  mapDbProfessional,
   TIME_SLOTS,
-  getMockAppointments,
   formatDateFull,
   formatDateISO,
   getDayName,
@@ -28,9 +27,8 @@ export default function AgendaPage() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("day");
   const [appointments, setAppointments] = useState<Appointment[]>([]);
-  const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>(
-    PROFESSIONALS.map((p) => p.id)
-  );
+  const [professionals, setProfessionals] = useState<Professional[]>([]);
+  const [selectedProfessionals, setSelectedProfessionals] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogDefaults, setDialogDefaults] = useState<{
     date?: string;
@@ -40,28 +38,45 @@ export default function AgendaPage() {
 
   const supabase = createClient();
 
+  // Buscar profissionais do Supabase
+  useEffect(() => {
+    async function fetchProfessionals() {
+      const { data } = await supabase
+        .from("profissionais")
+        .select("id, name, short_name, color, bg_color, border_color, text_color")
+        .order("name");
+      if (data) {
+        const mapped = data.map(mapDbProfessional);
+        setProfessionals(mapped);
+        setSelectedProfessionals(mapped.map((p) => p.id));
+      }
+    }
+    fetchProfessionals();
+  }, []);
+
+  // Buscar agendamentos do Supabase
   useEffect(() => {
     async function fetchAppointments() {
-      const { data, error } = await supabase.from('agendamentos').select('*');
-      
+      const { data } = await supabase.from("agendamentos").select("*");
       if (data) {
         const mapped: Appointment[] = data.map((d: any) => ({
           id: d.id,
           patientName: d.patient_name,
+          pacienteId: d.paciente_id || undefined,
           professionalId: d.professional_id,
           date: d.date,
           startTime: d.start_time,
           endTime: d.end_time,
           duration: d.duration,
           status: d.status,
-          notes: d.notes
+          notes: d.notes,
         }));
         setAppointments(mapped);
       }
       setIsLoading(false);
     }
     fetchAppointments();
-  }, [supabase]);
+  }, []);
 
   // Navigation
   const goToday = () => setCurrentDate(new Date());
@@ -86,10 +101,10 @@ export default function AgendaPage() {
   };
 
   const toggleAllProfessionals = () => {
-    if (selectedProfessionals.length === PROFESSIONALS.length) {
+    if (selectedProfessionals.length === professionals.length) {
       setSelectedProfessionals([]);
     } else {
-      setSelectedProfessionals(PROFESSIONALS.map((p) => p.id));
+      setSelectedProfessionals(professionals.map((p) => p.id));
     }
   };
 
@@ -128,8 +143,9 @@ export default function AgendaPage() {
     // Insert without the mock ID so generated one is used, or use apt.id if that's UUID
     const { id, ...aptData } = apt;
     
-    const { error } = await supabase.from('agendamentos').insert({
+    const { error } = await supabase.from("agendamentos").insert({
       patient_name: aptData.patientName,
+      paciente_id: aptData.pacienteId || null,
       professional_id: aptData.professionalId,
       date: aptData.date,
       start_time: aptData.startTime,
@@ -148,9 +164,17 @@ export default function AgendaPage() {
     }
   };
 
-  // Get professional by ID
-  const getProfessional = (id: string) =>
-    PROFESSIONALS.find((p) => p.id === id)!;
+  // Get professional by ID (com fallback para profissional não encontrado)
+  const getProfessional = (id: string): Professional =>
+    professionals.find((p) => p.id === id) ?? {
+      id,
+      name: id,
+      shortName: id,
+      color: "#6b7280",
+      bgColor: "bg-gray-100",
+      borderColor: "border-gray-500",
+      textColor: "text-gray-700",
+    };
 
   // Check if date is today
   const isToday = (date: Date) => {
@@ -252,7 +276,7 @@ export default function AgendaPage() {
             <label className="flex items-center gap-2 cursor-pointer group">
               <input
                 type="checkbox"
-                checked={selectedProfessionals.length === PROFESSIONALS.length}
+                checked={selectedProfessionals.length === professionals.length}
                 onChange={toggleAllProfessionals}
                 className="w-4 h-4 rounded accent-primary"
               />
@@ -262,7 +286,7 @@ export default function AgendaPage() {
             </label>
             <div className="border-t border-border my-2" />
             {/* Individual professionals */}
-            {PROFESSIONALS.map((prof) => (
+            {professionals.map((prof) => (
               <label
                 key={prof.id}
                 className="flex items-center gap-2 cursor-pointer group"
@@ -419,7 +443,7 @@ export default function AgendaPage() {
       <Card className="p-4 border-border shadow-sm md:hidden">
         <h3 className="text-sm font-semibold text-foreground mb-3">Filtrar Profissionais</h3>
         <div className="flex flex-wrap gap-2">
-          {PROFESSIONALS.map((prof) => (
+          {professionals.map((prof) => (
             <button
               key={prof.id}
               onClick={() => toggleProfessional(prof.id)}
@@ -450,6 +474,7 @@ export default function AgendaPage() {
         onSave={handleSaveAppointment}
         defaultDate={dialogDefaults.date}
         defaultTime={dialogDefaults.time}
+        professionals={professionals}
       />
     </div>
   );

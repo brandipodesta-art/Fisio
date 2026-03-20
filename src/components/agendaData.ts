@@ -1,38 +1,35 @@
 import type { Professional, Appointment, TimeSlot } from "./agendaTypes";
 
 /**
- * Professionals - Test data
- * Each professional has a unique color scheme for the calendar
+ * Deriva borderColor a partir de bgColor quando border_color não existe no DB
+ * Ex: "bg-emerald-100" -> "border-emerald-500"
  */
-export const PROFESSIONALS: Professional[] = [
-  {
-    id: "ana-carolina",
-    name: "Ana Carolina",
-    shortName: "Ana C.",
-    color: "#10b981",
-    bgColor: "bg-emerald-100",
-    borderColor: "border-emerald-500",
-    textColor: "text-emerald-700",
-  },
-  {
-    id: "amanda-augusta",
-    name: "Amanda Augusta",
-    shortName: "Amanda A.",
-    color: "#3b82f6",
-    bgColor: "bg-blue-100",
-    borderColor: "border-blue-500",
-    textColor: "text-blue-700",
-  },
-  {
-    id: "aline-pereira",
-    name: "Aline Pereira",
-    shortName: "Aline P.",
-    color: "#f97316",
-    bgColor: "bg-orange-100",
-    borderColor: "border-orange-500",
-    textColor: "text-orange-700",
-  },
-];
+function deriveBorderColor(bgColor: string): string {
+  return bgColor.replace("bg-", "border-").replace(/\d+$/, "500");
+}
+
+/**
+ * Mapeia uma row da tabela profissionais (Supabase) para a interface Professional
+ */
+export function mapDbProfessional(row: {
+  id: string;
+  name: string;
+  short_name: string;
+  color: string;
+  bg_color: string;
+  border_color?: string | null;
+  text_color: string;
+}): Professional {
+  return {
+    id: row.id,
+    name: row.name,
+    shortName: row.short_name,
+    color: row.color,
+    bgColor: row.bg_color,
+    borderColor: row.border_color ?? deriveBorderColor(row.bg_color),
+    textColor: row.text_color,
+  };
+}
 
 /**
  * Time slots - Clinic working hours
@@ -128,121 +125,3 @@ export function getWeekDays(date: Date): Date[] {
   });
 }
 
-/**
- * Mock appointments for testing
- */
-export function getMockAppointments(): Appointment[] {
-  const today = new Date();
-  const todayStr = formatDateISO(today);
-
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const tomorrowStr = formatDateISO(tomorrow);
-
-  const dayAfter = new Date(today);
-  dayAfter.setDate(today.getDate() + 2);
-  const dayAfterStr = formatDateISO(dayAfter);
-
-  return [
-    {
-      id: "1",
-      patientName: "João Silva",
-      professionalId: "ana-carolina",
-      date: todayStr,
-      startTime: "08:00",
-      endTime: "08:50",
-      duration: 50,
-      status: "confirmado",
-    },
-    {
-      id: "2",
-      patientName: "Maria Santos",
-      professionalId: "amanda-augusta",
-      date: todayStr,
-      startTime: "09:00",
-      endTime: "09:50",
-      duration: 50,
-      status: "agendado",
-    },
-    {
-      id: "3",
-      patientName: "Carlos Oliveira",
-      professionalId: "ana-carolina",
-      date: todayStr,
-      startTime: "10:00",
-      endTime: "10:50",
-      duration: 50,
-      status: "em_atendimento",
-    },
-    {
-      id: "4",
-      patientName: "Fernanda Lima",
-      professionalId: "aline-pereira",
-      date: todayStr,
-      startTime: "08:00",
-      endTime: "08:50",
-      duration: 50,
-      status: "confirmado",
-    },
-    {
-      id: "5",
-      patientName: "Roberto Costa",
-      professionalId: "amanda-augusta",
-      date: todayStr,
-      startTime: "14:00",
-      endTime: "14:50",
-      duration: 50,
-      status: "agendado",
-    },
-    {
-      id: "6",
-      patientName: "Ana Paula Souza",
-      professionalId: "ana-carolina",
-      date: todayStr,
-      startTime: "15:00",
-      endTime: "16:00",
-      duration: 60,
-      status: "agendado",
-    },
-    {
-      id: "7",
-      patientName: "Lucas Mendes",
-      professionalId: "aline-pereira",
-      date: tomorrowStr,
-      startTime: "09:00",
-      endTime: "09:50",
-      duration: 50,
-      status: "agendado",
-    },
-    {
-      id: "8",
-      patientName: "Patrícia Ferreira",
-      professionalId: "amanda-augusta",
-      date: tomorrowStr,
-      startTime: "10:00",
-      endTime: "10:50",
-      duration: 50,
-      status: "confirmado",
-    },
-    {
-      id: "9",
-      patientName: "Bruno Almeida",
-      professionalId: "ana-carolina",
-      date: dayAfterStr,
-      startTime: "08:00",
-      endTime: "08:50",
-      duration: 50,
-      status: "agendado",
-    },
-    {
-      id: "10",
-      patientName: "Juliana Rocha",
-      professionalId: "aline-pereira",
-      date: dayAfterStr,
-      startTime: "11:00",
-      endTime: "11:50",
-      duration: 50,
-      status: "agendado",
-    },
-  ];
-}

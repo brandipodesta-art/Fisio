@@ -4,7 +4,7 @@ import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
-  AlertCircle, XCircle, Pencil, Trash2, Check, Eye, TriangleAlert, Repeat2, CalendarDays,
+  AlertCircle, XCircle, Pencil, Trash2, Check, Eye, TriangleAlert, Repeat2, CalendarDays, MoreHorizontal,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,9 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type {
   Pagamento, PagamentoInput, FormaPagamento,
   FormaPagamentoItem, CategoriaPagamentoItem,
@@ -743,37 +746,50 @@ export default function FinanceiroPagamentos() {
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-base font-bold text-foreground">{fmt(Number(item.valor))}</span>
-                    <div className="flex items-center gap-1">
-                      {item.status === "pendente" && (
-                        <button
-                          onClick={() => marcarPago(item)}
-                          title="Marcar como pago"
-                          className="p-1.5 rounded-lg text-primary hover:bg-accent"
-                        >
-                          <Check className="w-4 h-4" />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted">
+                          <MoreHorizontal className="w-4 h-4" />
                         </button>
-                      )}
-                      <button
-                        title="Visualizar"
-                        onClick={() => setVisualizando(item)}
-                        className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-blue-600 hover:bg-blue-50"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => { setEditando(item); setModalAberto(true); }}
-                        className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground/80 hover:bg-muted"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setExcluirDialogId(item.id)}
-                        disabled={excluindo === item.id}
-                        className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-red-600 hover:bg-red-50"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        {item.status === "pendente" && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => marcarPago(item)}
+                              className="text-primary cursor-pointer"
+                            >
+                              <Check className="w-4 h-4 mr-2" />
+                              Marcar Pago
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
+                        <DropdownMenuItem
+                          onClick={() => setVisualizando(item)}
+                          className="cursor-pointer"
+                        >
+                          <Eye className="w-4 h-4 mr-2" />
+                          Visualizar
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => { setEditando(item); setModalAberto(true); }}
+                          className="cursor-pointer"
+                        >
+                          <Pencil className="w-4 h-4 mr-2" />
+                          Editar
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setExcluirDialogId(item.id)}
+                          disabled={excluindo === item.id}
+                          className="text-red-600 cursor-pointer focus:text-red-600"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Excluir
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </Card>

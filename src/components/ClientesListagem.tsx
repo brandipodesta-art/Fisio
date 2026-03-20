@@ -16,6 +16,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -541,38 +542,39 @@ export default function ClientesListagem({
                 {/* Menu de acoes (tres pontos) */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="p-2 rounded-lg text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-premium outline-none">
+                    <button className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted">
                       <MoreHorizontal className="w-4 h-4" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuContent align="end" className="w-48">
                     <DropdownMenuItem
                       onClick={() => onVisualizarCliente?.(cliente)}
-                      className="gap-2 cursor-pointer"
+                      className="cursor-pointer"
                     >
-                      <Eye className="w-4 h-4 text-info" />
-                      <span>Visualizar</span>
+                      <Eye className="w-4 h-4 mr-2" />
+                      Visualizar
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       onClick={() => onEditarCliente?.(cliente)}
-                      className="gap-2 cursor-pointer"
+                      className="cursor-pointer"
                     >
-                      <Pencil className="w-4 h-4 text-muted-foreground" />
-                      <span>Editar</span>
+                      <Pencil className="w-4 h-4 mr-2" />
+                      Editar
                     </DropdownMenuItem>
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => alternarStatus(cliente)}
-                      className="gap-2 cursor-pointer"
+                      className={`cursor-pointer ${cliente.ativo ? "text-amber-600 focus:text-amber-600" : "text-primary focus:text-primary"}`}
                     >
                       {cliente.ativo ? (
                         <>
-                          <ToggleLeft className="w-4 h-4 text-warning" />
-                          <span>Desativar</span>
+                          <ToggleLeft className="w-4 h-4 mr-2" />
+                          Desativar
                         </>
                       ) : (
                         <>
-                          <ToggleRight className="w-4 h-4 text-success" />
-                          <span>Ativar</span>
+                          <ToggleRight className="w-4 h-4 mr-2" />
+                          Ativar
                         </>
                       )}
                     </DropdownMenuItem>
