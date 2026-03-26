@@ -1,5 +1,7 @@
 "use client";
+
 import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
+import ModalPortal from "@/components/ui/ModalPortal";
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -276,7 +278,8 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
   }
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4" style={{position:'fixed',top:0,left:0,right:0,bottom:0}}>
+    <ModalPortal>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
       <div className="bg-popover rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">
@@ -476,12 +479,12 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
                     : "Registrar"}
             </Button>
           </div>
-        </form>
+         </form>
       </div>
     </div>
+    </ModalPortal>
   );
 }
-
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function FinanceiroRecebimentos() {
@@ -884,7 +887,8 @@ export default function FinanceiroRecebimentos() {
 
       {/* Modal de Visualização */}
       {visualizando && (
-        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4" style={{position:'fixed',top:0,left:0,right:0,bottom:0}}>
+        <ModalPortal>
+        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
           <div className="bg-popover rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
@@ -957,6 +961,7 @@ export default function FinanceiroRecebimentos() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Dialog de Confirmação de Exclusão */}

@@ -1,6 +1,6 @@
 "use client";
 import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
-
+import ModalPortal from "@/components/ui/ModalPortal";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
@@ -124,7 +124,8 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
     : (form.categoria ?? "—");
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4" style={{position:'fixed',top:0,left:0,right:0,bottom:0}}>
+    <ModalPortal>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4">
       <div className="bg-popover rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-border">
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">
@@ -326,10 +327,10 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
         </form>
       </div>
     </div>
+    </ModalPortal>
   );
 }
-
-// ─── Utilitário: nome da forma de pagamento → slug legado ─────────────────────
+// ─── Utilitário: nome da forma de pagamento → slug legadoo ─────────────────────
 // Mantém compatibilidade com o campo TEXT legado ao gravar novos registros
 
 function slugFromNome(nome: string): FormaPagamento | null {
@@ -812,7 +813,8 @@ export default function FinanceiroPagamentos() {
 
       {/* Modal de Alerta de Duplicidade */}
       {duplicatas.length > 0 && dadosPendentes && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4" style={{position:'fixed',top:0,left:0,right:0,bottom:0}}>
+        <ModalPortal>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4">
           <div className="bg-popover rounded-xl shadow-2xl w-full max-w-md border border-border">
             {/* Header */}
             <div className="flex items-center gap-3 p-5 border-b border-amber-100 bg-amber-50 rounded-t-xl">
@@ -881,11 +883,12 @@ export default function FinanceiroPagamentos() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
-
       {/* Modal de Visualização */}
       {visualizando && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" style={{position:'fixed',top:0,left:0,right:0,bottom:0}}>
+        <ModalPortal>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-popover rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-border">
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
@@ -950,6 +953,7 @@ export default function FinanceiroPagamentos() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {/* Dialog de Confirmação de Exclusão */}
