@@ -19,7 +19,6 @@ import type {
   Pagamento, PagamentoInput, FormaPagamento,
   FormaPagamentoItem, CategoriaPagamentoItem,
 } from "@/lib/types/financeiro";
-import { createClient } from "@/lib/supabase/client";
 import { FORMA_PAGAMENTO_LABEL } from "@/lib/types/financeiro";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -44,23 +43,24 @@ const STATUS_CONFIG = {
 // ─── Hook para carregar formas de pagamento e categorias do banco ─────────────
 
 function useLookups() {
-  const [formas, setFormas]       = useState<FormaPagamentoItem[]>([]);
+  const [formas, setFormas]         = useState<FormaPagamentoItem[]>([]);
   const [categorias, setCategorias] = useState<CategoriaPagamentoItem[]>([]);
-  const sb = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    sb.from("formas_pagamento")
-      .select("id, nome, tipo")
-      .in("tipo", ["pagamento", "ambos"])
-      .order("nome")
-      .then(({ data }) => { if (data) setFormas(data as FormaPagamentoItem[]); });
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const headers = { apikey: key, Authorization: `Bearer ${key}` };
 
-    sb.from("categorias_pagamento")
-      .select("id, nome")
-      .eq("ativo", true)
-      .order("nome")
-      .then(({ data }) => { if (data) setCategorias(data as CategoriaPagamentoItem[]); });
-  }, [sb]);
+    fetch(`${url}/rest/v1/formas_pagamento?tipo=in.(pagamento,ambos)&ativo=eq.true&order=nome`, { headers })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setFormas(data as FormaPagamentoItem[]); })
+      .catch(() => {});
+
+    fetch(`${url}/rest/v1/categorias_pagamento?ativo=eq.true&order=nome&select=id,nome`, { headers })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setCategorias(data as CategoriaPagamentoItem[]); })
+      .catch(() => {});
+  }, []);
 
   return { formas, categorias };
 }

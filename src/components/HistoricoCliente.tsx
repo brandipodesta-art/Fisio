@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Activity, DollarSign, Calendar, Stethoscope, Users, AlertTriangle } from "lucide-react";
@@ -126,102 +125,80 @@ export default function HistoricoCliente({
   const [pacientesVinculados, setPacientesVinculados] = useState<PacienteVinculado[]>([]);
   const [isLoading, setIsLoading]             = useState(true);
 
-  const supabase = useMemo(() => createClient(), []);
-
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const headers = { apikey: key, Authorization: `Bearer ${key}` };
 
-      if (isFuncionario && nomeCompleto) {
-        // ── Modo Funcionário ──────────────────────────────────────────────────
-        const slug = slugFromNome(nomeCompleto);
+      const get = (path: string) =>
+        fetch(`${url}/rest/v1/${path}`, { headers }).then(r => r.json());
 
-        // 1. Buscar pacientes vinculados ao profissional
-        const { data: pacientes } = await supabase
-          .from("pacientes")
-          .select("id, nome_completo")
-          .eq("profissional_responsavel", slug)
-          .eq("ativo", true);
+      try {
+        if (isFuncionario && nomeCompleto) {
+          // ── Modo Funcionário ───────────────────────────────────────────────────────────────────
+          const slug = slugFromNome(nomeCompleto);
 
-        const listaPacientes: PacienteVinculado[] = (pacientes ?? []).map(
-          (p: { id: string; nome_completo: string }) => ({
-            id: p.id,
-            nome_completo: p.nome_completo,
-          })
-        );
-        setPacientesVinculados(listaPacientes);
+          // 1. Buscar pacientes vinculados ao profissional
+          const pacientes: { id: string; nome_completo: string }[] = await get(
+            `pacientes?profissional_responsavel=eq.${encodeURIComponent(slug)}&ativo=eq.true&select=id,nome_completo`
+          );
 
-        if (listaPacientes.length === 0) {
-          setIsLoading(false);
-          return;
-        }
+          const listaPacientes: PacienteVinculado[] = Array.isArray(pacientes)
+            ? pacientes.map(p => ({ id: p.id, nome_completo: p.nome_completo }))
+            : [];
+          setPacientesVinculados(listaPacientes);
 
-        const ids = listaPacientes.map(p => p.id);
+          if (listaPacientes.length === 0) { setIsLoading(false); return; }
 
-        // 2. Buscar recebimentos dos pacientes vinculados
-        const { data: recebimentos } = await supabase
-          .from("recebimentos")
-          .select("id, paciente_id, paciente_nome, procedimento_id, descricao, valor, data_vencimento, data_pagamento, status")
-          .in("paciente_id", ids)
-          .order("data_vencimento", { ascending: false });
+          const ids = listaPacientes.map(p => p.id).join(",");
 
-        setRecebimentosRaw((recebimentos ?? []) as RecebimentoRaw[]);
+          // 2. Buscar recebimentos dos pacientes vinculados
+          const recebimentos: RecebimentoRaw[] = await get(
+            `recebimentos?paciente_id=in.(${ids})&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status`
+          );
+          setRecebimentosRaw(Array.isArray(recebimentos) ? recebimentos : []);
 
-        // 3. Buscar comissões do profissional
-        const { data: comissoesData } = await supabase
-          .from("comissoes_profissional")
-          .select("procedimento_id, percentual")
-          .eq("profissional_id", slug);
-
-        const mapa: ComissaoMap = {};
-        (comissoesData ?? []).forEach(
-          (c: { procedimento_id: string; percentual: number }) => {
-            mapa[c.procedimento_id] = c.percentual;
+          // 3. Buscar comissões do profissional
+          const comissoesData: { procedimento_id: string; percentual: number }[] = await get(
+            `comissoes_profissional?profissional_id=eq.${encodeURIComponent(slug)}&select=procedimento_id,percentual`
+          );
+          const mapa: ComissaoMap = {};
+          if (Array.isArray(comissoesData)) {
+            comissoesData.forEach(c => { mapa[c.procedimento_id] = c.percentual; });
           }
-        );
-        setComissoes(mapa);
+          setComissoes(mapa);
 
-      } else if (pacienteId) {
-        // ── Modo Paciente ─────────────────────────────────────────────────────
-        const [resRecebimentos, resFrequencia, resEvolucoes] = await Promise.all([
-          supabase
-            .from("recebimentos")
-            .select("id, paciente_id, paciente_nome, procedimento_id, descricao, valor, data_vencimento, data_pagamento, status")
-            .eq("paciente_id", pacienteId)
-            .order("data_vencimento", { ascending: false }),
-          supabase.from("frequencias").select("*"),
-          supabase
-            .from("evolucoes")
-            .select("*")
-            .order("created_at", { ascending: false }),
-        ]);
+        } else if (pacienteId) {
+          // ── Modo Paciente ────────────────────────────────────────────────────────────────────
+          const [recebimentos, freqs, evols] = await Promise.all([
+            get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status`),
+            get(`frequencias?select=*`),
+            get(`evolucoes?order=created_at.desc&select=*`),
+          ]);
 
-        if (resRecebimentos.data) setRecebimentosRaw(resRecebimentos.data as RecebimentoRaw[]);
-        if (resFrequencia.data) {
-          setFrequencia(
-            resFrequencia.data.map((f: { mes: string; presencas: number; faltas: number }) => ({
-              mes: f.mes,
-              presencas: f.presencas,
-              faltas: f.faltas,
-            }))
-          );
+          if (Array.isArray(recebimentos)) setRecebimentosRaw(recebimentos as RecebimentoRaw[]);
+          if (Array.isArray(freqs)) {
+            setFrequencia(freqs.map((f: { mes: string; presencas: number; faltas: number }) => ({
+              mes: f.mes, presencas: f.presencas, faltas: f.faltas,
+            })));
+          }
+          if (Array.isArray(evols)) {
+            setEvolucoes(evols.map((e: { id: string; data_salva: string; texto: string }) => ({
+              id: e.id, data: e.data_salva, descricao: e.texto,
+            })));
+          }
         }
-        if (resEvolucoes.data) {
-          setEvolucoes(
-            resEvolucoes.data.map((e: { id: string; data_salva: string; texto: string }) => ({
-              id: e.id,
-              data: e.data_salva,
-              descricao: e.texto,
-            }))
-          );
-        }
+      } catch (err) {
+        console.error("HistoricoCliente fetchData error:", err);
+      } finally {
+        setIsLoading(false);
       }
-
-      setIsLoading(false);
     }
 
     fetchData();
-  }, [supabase, pacienteId, isFuncionario, nomeCompleto]);
+  }, [pacienteId, isFuncionario, nomeCompleto]);
 
   // ── Agrupa recebimentos por procedimento base ─────────────────────────────
   const procedimentos = useMemo<ProcedimentoResumo[]>(() => {

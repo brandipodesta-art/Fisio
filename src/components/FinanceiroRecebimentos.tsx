@@ -3,8 +3,7 @@
 import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 import ModalPortal from "@/components/ui/ModalPortal";
 
-import { useEffect, useState, useCallback, useRef, useMemo } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { useEffect, useState, useCallback, useRef } from "react";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
   AlertCircle, XCircle, Pencil, Trash2, Check, Eye, Repeat2, CalendarDays, MoreHorizontal,
@@ -24,14 +23,16 @@ import { FORMA_PAGAMENTO_LABEL } from "@/lib/types/financeiro";
 /** Hook para carregar formas de pagamento do tipo recebimento/ambos */
 function useFormasPagamento() {
   const [formas, setFormas] = useState<FormaPagamentoItem[]>([]);
-  const sb = useMemo(() => createClient(), []);
   useEffect(() => {
-    sb.from("formas_pagamento")
-      .select("id, nome, tipo")
-      .in("tipo", ["recebimento", "ambos"])
-      .order("nome")
-      .then(({ data }) => { if (data) setFormas(data as FormaPagamentoItem[]); });
-  }, [sb]);
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    fetch(`${url}/rest/v1/formas_pagamento?tipo=in.(recebimento,ambos)&ativo=eq.true&order=nome`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setFormas(data as FormaPagamentoItem[]); })
+      .catch(() => {});
+  }, []);
   return { formas };
 }
 
@@ -59,27 +60,26 @@ interface ProcedimentoOpcao {
 function useProcedimentos() {
   const [procedimentos, setProcedimentos] = useState<ProcedimentoOpcao[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
-    async function buscar() {
-      try {
-        const { data } = await supabase
-          .from("procedimentos")
-          .select("id, nome, valor_padrao")
-          .eq("ativo", true)
-          .order("nome");
-        if (data) setProcedimentos(data.map((p: { id: string; nome: string; valor_padrao: number | null }) => ({
-          id: p.id,
-          nome: p.nome,
-          valor_padrao: p.valor_padrao ?? null,
-        })));
-      } finally {
-        setCarregando(false);
-      }
-    }
-    buscar();
-  }, [supabase]);
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    fetch(`${url}/rest/v1/procedimentos?ativo=eq.true&order=nome&select=id,nome,valor_padrao`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setProcedimentos(data.map((p: { id: string; nome: string; valor_padrao: number | null }) => ({
+            id: p.id,
+            nome: p.nome,
+            valor_padrao: p.valor_padrao ?? null,
+          })));
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCarregando(false));
+  }, []);
 
   return { procedimentos, carregando };
 }
