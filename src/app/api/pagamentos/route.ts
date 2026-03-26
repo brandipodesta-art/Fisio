@@ -32,9 +32,15 @@ export async function GET(req: NextRequest) {
 // POST /api/pagamentos — cria novo pagamento
 export async function POST(req: NextRequest) {
   const body = await req.json();
+  // Garantir que categoria nunca seja null (coluna NOT NULL no banco)
+  // Usa o nome da categoria se disponível, senão fallback para "Outros"
+  const payload = {
+    ...body,
+    categoria: body.categoria ?? "Outros",
+  };
   const { data, error } = await supabase
     .from("pagamentos")
-    .insert([body])
+    .insert([payload])
     .select()
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

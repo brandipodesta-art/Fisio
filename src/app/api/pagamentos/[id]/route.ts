@@ -28,9 +28,14 @@ export async function PUT(
 ) {
   const { id } = await params;
   const body = await req.json();
+  // Garantir que categoria nunca seja null (coluna NOT NULL no banco)
+  const payload = {
+    ...body,
+    categoria: body.categoria ?? "Outros",
+  };
   const { data, error } = await supabase
     .from("pagamentos")
-    .update(body)
+    .update(payload)
     .eq("id", id)
     .select()
     .single();
