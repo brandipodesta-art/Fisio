@@ -28,12 +28,20 @@ export interface CategoriaPagamentoItem {
   nome: string;
 }
 
+export interface ProcedimentoItem {
+  id: string;   // UUID
+  nome: string;
+  valor_padrao: number | null;
+}
+
 // ─── Recebimento ──────────────────────────────────────────────────────────────
 
 export interface Recebimento {
   id: string;
   paciente_id: string | null;
   paciente_nome: string | null;
+  // Vínculo com procedimento (UUID FK → procedimentos.id)
+  procedimento_id: string | null;
   descricao: string;
   valor: number;
   data_vencimento: string;       // ISO date "YYYY-MM-DD"
@@ -72,6 +80,18 @@ export interface Pagamento {
 }
 
 export type PagamentoInput = Omit<Pagamento, "id" | "created_at">;
+
+// ─── Comissão por Profissional ────────────────────────────────────────────────
+
+export interface ComissaoProfissional {
+  profissional_id: string;   // TEXT slug (ex: "terezinha-de-jesus")
+  profissional_nome: string;
+  procedimento_id: string;   // UUID
+  procedimento_nome: string;
+  percentual: number;        // 0-100
+  valor_recebido: number;    // soma dos recebimentos com status=recebido
+  valor_comissao: number;    // valor_recebido * percentual / 100
+}
 
 // ─── Resumo Financeiro ────────────────────────────────────────────────────────
 

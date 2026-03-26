@@ -178,6 +178,8 @@ export default function CadastroLayout() {
           <TabsContent value="historico" className="space-y-6 animate-fade-in">
             <HistoricoCliente
               pacienteId={idCliente}
+              tipoUsuario={tipoUsuarioCliente}
+              nomeCompleto={nomeCliente}
             />
           </TabsContent>
         </Tabs>

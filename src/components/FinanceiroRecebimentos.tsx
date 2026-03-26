@@ -49,6 +49,7 @@ function slugFromNome(nome: string): FormaPagamento | null {
 
 /** Hook para buscar procedimentos dinamicamente do Supabase */
 interface ProcedimentoOpcao {
+  id: string;
   nome: string;
   valor_padrao: number | null;
 }
@@ -63,10 +64,11 @@ function useProcedimentos() {
       try {
         const { data } = await supabase
           .from("procedimentos")
-          .select("nome, valor_padrao")
+          .select("id, nome, valor_padrao")
           .eq("ativo", true)
           .order("nome");
-        if (data) setProcedimentos(data.map((p: { nome: string; valor_padrao: number | null }) => ({
+        if (data) setProcedimentos(data.map((p: { id: string; nome: string; valor_padrao: number | null }) => ({
+          id: p.id,
           nome: p.nome,
           valor_padrao: p.valor_padrao ?? null,
         })));
@@ -235,6 +237,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
   const [form, setForm] = useState<RecebimentoInput>({
     paciente_id:      inicial?.paciente_id      ?? null,
     paciente_nome:    inicial?.paciente_nome    ?? "",
+    procedimento_id:  inicial?.procedimento_id  ?? null,
     descricao:        procedimentoBase,
     valor:            inicial?.valor            ?? 0,
     data_vencimento:  inicial?.data_vencimento  ?? "",
@@ -297,11 +300,12 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">Procedimento *</label>
             <Select
-              value={form.descricao}
+              value={form.procedimento_id ?? ""}
               onValueChange={v => {
-                set("descricao", v);
+                const proc = procedimentos.find(p => p.id === v);
+                set("procedimento_id", v || null);
+                set("descricao", proc?.nome ?? "");
                 // Preenche o valor automaticamente com o valor_padrao do procedimento
-                const proc = procedimentos.find(p => p.nome === v);
                 if (proc && proc.valor_padrao !== null && proc.valor_padrao > 0) {
                   set("valor", proc.valor_padrao);
                 }
@@ -317,7 +321,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
                   <SelectItem value="__empty" disabled>Nenhum procedimento cadastrado</SelectItem>
                 ) : (
                   procedimentos.map(p => (
-                    <SelectItem key={p.nome} value={p.nome}>{p.nome}</SelectItem>
+                    <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>
                   ))
                 )}
               </SelectContent>
@@ -559,7 +563,7 @@ export default function FinanceiroRecebimentos() {
       });
       if (!res.ok) throw new Error("Erro ao salvar");
 
-      // Criar parcelas recorrentes (somente na criação)
+        // Criar parcelas recorrentes (somente na criação)
       if (!editando && recorrencia && recorrencia.meses > 0 && dados.data_vencimento) {
         const datas = gerarDatasRecorrentes(dados.data_vencimento, recorrencia.meses);
         await Promise.all(
@@ -573,6 +577,7 @@ export default function FinanceiroRecebimentos() {
                 data_pagamento: null,
                 status: "pendente",
                 descricao: `${dados.descricao} (${idx + 2}/${recorrencia.meses + 1})`,
+                procedimento_id: dados.procedimento_id ?? null,
               }),
             })
           )
