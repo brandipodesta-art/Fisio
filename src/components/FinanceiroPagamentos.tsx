@@ -124,7 +124,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
     : (form.categoria ?? "—");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 p-4" style={{position:'fixed',top:0,left:0,right:0,bottom:0}}>
       <div className="bg-popover rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-border">
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h2 className="text-base font-semibold text-foreground">
@@ -812,7 +812,7 @@ export default function FinanceiroPagamentos() {
 
       {/* Modal de Alerta de Duplicidade */}
       {duplicatas.length > 0 && dadosPendentes && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4" style={{position:'fixed',top:0,left:0,right:0,bottom:0}}>
           <div className="bg-popover rounded-xl shadow-2xl w-full max-w-md border border-border">
             {/* Header */}
             <div className="flex items-center gap-3 p-5 border-b border-amber-100 bg-amber-50 rounded-t-xl">
@@ -885,8 +885,8 @@ export default function FinanceiroPagamentos() {
 
       {/* Modal de Visualização */}
       {visualizando && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-popover rounded-xl shadow-xl w-full max-w-lg border border-border">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4" style={{position:'fixed',top:0,left:0,right:0,bottom:0}}>
+          <div className="bg-popover rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-border">
             <div className="flex items-center justify-between p-5 border-b border-border">
               <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
                 <Eye className="w-4 h-4 text-blue-500" /> Detalhes do Pagamento
