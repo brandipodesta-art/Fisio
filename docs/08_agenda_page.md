@@ -6,7 +6,7 @@
 
 ## Proposito
 
-Sistema de agendamento estilo Google Calendar para a clinica de fisioterapia. Permite visualizar, criar, editar e filtrar agendamentos por profissional, com visao de dia e semana. Inclui gerenciamento de status (confirmar, iniciar atendimento, concluir, cancelar, faltou) **com integração automática ao Histórico do Cliente** (recebimentos + frequências).
+Sistema de agendamento estilo Google Calendar para a clinica de fisioterapia. Permite visualizar, criar, editar e filtrar agendamentos por profissional, com visao de **dia, semana e mês**. Inclui gerenciamento de status (confirmar, iniciar atendimento, concluir, cancelar, faltou) **com integração automática ao Histórico do Cliente** (recebimentos + frequências).
 
 ---
 
@@ -15,7 +15,7 @@ Sistema de agendamento estilo Google Calendar para a clinica de fisioterapia. Pe
 | Arquivo | Funcao |
 |---|---|
 | `agendaTypes.ts` | Interfaces (Professional, Appointment), constantes de status e duracao |
-| `agendaData.ts` | Mapeamento de profissionais, time slots, helpers de data pt-BR |
+| `agendaData.ts` | Mapeamento de profissionais, time slots, helpers de data pt-BR, `getMonthDays` |
 | `AgendaEventCard.tsx` | Card visual do evento com cor por profissional, menu de acoes de status |
 | `AgendaNewEventDialog.tsx` | Modal de criar/editar agendamento (paciente, profissional, procedimento, data, horario, duracao, observacao) |
 | `AgendaPage.tsx` | Pagina principal: toolbar + sidebar + grid + handlers de CRUD e status |
@@ -167,7 +167,8 @@ statusNaoTerminal = ["agendado", "confirmado", "em_atendimento"]
 | Estado | Tipo | Valor Inicial | Descricao |
 |---|---|---|---|
 | `currentDate` | `Date` | `new Date()` | Data sendo visualizada |
-| `viewMode` | `"day" \| "week"` | `"day"` | Modo de exibicao |
+| `viewMode` | `"day" \| "week" \| "month"` | `"day"` | Modo de exibicao |
+| `monthDays` | `Date[]` (useMemo) | `[]` | Dias do mês atual incluindo padding de semanas incompletas |
 | `appointments` | `Appointment[]` | `[]` (carregado do Supabase) | Todos os agendamentos |
 | `professionals` | `Professional[]` | `[]` (carregado do Supabase) | Profissionais disponiveis |
 | `selectedProfessionals` | `string[]` | Todos os IDs | Filtro de profissionais ativos |
@@ -184,12 +185,35 @@ statusNaoTerminal = ["agendado", "confirmado", "em_atendimento"]
 | `fetchProfessionals()` | Carrega profissionais do Supabase |
 | `fetchAppointments()` | Carrega agendamentos (com join procedimentos, fallback sem join) |
 | `goToday()` | Navega para a data atual |
-| `goPrev() / goNext()` | Navega 1 dia ou 7 dias conforme viewMode |
+| `goPrev() / goNext()` | Navega 1 dia, 7 dias ou 1 mês conforme viewMode |
 | `toggleProfessional(id)` | Liga/desliga filtro de um profissional |
 | `getSlotAppointments(hour, date?)` | Retorna agendamentos de um horario especifico |
 | `handleSaveAppointment(apt)` | Cria novo agendamento no Supabase |
 | `handleUpdateAppointment(apt)` | Atualiza agendamento existente no Supabase |
 | `handleStatusChange(id, status)` | Altera status + dispara integração com Histórico |
+
+---
+
+## Visão Mês
+
+Implementada em 27/03/2026. Grade mensal no estilo Google Calendar.
+
+### Comportamento
+- Exibe todos os dias do mês em grade Seg–Dom com padding de semanas incompletas (dias de mês anterior/posterior em cinza)
+- Hoje destacado com círculo verde (igual ao Google Calendar)
+- Cada dia mostra até **3 eventos** com chip colorido por profissional (`HH:MM NomePaciente`)
+- Se houver mais de 3: exibe `+N mais`
+- **Clicar no dia** → navega direto para visão de Dia daquele dia
+- **Clicar em um evento** → abre modal de edição
+- Navegação `<` `>` avança/recua por mês inteiro
+- Título da toolbar: `Março de 2026`
+
+### Helper `getMonthDays(date)` — `agendaData.ts`
+Retorna array de `Date` cobrindo a grade completa:
+1. Encontra o primeiro dia do mês
+2. Recua até a segunda-feira anterior (ou o próprio dia se já for segunda)
+3. Avança até o domingo seguinte ao último dia do mês
+4. Resultado: sempre múltiplo de 7 (semanas completas)
 
 ---
 
