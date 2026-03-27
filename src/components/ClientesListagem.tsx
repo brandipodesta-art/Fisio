@@ -111,7 +111,7 @@ export default function ClientesListagem({
   // ── Filtros ──────────────────────────────────────────────────────
   const [filtroNome, setFiltroNome] = useState("");
   const [filtroCpf, setFiltroCpf] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState("todos");
+  const [filtroTipo, setFiltroTipo] = useState("paciente");
   const [filtroProfissional, setFiltroProfissional] = useState("todos");
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [profissionaisList, setProfissionaisList] = useState<{ id: string; name: string }[]>([]);
@@ -184,7 +184,7 @@ export default function ClientesListagem({
 
   // Busca inicial
   useEffect(() => {
-    buscarClientes("", "", "todos", "", "todos");
+    buscarClientes("", "", "paciente", "", "todos");
   }, [buscarClientes]);
 
   // Debounce ao alterar filtros
@@ -202,7 +202,7 @@ export default function ClientesListagem({
   const limparFiltros = () => {
     setFiltroNome("");
     setFiltroCpf("");
-    setFiltroTipo("todos");
+    setFiltroTipo("paciente");
     setFiltroProfissional("todos");
     setFiltroStatus("todos");
   };
