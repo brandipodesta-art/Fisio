@@ -1,4 +1,4 @@
-# 👥 ClientesListagem.tsx — Listagem de Pacientes
+# 👥 ClientesListagem.tsx — Listagem de Pacientes Cadastrados
 
 > **Arquivo:** `src/components/ClientesListagem.tsx` · **Diretiva:** `"use client"` · **Tipo:** Client Component
 
@@ -6,24 +6,40 @@
 
 ## Propósito
 
-Exibir a lista completa de pacientes cadastrados no sistema, oferecendo recursos de busca rápida e navegação direta para os detalhes e histórico de cada paciente.
+Exibir a lista de pacientes cadastrados no sistema com busca, filtros avançados, avatares coloridos e menu de ações por registro. Integra-se com `CadastroLayout` para navegar para edição, visualização e histórico do paciente.
 
 ---
 
 ## Funcionalidades Principais
 
 ### 1. Listagem Dinâmica
-- Exibe os pacientes em cards limpos contendo nome, contato, data de nascimento e status.
-- Os dados são carregados do banco de dados (Supabase) através da API local.
+- Cards com avatar (iniciais + cor por hash do nome), nome, CPF, telefone, data de nascimento, cidade e data de cadastro.
+- Dados carregados via `GET /api/pacientes` com debounce de 400ms nos filtros de texto.
+- Contador `X de Y clientes` no topo — `X` = resultado atual, `Y` = total geral (sem filtros extras).
 
-### 2. Busca e Filtro
-- Barra de busca proeminente no topo.
-- Permite filtrar a lista em tempo real pelo nome do paciente ou pelo telefone.
-- O filtro é aplicado localmente sobre os dados já carregados para resposta instantânea.
+### 2. Filtros
+| Filtro | Tipo | Padrão |
+|---|---|---|
+| Nome Completo | Texto (busca parcial) | vazio |
+| CPF | Texto com máscara | vazio |
+| Tipo de Usuário | Select | **Paciente** (padrão — não exibe funcionários por default) |
+| Profissional Responsável | Select (carregado do Supabase) | Todos |
+| Status | Select | Todos |
 
-### 3. Integração com Cadastro e Histórico
-- Botão "Ver Prontuário" em cada card.
-- Ao clicar, o sistema redireciona o usuário para a aba de "Histórico" (prontuário) carregando automaticamente os dados do paciente selecionado.
+> **Importante:** O filtro "Tipo de Usuário" inicia com **Paciente** selecionado para evitar que funcionários e usuários do sistema apareçam na listagem de clientes. Admins podem trocar para "Todos os tipos" se necessário.
+
+### 3. Permissões por Perfil
+| Permissão | Comportamento |
+|---|---|
+| `podeVerUsuariosSistema` | Exibe opções "Funcionario", "Admin", "Financeiro" no filtro de tipo |
+| `podeEditarCadastro` | Exibe botão "Editar" no menu de ações do card |
+| `podeAlternarStatus` | Exibe opção "Ativar/Desativar" no menu de ações |
+| `isFuncionario` | Remove do resultado registros de tipo funcionario/admin/financeiro |
+
+### 4. Menu de Ações por Card (três pontos)
+- **Visualizar** — abre modo leitura do cadastro
+- **Editar** — abre formulário de edição (se permitido)
+- **Ativar / Desativar** — alterna `ativo` via `PATCH /api/pacientes/:id` (se permitido)
 
 ---
 
@@ -31,22 +47,40 @@ Exibir a lista completa de pacientes cadastrados no sistema, oferecendo recursos
 
 | Import | Tipo | Origem |
 |---|---|---|
-| `useState, useEffect, useMemo` | React Hooks | `react` |
-| `Card, Button, Input` | UI Components | `@/components/ui/...` |
-| `Paciente` | Interface | `@/lib/types/paciente` |
-| `Search, User, Phone, Calendar` | Ícones | `lucide-react` |
+| `useState, useEffect, useCallback, useRef` | React Hooks | `react` |
+| `Card, Input, Button, Select, Label` | UI Components | `@/components/ui/...` |
+| `DropdownMenu` | UI Component | `@/components/ui/dropdown-menu` |
+| `createClient` | Supabase client | `@/lib/supabase/client` |
+| `PacienteResumo, TIPO_USUARIO_LABEL, TIPO_USUARIO_COLOR` | Tipos | `@/lib/types/paciente` |
+| `usePermissoes` | Hook | `@/lib/auth/usePermissoes` |
+| Ícones variados | Ícones | `lucide-react` |
 
 ---
 
 ## Estrutura de Dados (API)
 
-Os dados são consumidos da API local `/api/pacientes`.
+Consumido de `GET /api/pacientes` → tabela `pacientes` no Supabase.
 
-### Modelo Resumido `Paciente`
+### Modelo `PacienteResumo`
+
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `id` | `string` | UUID do paciente |
-| `nome` | `string` | Nome completo |
-| `telefone` | `string` | Contato principal |
-| `data_nascimento` | `string` | Formato YYYY-MM-DD |
-| `status` | `string` | "ativo" ou "inativo" |
+| `id` | `string` | UUID |
+| `created_at` | `string` | Data de cadastro |
+| `tipo_usuario` | `string` | `"paciente"`, `"funcionario"`, `"admin"`, `"financeiro"` |
+| `nome_completo` | `string` | Nome completo |
+| `cpf` | `string` | CPF formatado |
+| `telefone_cel` | `string \| null` | Celular |
+| `data_nascimento` | `string \| null` | Formato YYYY-MM-DD |
+| `cidade` | `string \| null` | Cidade |
+| `ativo` | `boolean` | Status ativo/inativo |
+| `profissional_responsavel` | `string \| null` | Slug do profissional |
+
+---
+
+## Notas para Edição Futura
+
+- Para adicionar novos campos na listagem, incluir no `select` da query em `/api/pacientes/route.ts` e no card do componente
+- O filtro padrão `tipo_usuario = "paciente"` é aplicado tanto no estado inicial quanto no `limparFiltros` — manter sincronizados
+- `totalGeral` é atualizado apenas quando nome, cpf e profissional estão vazios e tipo é "paciente" ou "todos" e status é "todos"
+- Cards inativos recebem `opacity-70` e avatar cinza
