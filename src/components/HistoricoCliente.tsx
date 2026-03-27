@@ -3,7 +3,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, DollarSign, Calendar, Stethoscope, Users, AlertTriangle } from "lucide-react";
+import { Activity, DollarSign, Calendar, Stethoscope, Users, AlertTriangle, MoreHorizontal, Eye, Check, Pencil, X } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import ConfirmActionDialog from "@/components/ui/ConfirmActionDialog";
+import ModalPortal from "@/components/ui/ModalPortal";
 
 /**
  * HistoricoCliente — Aba de Histórico do cliente
@@ -124,6 +129,12 @@ export default function HistoricoCliente({
   const [comissoes, setComissoes]             = useState<ComissaoMap>({});
   const [pacientesVinculados, setPacientesVinculados] = useState<PacienteVinculado[]>([]);
   const [isLoading, setIsLoading]             = useState(true);
+
+  // Estados para ações nos itens financeiros
+  const [visualizandoItem, setVisualizandoItem] = useState<FinanceiroItem | null>(null);
+  const [confirmandoItem, setConfirmandoItem]   = useState<FinanceiroItem | null>(null);
+  const [alterandoItem, setAlterandoItem]       = useState<FinanceiroItem | null>(null);
+  const [salvandoAcao, setSalvandoAcao]         = useState(false);
 
   useEffect(() => {
     async function fetchData() {
@@ -281,6 +292,39 @@ export default function HistoricoCliente({
       default:          return "bg-muted text-foreground";
     }
   };
+
+  // ─── Funções de ação nos itens financeiros ──────────────────────────────
+
+  async function confirmarPagamento(item: FinanceiroItem) {
+    setSalvandoAcao(true);
+    try {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      await fetch(`${url}/rest/v1/recebimentos?id=eq.${item.id}`, {
+        method: "PATCH",
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({
+          status: "recebido",
+          data_pagamento: new Date().toISOString().slice(0, 10),
+        }),
+      });
+      // Atualiza localmente
+      setRecebimentosRaw(prev =>
+        prev.map(r => r.id === item.id
+          ? { ...r, status: "recebido", data_pagamento: new Date().toISOString().slice(0, 10) }
+          : r
+        )
+      );
+    } finally {
+      setSalvandoAcao(false);
+      setConfirmandoItem(null);
+    }
+  }
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -541,7 +585,7 @@ export default function HistoricoCliente({
                   <div className="space-y-2">
                     {pendentes.map(item => (
                       <div key={item.id} className="flex items-center justify-between bg-white dark:bg-card rounded-lg px-3 py-2 border border-amber-200">
-                        <div>
+                        <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-foreground">{item.descricao}</p>
                           <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
                             {isFuncionario && item.paciente_nome && (
@@ -550,11 +594,44 @@ export default function HistoricoCliente({
                             <span>Venc.: {formatarData(item.data_vencimento)}</span>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold text-amber-700">{fmt(item.valor)}</p>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(item.status)}`}>
-                            {item.status === "atrasado" ? "Atrasado" : "Pendente"}
-                          </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <div className="text-right">
+                            <p className="text-sm font-bold text-amber-700">{fmt(item.valor)}</p>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${getStatusColor(item.status)}`}>
+                              {item.status === "atrasado" ? "Atrasado" : "Pendente"}
+                            </span>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-amber-100">
+                                <MoreHorizontal className="w-4 h-4" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-52">
+                              <DropdownMenuItem
+                                onClick={() => setVisualizandoItem(item)}
+                                className="cursor-pointer"
+                              >
+                                <Eye className="w-4 h-4 mr-2" />
+                                Visualizar
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => setConfirmandoItem(item)}
+                                className="text-emerald-700 cursor-pointer focus:text-emerald-700"
+                              >
+                                <Check className="w-4 h-4 mr-2" />
+                                Confirmar Pagamento
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => setAlterandoItem(item)}
+                                className="cursor-pointer"
+                              >
+                                <Pencil className="w-4 h-4 mr-2" />
+                                Alterar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                     ))}
@@ -568,7 +645,7 @@ export default function HistoricoCliente({
                 {financeiroOrdenado.map((item) => (
                   <Card key={item.id} className="p-4 border-border shadow-sm">
                     <div className="flex items-center justify-between">
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="font-medium text-foreground text-sm">{item.descricao}</h3>
                           {isFuncionario && item.paciente_nome && (
@@ -581,13 +658,50 @@ export default function HistoricoCliente({
                           {item.status === "pago" ? "Pago em" : "Venc.:"} {formatarData(item.data)}
                         </p>
                       </div>
-                      <div className="text-right">
-                        <p className="font-bold text-foreground mb-1">{fmt(item.valor)}</p>
-                        <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(item.status)}`}>
-                          {item.status === "pago" ? "Pago" :
-                           item.status === "pendente" ? "Pendente" :
-                           item.status === "atrasado" ? "Atrasado" : "Cancelado"}
-                        </span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <p className="font-bold text-foreground mb-1">{fmt(item.valor)}</p>
+                          <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${getStatusColor(item.status)}`}>
+                            {item.status === "pago" ? "Pago" :
+                             item.status === "pendente" ? "Pendente" :
+                             item.status === "atrasado" ? "Atrasado" : "Cancelado"}
+                          </span>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted">
+                              <MoreHorizontal className="w-4 h-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem
+                              onClick={() => setVisualizandoItem(item)}
+                              className="cursor-pointer"
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              Visualizar
+                            </DropdownMenuItem>
+                            {(item.status === "pendente" || item.status === "atrasado") && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => setConfirmandoItem(item)}
+                                  className="text-emerald-700 cursor-pointer focus:text-emerald-700"
+                                >
+                                  <Check className="w-4 h-4 mr-2" />
+                                  Confirmar Pagamento
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => setAlterandoItem(item)}
+                                  className="cursor-pointer"
+                                >
+                                  <Pencil className="w-4 h-4 mr-2" />
+                                  Alterar
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </Card>
@@ -621,6 +735,141 @@ export default function HistoricoCliente({
           </TabsContent>
         )}
       </Tabs>
+
+      {/* ── Modal: Visualizar item financeiro ─────────────────────────── */}
+      {visualizandoItem && (
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
+            <div className="bg-popover rounded-xl shadow-xl w-full max-w-md">
+              <div className="flex items-center justify-between p-5 border-b border-border">
+                <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-blue-500" /> Detalhes do Recebimento
+                </h2>
+                <button onClick={() => setVisualizandoItem(null)} className="text-muted-foreground/60 hover:text-muted-foreground">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-5 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Procedimento</p>
+                    <p className="text-sm text-foreground">{visualizandoItem.descricao}</p>
+                  </div>
+                  {visualizandoItem.paciente_nome && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Paciente</p>
+                      <p className="text-sm text-foreground">{visualizandoItem.paciente_nome}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Valor</p>
+                    <p className="text-sm font-semibold text-primary">{fmt(visualizandoItem.valor)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Status</p>
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(visualizandoItem.status)}`}>
+                      {visualizandoItem.status === "pago" ? "Pago" :
+                       visualizandoItem.status === "pendente" ? "Pendente" :
+                       visualizandoItem.status === "atrasado" ? "Atrasado" : "Cancelado"}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Vencimento</p>
+                    <p className="text-sm text-foreground">{formatarData(visualizandoItem.data_vencimento)}</p>
+                  </div>
+                  {visualizandoItem.status === "pago" && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Data do Pagamento</p>
+                      <p className="text-sm text-foreground">{formatarData(visualizandoItem.data)}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 p-5 border-t border-border/60">
+                <button
+                  onClick={() => setVisualizandoItem(null)}
+                  className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted"
+                >
+                  Fechar
+                </button>
+                {(visualizandoItem.status === "pendente" || visualizandoItem.status === "atrasado") && (
+                  <button
+                    onClick={() => { setConfirmandoItem(visualizandoItem); setVisualizandoItem(null); }}
+                    className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
+                  >
+                    Confirmar Pagamento
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* ── Modal: Alterar item financeiro ─────────────────────────────── */}
+      {alterandoItem && (
+        <ModalPortal>
+          <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
+            <div className="bg-popover rounded-xl shadow-xl w-full max-w-md">
+              <div className="flex items-center justify-between p-5 border-b border-border">
+                <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
+                  <Pencil className="w-4 h-4 text-blue-500" /> Alterar Recebimento
+                </h2>
+                <button onClick={() => setAlterandoItem(null)} className="text-muted-foreground/60 hover:text-muted-foreground">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-5 space-y-4">
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-xs text-amber-800 font-medium">
+                    Para alterar os dados completos deste recebimento, acesse o módulo <strong>Financeiro &gt; Recebimentos</strong> e localize o registro de <strong>{alterandoItem.descricao}</strong>.
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Procedimento</p>
+                    <p className="text-foreground">{alterandoItem.descricao}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Valor</p>
+                    <p className="font-semibold text-primary">{fmt(alterandoItem.valor)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Vencimento</p>
+                    <p className="text-foreground">{formatarData(alterandoItem.data_vencimento)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Status</p>
+                    <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(alterandoItem.status)}`}>
+                      {alterandoItem.status === "pendente" ? "Pendente" : "Atrasado"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="flex justify-end p-5 border-t border-border/60">
+                <button
+                  onClick={() => setAlterandoItem(null)}
+                  className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        </ModalPortal>
+      )}
+
+      {/* ── Dialog: Confirmar Pagamento ─────────────────────────────────── */}
+      <ConfirmActionDialog
+        open={!!confirmandoItem}
+        onOpenChange={(open) => { if (!open) setConfirmandoItem(null); }}
+        onConfirm={() => { if (confirmandoItem) confirmarPagamento(confirmandoItem); }}
+        titulo="Confirmar Pagamento"
+        mensagem={`Confirmar o recebimento de ${confirmandoItem ? fmt(confirmandoItem.valor) : ""} referente a "${confirmandoItem?.descricao ?? ""}"? A data de pagamento será registrada como hoje.`}
+        labelConfirmar="Confirmar Pagamento"
+        loading={salvandoAcao}
+        variante="warning"
+      />
     </div>
   );
 }

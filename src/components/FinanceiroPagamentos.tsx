@@ -1,5 +1,6 @@
 "use client";
 import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
+import ConfirmActionDialog from "@/components/ui/ConfirmActionDialog";
 import ModalPortal from "@/components/ui/ModalPortal";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
@@ -360,6 +361,7 @@ export default function FinanceiroPagamentos() {
   const [salvando, setSalvando]       = useState(false);
   const [excluindo, setExcluindo]     = useState<string | null>(null);
   const [excluirDialogId, setExcluirDialogId] = useState<string | null>(null);
+  const [editarDialogId, setEditarDialogId]   = useState<Pagamento | null>(null);
 
   // Controle de duplicidade
   const [duplicatas, setDuplicatas]         = useState<Pagamento[]>([]);
@@ -774,7 +776,7 @@ export default function FinanceiroPagamentos() {
                           Visualizar
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => { setEditando(item); setModalAberto(true); }}
+                          onClick={() => setEditarDialogId(item)}
                           className="cursor-pointer"
                         >
                           <Pencil className="w-4 h-4 mr-2" />
@@ -945,7 +947,7 @@ export default function FinanceiroPagamentos() {
             <div className="flex justify-end gap-3 p-5 border-t border-border/60">
               <Button variant="outline" onClick={() => setVisualizando(null)}>Fechar</Button>
               <Button
-                onClick={() => { setEditando(visualizando); setModalAberto(true); setVisualizando(null); }}
+                onClick={() => { setEditarDialogId(visualizando); setVisualizando(null); }}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2"
               >
                 <Pencil className="w-4 h-4" /> Editar
@@ -955,6 +957,17 @@ export default function FinanceiroPagamentos() {
         </div>
         </ModalPortal>
       )}
+
+      {/* Dialog de Confirmação de Edição */}
+      <ConfirmActionDialog
+        open={!!editarDialogId}
+        onOpenChange={(open) => { if (!open) setEditarDialogId(null); }}
+        onConfirm={() => { if (editarDialogId) { setEditando(editarDialogId); setModalAberto(true); setEditarDialogId(null); } }}
+        titulo="Editar Pagamento"
+        mensagem={`Deseja editar o pagamento de "${editarDialogId?.descricao ?? ""}" no valor de ${editarDialogId ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(Number(editarDialogId.valor)) : ""}?`}
+        labelConfirmar="Editar"
+        variante="warning"
+      />
 
       {/* Dialog de Confirmação de Exclusão */}
       <ConfirmDeleteDialog
