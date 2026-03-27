@@ -170,7 +170,7 @@ export default function ClientesListagem({
         }
         setClientes(data);
 
-        if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos") && (!profissional || profissional === "todos") && (!status || status === "todos")) {
+        if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos" || tipo === "paciente") && (!profissional || profissional === "todos") && (!status || status === "todos")) {
           setTotalGeral(data.length);
         }
       } catch (e: unknown) {
@@ -217,7 +217,7 @@ export default function ClientesListagem({
   };
 
   const filtrosAtivos =
-    filtroNome !== "" || filtroCpf !== "" || filtroTipo !== "todos" || filtroProfissional !== "todos" || filtroStatus !== "todos";
+    filtroNome !== "" || filtroCpf !== "" || (filtroTipo !== "todos" && filtroTipo !== "paciente") || filtroProfissional !== "todos" || filtroStatus !== "todos";
 
   // ── Render ────────────────────────────────────────────
   return (
