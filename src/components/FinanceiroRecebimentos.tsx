@@ -3,6 +3,7 @@
 import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 import ConfirmActionDialog from "@/components/ui/ConfirmActionDialog";
 import ModalPortal from "@/components/ui/ModalPortal";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
@@ -249,6 +250,8 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
     forma_pagamento:     inicial?.forma_pagamento     ?? null,
     forma_pagamento_id:  inicial?.forma_pagamento_id  ?? null,
     observacoes:         inicial?.observacoes         ?? null,
+    confirmado_por:      inicial?.confirmado_por      ?? null,
+    confirmado_por_id:   inicial?.confirmado_por_id   ?? null,
   });
   const [repete, setRepete] = useState(false);
   const [meses, setMeses]   = useState(3);
@@ -497,6 +500,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function FinanceiroRecebimentos() {
+  const { usuario } = useAuth();
   const { procedimentos } = useProcedimentos();
   const { formas } = useFormasPagamento();
 
@@ -619,7 +623,13 @@ export default function FinanceiroRecebimentos() {
     await fetch(`/api/recebimentos/${item.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...item, status: "recebido", data_pagamento: new Date().toISOString().slice(0, 10) }),
+      body: JSON.stringify({
+        ...item,
+        status: "recebido",
+        data_pagamento: new Date().toISOString().slice(0, 10),
+        confirmado_por: usuario?.nome_completo ?? usuario?.nome_acesso ?? null,
+        confirmado_por_id: usuario?.id ?? null,
+      }),
     });
     buscar();
   }
@@ -955,6 +965,22 @@ export default function FinanceiroRecebimentos() {
                   <p className="text-sm text-foreground">{new Date(visualizando.created_at).toLocaleDateString('pt-BR')}</p>
                 </div>
               </div>
+              {/* Confirmado por — exibido apenas quando status = recebido e campo preenchido */}
+              {visualizando.status === 'recebido' && (
+                <div className="mt-3 pt-3 border-t border-border/50">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Confirmado por</p>
+                  <p className="text-sm text-foreground">
+                    {visualizando.confirmado_por
+                      ? <span className="inline-flex items-center gap-1.5">
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold">
+                            {visualizando.confirmado_por.split(' ').slice(0,2).map((n: string) => n[0]).join('').toUpperCase()}
+                          </span>
+                          {visualizando.confirmado_por}
+                        </span>
+                      : <span className="italic text-muted-foreground/60">Não registrado</span>}
+                  </p>
+                </div>
+              )}
               {visualizando.observacoes && (
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-1">Observações</p>

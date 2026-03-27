@@ -10,6 +10,7 @@ import {
 import ConfirmActionDialog from "@/components/ui/ConfirmActionDialog";
 import ModalPortal from "@/components/ui/ModalPortal";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 /**
  * HistoricoCliente — Aba de Histórico do cliente
@@ -124,6 +125,7 @@ export default function HistoricoCliente({
 }: HistoricoClienteProps) {
   const isFuncionario = tipoUsuario === "funcionario" || tipoUsuario === "financeiro";
   const { podeConfirmarPagamento, podeAlterarRecebimento } = usePermissoes();
+  const { usuario } = useAuth();
 
   const [recebimentosRaw, setRecebimentosRaw] = useState<RecebimentoRaw[]>([]);
   const [frequencia, setFrequencia]           = useState<Frequencia[]>([]);
@@ -313,6 +315,8 @@ export default function HistoricoCliente({
         body: JSON.stringify({
           status: "recebido",
           data_pagamento: new Date().toISOString().slice(0, 10),
+          confirmado_por: usuario?.nome_completo ?? usuario?.nome_acesso ?? null,
+          confirmado_por_id: usuario?.id ?? null,
         }),
       });
       // Atualiza localmente

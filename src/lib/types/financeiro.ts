@@ -53,6 +53,10 @@ export interface Recebimento {
   forma_pagamento_id: string | null;
   observacoes: string | null;
   created_at: string;
+  /** Nome do usuário que confirmou o recebimento */
+  confirmado_por: string | null;
+  /** ID do usuário que confirmou o recebimento (FK → usuarios_acesso.id) */
+  confirmado_por_id: string | null;
 }
 
 export type RecebimentoInput = Omit<Recebimento, "id" | "created_at">;
