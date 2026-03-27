@@ -6,10 +6,32 @@ import CadastroLayout from "@/components/CadastroLayout";
 import AgendaPage from "@/components/AgendaPage";
 import FinanceiroPage from "@/components/FinanceiroPage";
 import ConfiguracoesPage from "@/components/ConfiguracoesPage";
+import LoginPage from "@/components/LoginPage";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { Loader2 } from "lucide-react";
 
 export default function Page() {
   const [activePage, setActivePage] = useState("cadastro");
+  const { usuario, isLoading } = useAuth();
 
+  // Aguarda restauração da sessão do sessionStorage
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <span className="text-sm">Carregando...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Não autenticado → exibe tela de Login
+  if (!usuario) {
+    return <LoginPage />;
+  }
+
+  // Autenticado → exibe a aplicação
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <TopBar activePage={activePage} onPageChange={setActivePage} />

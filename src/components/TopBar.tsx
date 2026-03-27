@@ -10,6 +10,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/lib/auth/AuthContext";
+import { toast } from "sonner";
 
 interface TopBarProps {
   activePage: string;
@@ -17,12 +19,30 @@ interface TopBarProps {
 }
 
 const menuItems = [
-  { key: "cadastro",      label: "Cadastro",      icon: Users },
-  { key: "agenda",        label: "Agenda",         icon: CalendarDays },
-  { key: "financeiro",    label: "Financeiro",     icon: DollarSign },
+  { key: "cadastro",   label: "Cadastro",   icon: Users },
+  { key: "agenda",     label: "Agenda",     icon: CalendarDays },
+  { key: "financeiro", label: "Financeiro", icon: DollarSign },
 ];
 
 export default function TopBar({ activePage, onPageChange }: TopBarProps) {
+  const { usuario, logout, isAdmin } = useAuth();
+
+  // Gera iniciais a partir do nome completo
+  const iniciais = (usuario?.nome_completo ?? "US")
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0].toUpperCase())
+    .join("");
+
+  const nomeExibicao = usuario?.nome_completo ?? "Usuário";
+  const emailExibicao = usuario?.email ?? "";
+
+  const handleLogout = () => {
+    logout();
+    toast.success("Sessão encerrada com sucesso.");
+  };
+
   return (
     <header className="w-full bg-card/80 glass border-b border-border/50 sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -77,42 +97,45 @@ export default function TopBar({ activePage, onPageChange }: TopBarProps) {
               <button className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-premium cursor-pointer outline-none">
                 {/* Avatar com iniciais */}
                 <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-primary/90 to-emerald-700 text-white text-xs font-semibold shadow-sm">
-                  AD
+                  {iniciais}
                 </div>
                 <div className="hidden md:flex flex-col items-start">
                   <span className="text-sm font-medium text-foreground leading-tight">
-                    Admin
+                    {nomeExibicao.split(" ")[0]}
                   </span>
-                  <span className="text-[11px] text-muted-foreground leading-tight">
-                    Gerenciar conta
+                  <span className="text-[11px] text-muted-foreground leading-tight capitalize">
+                    {usuario?.tipo_usuario ?? ""}
                   </span>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block" />
               </button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-60">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex items-center gap-3 py-1">
                   <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-primary/90 to-emerald-700 text-white text-xs font-semibold">
-                    AD
+                    {iniciais}
                   </div>
-                  <div className="flex flex-col">
-                    <span className="text-sm font-semibold text-foreground">Admin</span>
-                    <span className="text-xs text-muted-foreground">admin@fisiosys.com</span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-semibold text-foreground truncate">{nomeExibicao}</span>
+                    <span className="text-xs text-muted-foreground truncate">{emailExibicao}</span>
                   </div>
                 </div>
               </DropdownMenuLabel>
 
               <DropdownMenuSeparator />
 
-              <DropdownMenuItem
-                onClick={() => onPageChange("configuracoes")}
-                className="gap-2 cursor-pointer"
-              >
-                <Settings className="w-4 h-4 text-muted-foreground" />
-                <span>Configuracoes</span>
-              </DropdownMenuItem>
+              {/* Configurações — apenas para admin */}
+              {isAdmin && (
+                <DropdownMenuItem
+                  onClick={() => onPageChange("configuracoes")}
+                  className="gap-2 cursor-pointer"
+                >
+                  <Settings className="w-4 h-4 text-muted-foreground" />
+                  <span>Configurações</span>
+                </DropdownMenuItem>
+              )}
 
               <DropdownMenuItem className="gap-2 cursor-pointer">
                 <User className="w-4 h-4 text-muted-foreground" />
@@ -123,9 +146,7 @@ export default function TopBar({ activePage, onPageChange }: TopBarProps) {
 
               <DropdownMenuItem
                 className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
-                onClick={() => {
-                  // TODO: implementar logout
-                }}
+                onClick={handleLogout}
               >
                 <LogOut className="w-4 h-4" />
                 <span>Sair</span>
