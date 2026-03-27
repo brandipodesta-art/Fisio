@@ -20,7 +20,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
-import { CheckCircle2, AlertCircle, Loader2, Search, XCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, Loader2, Search, XCircle, Eye, EyeOff, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 
 /**
@@ -64,6 +64,11 @@ interface FormData {
   nfComplemento: string;
   nfCidade: string;
   nfTelefonCel: string;
+  // Dados de acesso ao sistema (somente para funcionario, admin, financeiro)
+  nomeAcesso: string;
+  emailAcesso: string;
+  senhaAcesso: string;
+  confirmarSenha: string;
 }
 
 interface FieldErrors {
@@ -116,11 +121,19 @@ export default function CadastroForm({
     nfComplemento: "",
     nfCidade: "",
     nfTelefonCel: "",
+    // Dados de acesso
+    nomeAcesso: "",
+    emailAcesso: "",
+    senhaAcesso: "",
+    confirmarSenha: "",
   });
 
   const supabase = createClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingPaciente, setLoadingPaciente] = useState(false);
+  const [mostrarSenha, setMostrarSenha] = useState(false);
+  const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
+  const [temAcessoCadastrado, setTemAcessoCadastrado] = useState(false);
   const [profissionaisList, setProfissionaisList] = useState<{ id: string; name: string }[]>([]);
 
   // Busca profissionais dinamicamente para o select
@@ -172,11 +185,34 @@ export default function CadastroForm({
           nfComplemento: p.nf_complemento ?? "",
           nfCidade: p.nf_cidade ?? "",
           nfTelefonCel: p.nf_telefone_cel ?? "",
+          // Dados de acesso (não pré-carregados — senha nunca é exibida)
+          nomeAcesso: "",
+          emailAcesso: "",
+          senhaAcesso: "",
+          confirmarSenha: "",
         });
 
         // Marcar CPF como válido (já estava salvo)
         if (p.cpf) {
           setValidations((prev) => ({ ...prev, cpf: true }));
+        }
+
+        // Verificar se já existe acesso cadastrado para este paciente
+        const tipoRequerAcesso = ['funcionario','admin','financeiro'].includes(p.tipo_usuario ?? '');
+        if (tipoRequerAcesso) {
+          const { data: acessoExistente } = await supabase
+            .from('usuarios_acesso')
+            .select('id, nome_acesso, email')
+            .eq('paciente_id', pacienteId)
+            .maybeSingle();
+          if (acessoExistente) {
+            setTemAcessoCadastrado(true);
+            setFormData((prev) => ({
+              ...prev,
+              nomeAcesso: acessoExistente.nome_acesso ?? "",
+              emailAcesso: acessoExistente.email ?? "",
+            }));
+          }
         }
       } catch (err) {
         toast.error("Erro ao carregar dados do paciente.");
@@ -613,6 +649,38 @@ export default function CadastroForm({
       return;
     }
 
+    // Validação dos dados de acesso (obrigatório para funcionario, admin, financeiro)
+    const tipoRequerAcesso = ['funcionario', 'admin', 'financeiro'].includes(formData.tipoUsuario);
+    if (tipoRequerAcesso) {
+      const precisaSenha = !modoEdicao || (!temAcessoCadastrado) || formData.senhaAcesso.length > 0;
+      if (!formData.nomeAcesso.trim()) {
+        toast.error("Preencha o Nome para Acesso ao Sistema.");
+        return;
+      }
+      if (!formData.emailAcesso.trim()) {
+        toast.error("Preencha o E-mail de acesso.");
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.emailAcesso)) {
+        toast.error("E-mail de acesso inválido.");
+        return;
+      }
+      if (precisaSenha) {
+        if (!formData.senhaAcesso) {
+          toast.error("Preencha a Senha de acesso.");
+          return;
+        }
+        if (formData.senhaAcesso.length < 6) {
+          toast.error("A senha deve ter pelo menos 6 caracteres.");
+          return;
+        }
+        if (formData.senhaAcesso !== formData.confirmarSenha) {
+          toast.error("As senhas não coincidem.");
+          return;
+        }
+      }
+    }
+
     if (!validations.cpf) {
       toast.error("CPF inválido. Corrija antes de salvar.");
       return;
@@ -708,6 +776,24 @@ export default function CadastroForm({
           }
         }
 
+        // ── Salvar / atualizar dados de acesso ──
+        if (tipoRequerAcesso && formData.nomeAcesso && formData.emailAcesso) {
+          const acessoRes = await fetch('/api/usuarios-acesso', {
+            method: temAcessoCadastrado ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              paciente_id: pacienteId,
+              nome_acesso: formData.nomeAcesso.trim(),
+              email: formData.emailAcesso.trim().toLowerCase(),
+              ...(formData.senhaAcesso ? { senha: formData.senhaAcesso } : {}),
+            }),
+          });
+          if (!acessoRes.ok) {
+            const acessoErr = await acessoRes.json();
+            throw new Error(acessoErr.error ?? 'Erro ao salvar dados de acesso.');
+          }
+        }
+
         onSalvoComSucesso?.();
         return;
       }
@@ -780,6 +866,33 @@ export default function CadastroForm({
           { id: idSlug, name: nome, short_name: shortName, ...cor },
           { onConflict: 'id' }
         );
+      }
+
+      // ── Salvar dados de acesso no modo criação ──
+      if (tipoRequerAcesso && formData.nomeAcesso && formData.emailAcesso && formData.senhaAcesso) {
+        // Buscar o id do paciente recém-criado
+        const { data: novoPaciente } = await supabase
+          .from('pacientes')
+          .select('id')
+          .eq('cpf', formData.cpf)
+          .maybeSingle();
+        if (novoPaciente?.id) {
+          const acessoRes = await fetch('/api/usuarios-acesso', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              paciente_id: novoPaciente.id,
+              nome_acesso: formData.nomeAcesso.trim(),
+              email: formData.emailAcesso.trim().toLowerCase(),
+              senha: formData.senhaAcesso,
+            }),
+          });
+          if (!acessoRes.ok) {
+            const acessoErr = await acessoRes.json();
+            // Não bloqueia o cadastro, apenas avisa
+            toast.warning(`Cadastro salvo, mas erro ao criar acesso: ${acessoErr.error ?? 'Tente novamente.'}`);
+          }
+        }
       }
 
       toast.dismiss();
@@ -1587,6 +1700,116 @@ export default function CadastroForm({
           )}
         </div>
       </Card>
+
+      {/* Seção: Dados de Acesso ao Sistema (somente funcionario, admin, financeiro) */}
+      {['funcionario', 'admin', 'financeiro'].includes(formData.tipoUsuario) && (
+        <Card className="p-6 border-border shadow-sm border-l-4 border-l-primary">
+          <div className="flex items-center gap-2 mb-5">
+            <KeyRound className="w-5 h-5 text-primary" />
+            <h2 className="text-lg font-semibold text-foreground">Dados de Acesso ao Sistema</h2>
+          </div>
+
+          {modoEdicao && temAcessoCadastrado && (
+            <div className="flex items-center gap-3 px-4 py-3 mb-5 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-green-500" />
+              <span>Acesso já cadastrado. Preencha a senha apenas se desejar <strong>alterá-la</strong>.</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Nome para Acesso */}
+            <div>
+              <Label htmlFor="nomeAcesso" className="text-sm font-medium text-foreground/80">
+                Nome para Acesso ao Sistema *
+              </Label>
+              <Input
+                id="nomeAcesso"
+                placeholder="Ex: joao.silva"
+                value={formData.nomeAcesso}
+                onChange={(e) => setFormData((prev) => ({ ...prev, nomeAcesso: e.target.value }))}
+                className="mt-2"
+                autoComplete="username"
+              />
+            </div>
+
+            {/* Email */}
+            <div>
+              <Label htmlFor="emailAcesso" className="text-sm font-medium text-foreground/80">
+                E-mail *
+              </Label>
+              <Input
+                id="emailAcesso"
+                type="email"
+                placeholder="email@clinica.com"
+                value={formData.emailAcesso}
+                onChange={(e) => setFormData((prev) => ({ ...prev, emailAcesso: e.target.value }))}
+                className="mt-2"
+                autoComplete="email"
+              />
+            </div>
+
+            {/* Senha */}
+            <div>
+              <Label htmlFor="senhaAcesso" className="text-sm font-medium text-foreground/80">
+                Senha {modoEdicao && temAcessoCadastrado ? "(deixe em branco para manter)" : "*"}
+              </Label>
+              <div className="relative mt-2">
+                <Input
+                  id="senhaAcesso"
+                  type={mostrarSenha ? "text" : "password"}
+                  placeholder={modoEdicao && temAcessoCadastrado ? "•••••• (inalterada)" : "Mínimo 6 caracteres"}
+                  value={formData.senhaAcesso}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, senhaAcesso: e.target.value }))}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarSenha((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {mostrarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirmar Senha */}
+            <div>
+              <Label htmlFor="confirmarSenha" className="text-sm font-medium text-foreground/80">
+                Confirmar Senha {modoEdicao && temAcessoCadastrado ? "(deixe em branco para manter)" : "*"}
+              </Label>
+              <div className="relative mt-2">
+                <Input
+                  id="confirmarSenha"
+                  type={mostrarConfirmarSenha ? "text" : "password"}
+                  placeholder={modoEdicao && temAcessoCadastrado ? "•••••• (inalterada)" : "Repita a senha"}
+                  value={formData.confirmarSenha}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, confirmarSenha: e.target.value }))}
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setMostrarConfirmarSenha((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  tabIndex={-1}
+                >
+                  {mostrarConfirmarSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              {formData.senhaAcesso && formData.confirmarSenha && formData.senhaAcesso !== formData.confirmarSenha && (
+                <p className="text-xs text-destructive mt-1 flex items-center gap-1">
+                  <XCircle className="w-3 h-3" /> As senhas não coincidem
+                </p>
+              )}
+              {formData.senhaAcesso && formData.confirmarSenha && formData.senhaAcesso === formData.confirmarSenha && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Senhas conferem
+                </p>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Botões de Ação */}
       <div className="flex gap-3 justify-end">
