@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import ConfirmActionDialog from "@/components/ui/ConfirmActionDialog";
 import ModalPortal from "@/components/ui/ModalPortal";
+import { usePermissoes } from "@/lib/auth/usePermissoes";
 
 /**
  * HistoricoCliente — Aba de Histórico do cliente
@@ -122,6 +123,7 @@ export default function HistoricoCliente({
   nomeCompleto = "",
 }: HistoricoClienteProps) {
   const isFuncionario = tipoUsuario === "funcionario" || tipoUsuario === "financeiro";
+  const { podeConfirmarPagamento, podeAlterarRecebimento } = usePermissoes();
 
   const [recebimentosRaw, setRecebimentosRaw] = useState<RecebimentoRaw[]>([]);
   const [frequencia, setFrequencia]           = useState<Frequencia[]>([]);
@@ -615,21 +617,25 @@ export default function HistoricoCliente({
                                 <Eye className="w-4 h-4 mr-2" />
                                 Visualizar
                               </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => setConfirmandoItem(item)}
-                                className="text-emerald-700 cursor-pointer focus:text-emerald-700"
-                              >
-                                <Check className="w-4 h-4 mr-2" />
-                                Confirmar Pagamento
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => setAlterandoItem(item)}
-                                className="cursor-pointer"
-                              >
-                                <Pencil className="w-4 h-4 mr-2" />
-                                Alterar
-                              </DropdownMenuItem>
+                              {(podeConfirmarPagamento || podeAlterarRecebimento) && <DropdownMenuSeparator />}
+                              {podeConfirmarPagamento && (
+                                <DropdownMenuItem
+                                  onClick={() => setConfirmandoItem(item)}
+                                  className="text-emerald-700 cursor-pointer focus:text-emerald-700"
+                                >
+                                  <Check className="w-4 h-4 mr-2" />
+                                  Confirmar Pagamento
+                                </DropdownMenuItem>
+                              )}
+                              {podeAlterarRecebimento && (
+                                <DropdownMenuItem
+                                  onClick={() => setAlterandoItem(item)}
+                                  className="cursor-pointer"
+                                >
+                                  <Pencil className="w-4 h-4 mr-2" />
+                                  Alterar
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -681,23 +687,27 @@ export default function HistoricoCliente({
                               <Eye className="w-4 h-4 mr-2" />
                               Visualizar
                             </DropdownMenuItem>
-                            {(item.status === "pendente" || item.status === "atrasado") && (
+                            {(item.status === "pendente" || item.status === "atrasado") && (podeConfirmarPagamento || podeAlterarRecebimento) && (
                               <>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() => setConfirmandoItem(item)}
-                                  className="text-emerald-700 cursor-pointer focus:text-emerald-700"
-                                >
-                                  <Check className="w-4 h-4 mr-2" />
-                                  Confirmar Pagamento
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => setAlterandoItem(item)}
-                                  className="cursor-pointer"
-                                >
-                                  <Pencil className="w-4 h-4 mr-2" />
-                                  Alterar
-                                </DropdownMenuItem>
+                                {podeConfirmarPagamento && (
+                                  <DropdownMenuItem
+                                    onClick={() => setConfirmandoItem(item)}
+                                    className="text-emerald-700 cursor-pointer focus:text-emerald-700"
+                                  >
+                                    <Check className="w-4 h-4 mr-2" />
+                                    Confirmar Pagamento
+                                  </DropdownMenuItem>
+                                )}
+                                {podeAlterarRecebimento && (
+                                  <DropdownMenuItem
+                                    onClick={() => setAlterandoItem(item)}
+                                    className="cursor-pointer"
+                                  >
+                                    <Pencil className="w-4 h-4 mr-2" />
+                                    Alterar
+                                  </DropdownMenuItem>
+                                )}
                               </>
                             )}
                           </DropdownMenuContent>

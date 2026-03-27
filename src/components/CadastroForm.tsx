@@ -22,6 +22,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { CheckCircle2, AlertCircle, Loader2, Search, XCircle, Eye, EyeOff, KeyRound } from "lucide-react";
 import { toast } from "sonner";
+import { usePermissoes } from "@/lib/auth/usePermissoes";
 
 /**
  * CadastroForm - Formulário completo de cadastro de pacientes
@@ -93,8 +94,13 @@ export default function CadastroForm({
   onCancelar,
 }: CadastroFormProps = {}) {
   const modoEdicao = Boolean(pacienteId);
+  const { podeSelecionarTipoUsuario, isFuncionario } = usePermissoes();
+
+  // Funcionário só pode criar Paciente; Admin/Financeiro podem escolher
+  const tipoInicial = isFuncionario ? "paciente" : "";
+
   const [formData, setFormData] = useState<FormData>({
-    tipoUsuario: "",
+    tipoUsuario: tipoInicial,
     profissionalResponsavel: "",
     nomeCompleto: "",
     cpf: "",
@@ -955,17 +961,27 @@ export default function CadastroForm({
               onValueChange={(value) =>
                 setFormData((prev) => ({ ...prev, tipoUsuario: value }))
               }
+              disabled={isFuncionario}
             >
               <SelectTrigger id="tipoUsuario" className="mt-2">
                 <SelectValue placeholder="Escolha uma opção" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="paciente">Paciente</SelectItem>
-                <SelectItem value="funcionario">Funcionário</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="financeiro">Financeiro</SelectItem>
+                {podeSelecionarTipoUsuario && (
+                  <>
+                    <SelectItem value="funcionario">Funcionário</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
+            {isFuncionario && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Funcionários só podem cadastrar Pacientes.
+              </p>
+            )}
           </div>
           {formData.tipoUsuario === "paciente" && (
             <div>

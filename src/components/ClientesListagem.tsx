@@ -40,6 +40,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { PacienteResumo } from "@/lib/types/paciente";
 import { TIPO_USUARIO_LABEL, TIPO_USUARIO_COLOR } from "@/lib/types/paciente";
+import { usePermissoes } from "@/lib/auth/usePermissoes";
 
 // ─────────────────────────────────────────────────────────
 // Helpers
@@ -99,7 +100,9 @@ export default function ClientesListagem({
   onEditarCliente,
   onVisualizarCliente,
 }: ClientesListagemProps) {
-  // ── Estado ────────────────────────────────────────────
+  const { podeVerUsuariosSistema, podeEditarCadastro, podeAlternarStatus, isFuncionario } = usePermissoes();
+
+  // ── Estado ────────────────────────────────────────────────────
   const [clientes, setClientes] = useState<PacienteResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -160,7 +163,11 @@ export default function ClientesListagem({
           const err = await res.json();
           throw new Error(err.error ?? "Erro ao buscar dados");
         }
-        const data: PacienteResumo[] = await res.json();
+        let data: PacienteResumo[] = await res.json();
+        // Funcionário não vê registros do tipo funcionario, admin ou financeiro
+        if (isFuncionario) {
+          data = data.filter(c => !['funcionario','admin','financeiro'].includes(c.tipo_usuario));
+        }
         setClientes(data);
 
         if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos") && (!profissional || profissional === "todos") && (!status || status === "todos")) {
@@ -343,9 +350,13 @@ export default function ClientesListagem({
               <SelectContent>
                 <SelectItem value="todos">Todos os tipos</SelectItem>
                 <SelectItem value="paciente">Paciente</SelectItem>
-                <SelectItem value="funcionario">Funcionario</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-                <SelectItem value="financeiro">Financeiro</SelectItem>
+                {podeVerUsuariosSistema && (
+                  <>
+                    <SelectItem value="funcionario">Funcionario</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                  </>
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -554,30 +565,36 @@ export default function ClientesListagem({
                       <Eye className="w-4 h-4 mr-2" />
                       Visualizar
                     </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => onEditarCliente?.(cliente)}
-                      className="cursor-pointer"
-                    >
-                      <Pencil className="w-4 h-4 mr-2" />
-                      Editar
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem
-                      onClick={() => alternarStatus(cliente)}
-                      className={`cursor-pointer ${cliente.ativo ? "text-amber-600 focus:text-amber-600" : "text-primary focus:text-primary"}`}
-                    >
-                      {cliente.ativo ? (
-                        <>
-                          <ToggleLeft className="w-4 h-4 mr-2" />
-                          Desativar
-                        </>
-                      ) : (
-                        <>
-                          <ToggleRight className="w-4 h-4 mr-2" />
-                          Ativar
-                        </>
-                      )}
-                    </DropdownMenuItem>
+                    {podeEditarCadastro && (
+                      <DropdownMenuItem
+                        onClick={() => onEditarCliente?.(cliente)}
+                        className="cursor-pointer"
+                      >
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Editar
+                      </DropdownMenuItem>
+                    )}
+                    {podeAlternarStatus && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => alternarStatus(cliente)}
+                          className={`cursor-pointer ${cliente.ativo ? "text-amber-600 focus:text-amber-600" : "text-primary focus:text-primary"}`}
+                        >
+                          {cliente.ativo ? (
+                            <>
+                              <ToggleLeft className="w-4 h-4 mr-2" />
+                              Desativar
+                            </>
+                          ) : (
+                            <>
+                              <ToggleRight className="w-4 h-4 mr-2" />
+                              Ativar
+                            </>
+                          )}
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>

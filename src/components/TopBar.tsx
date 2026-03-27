@@ -1,7 +1,6 @@
 "use client";
 
 import { Activity, Users, CalendarDays, DollarSign, LogOut, Settings, User, ChevronDown } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +10,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { usePermissoes } from "@/lib/auth/usePermissoes";
 import { toast } from "sonner";
 
 interface TopBarProps {
@@ -18,14 +18,21 @@ interface TopBarProps {
   onPageChange: (page: string) => void;
 }
 
-const menuItems = [
-  { key: "cadastro",   label: "Cadastro",   icon: Users },
-  { key: "agenda",     label: "Agenda",     icon: CalendarDays },
-  { key: "financeiro", label: "Financeiro", icon: DollarSign },
+const TODOS_MENUS = [
+  { key: "cadastro",   label: "Cadastro",   icon: Users,         requerAdmin: false },
+  { key: "agenda",     label: "Agenda",     icon: CalendarDays,  requerAdmin: false },
+  { key: "financeiro", label: "Financeiro", icon: DollarSign,    requerAdmin: false, requerFinanceiro: true },
 ];
 
 export default function TopBar({ activePage, onPageChange }: TopBarProps) {
-  const { usuario, logout, isAdmin } = useAuth();
+  const { usuario, logout } = useAuth();
+  const { podeVerConfiguracoes, isFuncionario } = usePermissoes();
+
+  // Filtra menus conforme permissões do perfil
+  const menuItems = TODOS_MENUS.filter(m => {
+    if (m.requerFinanceiro && isFuncionario) return false;
+    return true;
+  });
 
   // Gera iniciais a partir do nome completo
   const iniciais = (usuario?.nome_completo ?? "US")
@@ -127,7 +134,7 @@ export default function TopBar({ activePage, onPageChange }: TopBarProps) {
               <DropdownMenuSeparator />
 
               {/* Configurações — apenas para admin */}
-              {isAdmin && (
+              {podeVerConfiguracoes && (
                 <DropdownMenuItem
                   onClick={() => onPageChange("configuracoes")}
                   className="gap-2 cursor-pointer"
