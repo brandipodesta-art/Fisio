@@ -335,6 +335,12 @@ function SecaoProcedimentos() {
 
   const salvar = async () => {
     if (!form.nome?.trim()) { setErroForm("O nome é obrigatório."); return; }
+    // Verificar duplicidade antes de enviar ao banco
+    const nomeTrimmed = form.nome.trim().toLowerCase();
+    const duplicado = itens.some(
+      item => item.nome.toLowerCase() === nomeTrimmed && item.id !== mostrando
+    );
+    if (duplicado) { setErroForm(`Já existe um procedimento com o nome "${form.nome.trim()}".`); return; }
     setSalvando(true);
     setErroForm(null);
     try {
@@ -347,7 +353,12 @@ function SecaoProcedimentos() {
       else await atualizar(mostrando, dados);
       setMostrando("nenhum");
     } catch (e: unknown) {
-      setErroForm(e instanceof Error ? e.message : "Erro ao salvar.");
+      const msg = e instanceof Error ? e.message : "Erro ao salvar.";
+      if (msg.includes("duplicate key") || msg.includes("unique constraint")) {
+        setErroForm(`Já existe um procedimento com o nome "${form.nome.trim()}".`);
+      } else {
+        setErroForm(msg);
+      }
     }
     setSalvando(false);
   };
