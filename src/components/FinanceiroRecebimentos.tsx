@@ -4,6 +4,7 @@ import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 import ConfirmActionDialog from "@/components/ui/ConfirmActionDialog";
 import ModalPortal from "@/components/ui/ModalPortal";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { toast } from "sonner";
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import {
@@ -279,11 +280,11 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.paciente_id) {
-      alert("Por favor, selecione o Nome do Paciente.");
+      toast.error("Selecione o paciente antes de salvar.");
       return;
     }
     if (!form.forma_pagamento_id) {
-      alert("Por favor, selecione a Forma de Pagamento.");
+      toast.error("Selecione a forma de pagamento antes de salvar.");
       return;
     }
     await onSalvar(form, repete ? { meses } : undefined);

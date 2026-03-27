@@ -6,7 +6,7 @@
 
 ## Propósito
 
-Barra de navegação fixa no topo da aplicação. Contém a logo da clínica à esquerda, links de navegação centralizados (Cadastro, Agenda, Financeiro) e botão de logout à direita. Controla a troca de seções da página principal via callback `onPageChange`.
+Barra de navegação fixa no topo da aplicação. Contém a logo à esquerda, links de navegação centralizados (Cadastro, Agenda, Financeiro) com controle de permissões por perfil, e menu do usuário à direita com opções de Configurações e Sair.
 
 ---
 
@@ -14,8 +14,10 @@ Barra de navegação fixa no topo da aplicação. Contém a logo da clínica à 
 
 | Import | Tipo | Origem |
 |---|---|---|
-| `Activity, Users, CalendarDays, DollarSign, LogOut` | Ícones | `lucide-react` |
-| `Button` | UI Component | `@/components/ui/button` (shadcn/ui) |
+| `Activity, Users, CalendarDays, DollarSign, LogOut, Settings, ChevronDown` | Ícones | `lucide-react` |
+| `DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger` | UI | `@/components/ui/dropdown-menu` |
+| `useAuth` | Hook de autenticação | `@/lib/auth/AuthContext` |
+| `usePermissoes` | Hook de permissões | `@/lib/auth/usePermissoes` |
 
 ---
 
@@ -23,81 +25,86 @@ Barra de navegação fixa no topo da aplicação. Contém a logo da clínica à 
 
 | Prop | Tipo | Obrigatório | Descrição |
 |---|---|---|---|
-| `activePage` | `string` | Sim | Página atualmente ativa (`"cadastro"`, `"agenda"`, `"financeiro"`) |
+| `activePage` | `string` | Sim | Página atualmente ativa (`"cadastro"`, `"agenda"`, `"financeiro"`, `"configuracoes"`) |
 | `onPageChange` | `(page: string) => void` | Sim | Callback quando um menu é clicado |
 
 ---
 
 ## Constante: `menuItems`
 
-| Key | Label | Ícone |
-|---|---|---|
-| `cadastro` | Cadastro | `Users` 👤 |
-| `agenda` | Agenda | `CalendarDays` 📅 |
-| `financeiro` | Financeiro | `DollarSign` 💲 |
+| Key | Label | Ícone | Visibilidade |
+|---|---|---|---|
+| `cadastro` | Cadastro | `Users` | Todos |
+| `agenda` | Agenda | `CalendarDays` | Todos |
+| `financeiro` | Financeiro | `DollarSign` | Oculto para perfil `"funcionario"` |
+
+> Configurações é renderizada separadamente no menu do usuário (não no menu principal).
 
 ---
 
-## Estrutura UI — Diagrama Visual
+## Controle de Permissões
+
+O menu **Financeiro** é ocultado para usuários com `tipo_usuario === "funcionario"`:
+
+```typescript
+const item = menuItems.filter(item => {
+  if (item.key === "financeiro" && usuario?.tipo_usuario === "funcionario") return false;
+  return true;
+});
+```
+
+**Configurações** aparece apenas no dropdown do usuário, quando `podeVerConfiguracoes` retorna `true` (perfis Admin e Financeiro).
+
+---
+
+## Menu do Usuário (Dropdown)
+
+Ícone avatar com iniciais do usuário no canto direito. Ao clicar, abre dropdown com:
+
+| Item | Condição | Ação |
+|---|---|---|
+| Avatar + nome + email | Sempre | Exibição apenas |
+| Configurações | `podeVerConfiguracoes` | Navega para `"configuracoes"` |
+| Sair | Sempre | Chama `handleLogout()` → limpa sessão → recarrega |
+
+> **"Meu Perfil"** foi removido em 27/03/2026 — era um link sem destino implementado.
+
+---
+
+## Estrutura UI
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│  bg-white  border-b  shadow-sm  sticky top-0 z-50             │
+│  bg-card  border-b  shadow-sm  sticky top-0 z-50               │
 │  ┌──────────────────────────────────────────────────────────┐  │
-│  │  max-w-7xl mx-auto  h-16  flex justify-between          │  │
+│  │  max-w-[1600px] mx-auto  h-16  flex justify-between      │  │
 │  │                                                          │  │
-│  │  ┌─────────┐    ┌───────────────────────┐   ┌─────────┐ │  │
-│  │  │ 🟢 Fisio│    │ Cadastro Agenda Financ│   │ 🚪 Sair │ │  │
-│  │  │  (logo) │    │    (nav center)       │   │ (logout) │ │  │
-│  │  └─────────┘    └───────────────────────┘   └─────────┘ │  │
+│  │  ┌──────────┐   ┌────────────────────────┐   ┌────────┐  │  │
+│  │  │ 🟢 Fisio │   │ Cadastro Agenda Financ │   │ [M] ▼  │  │  │
+│  │  │  (logo)  │   │   (nav center)         │   │ avatar │  │  │
+│  │  └──────────┘   └────────────────────────┘   └────────┘  │  │
 │  └──────────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Detalhes de Estilização
+## Logout
 
-### Header Container
-
-| Propriedade | Valor | Efeito |
-|---|---|---|
-| Background | `bg-white` | Fundo branco sólido |
-| Borda | `border-b border-slate-200` | Linha sutil embaixo |
-| Sombra | `shadow-sm` | Elevação leve |
-| Posição | `sticky top-0 z-50` | Fixa no topo ao rolar |
-| Altura | `h-16` | 64px fixo |
-
-### Logo (Esquerda)
-
-| Elemento | Classes |
-|---|---|
-| Ícone container | `w-9 h-9 rounded-lg bg-emerald-600` |
-| Ícone `Activity` | `w-5 h-5 text-white` |
-| Texto "Fisio" | `text-xl font-bold text-slate-900 tracking-tight` |
-
-### Menu Item (Centro)
-
-| Estado | Classes |
-|---|---|
-| Normal | `text-slate-600 hover:bg-slate-50 hover:text-slate-900` |
-| **Ativo** | `bg-emerald-50 text-emerald-700` |
-| Ambos | `px-4 py-2 rounded-lg text-sm font-medium transition-colors` |
-
-### Botão Sair (Direita)
-
-| Classes |
-|---|
-| `text-slate-500 hover:text-red-600 hover:bg-red-50` |
-| Usa `Button` do shadcn/ui com `variant="ghost" size="sm"` |
-
-> **Responsividade:** Labels dos menus e do botão Sair usam `hidden sm:inline` — em telas pequenas, apenas os ícones aparecem.
+```typescript
+function handleLogout() {
+  sessionStorage.removeItem("fisio_usuario");
+  setUsuario(null);
+  window.location.reload();
+}
+```
 
 ---
 
 ## Notas para Edição Futura
 
 - Para adicionar **novos menus**, insira um novo objeto no array `menuItems`
-- Para implementar **logout real**, adicione a lógica no `onClick` do botão Sair
-- Para usar uma **imagem de logo**, substitua o bloco do ícone `Activity` por um `<Image>` do Next.js
+- O menu **Financeiro** usa lógica de ocultação por perfil — não desabilitado, oculto
+- Para logo customizada, substitua o bloco do ícone `Activity` por `<Image>` do Next.js
 - O componente é **sticky** — permanece visível ao rolar a página
+- Responsividade: labels usam `hidden sm:inline` — só ícones em telas pequenas

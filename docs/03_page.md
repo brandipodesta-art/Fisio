@@ -6,7 +6,7 @@
 
 ## Propósito
 
-Página principal (rota raiz `/`) da aplicação. Gerencia a navegação entre as 3 seções do sistema via estado `activePage`. Renderiza a `TopBar` no topo e o conteúdo da seção ativa abaixo.
+Página principal (rota raiz `/`) da aplicação. Gerencia a navegação entre as seções do sistema via estado `activePage`. Renderiza a `TopBar` no topo e o conteúdo da seção ativa abaixo. Controla autenticação: exibe tela de login se não autenticado, loading enquanto restaura sessão.
 
 ---
 
@@ -14,11 +14,15 @@ Página principal (rota raiz `/`) da aplicação. Gerencia a navegação entre a
 
 | Import | Origem |
 |---|---|
-| `useState` | `react` |
+| `useState`, `useEffect` | `react` |
 | `TopBar` | `@/components/TopBar` |
 | `CadastroLayout` | `@/components/CadastroLayout` |
 | `AgendaPage` | `@/components/AgendaPage` |
 | `FinanceiroPage` | `@/components/FinanceiroPage` |
+| `ConfiguracoesPage` | `@/components/ConfiguracoesPage` |
+| `LoginPage` | `@/components/LoginPage` |
+| `useAuth` | `@/lib/auth/AuthContext` |
+| `Loader2` | `lucide-react` |
 
 ---
 
@@ -26,7 +30,39 @@ Página principal (rota raiz `/`) da aplicação. Gerencia a navegação entre a
 
 | Estado | Tipo | Valor Inicial | Descrição |
 |---|---|---|---|
-| `activePage` | `string` | `"cadastro"` | Seção da Top Bar atualmente ativa |
+| `activePage` | `string` | `localStorage.getItem("fisio_active_page") ?? "cadastro"` | Seção da Top Bar atualmente ativa — **persiste entre reloads** |
+
+### Persistência no localStorage
+
+```typescript
+// Leitura na inicialização (lazy initializer)
+const [activePage, setActivePage] = useState(() =>
+  typeof window !== "undefined"
+    ? (localStorage.getItem("fisio_active_page") ?? "cadastro")
+    : "cadastro"
+);
+
+// Gravação a cada mudança
+useEffect(() => {
+  localStorage.setItem("fisio_active_page", activePage);
+}, [activePage]);
+```
+
+> A verificação `typeof window !== "undefined"` é necessária para compatibilidade com SSR do Next.js.
+
+---
+
+## Fluxo de Autenticação
+
+```
+Carregando? ──> Spinner (Loader2 + "Carregando...")
+     │
+     ▼
+!usuario? ──> <LoginPage />
+     │
+     ▼
+Autenticado ──> <TopBar /> + <main> (seção ativa)
+```
 
 ---
 
@@ -34,20 +70,17 @@ Página principal (rota raiz `/`) da aplicação. Gerencia a navegação entre a
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  <div>  min-h-screen  flex  flex-col              │
-│  bg-gradient-to-br from-slate-50 to-slate-100     │
+│  <div>  min-h-screen  flex  flex-col  bg-background│
 │  ┌────────────────────────────────────────────┐   │
-│  │  <TopBar />  (sticky no topo)              │   │
+│  │  <TopBar />                                │   │
 │  └────────────────────────────────────────────┘   │
 │  ┌────────────────────────────────────────────┐   │
-│  │  <main>  flex-1                            │   │
+│  │  <main key={activePage}> animate-fade-in   │   │
 │  │  ┌──────────────────────────────────────┐  │   │
-│  │  │  activePage === "cadastro"           │  │   │
-│  │  │    → <CadastroLayout />              │  │   │
-│  │  │  activePage === "agenda"             │  │   │
-│  │  │    → <AgendaPage /> (com header)     │  │   │
-│  │  │  activePage === "financeiro"         │  │   │
-│  │  │    → <FinanceiroPage />              │  │   │
+│  │  │  "cadastro"    → <CadastroLayout />  │  │   │
+│  │  │  "agenda"      → <AgendaPage />      │  │   │
+│  │  │  "financeiro"  → <FinanceiroPage />  │  │   │
+│  │  │  "configuracoes"→<ConfiguracoesPage/>│  │   │
 │  │  └──────────────────────────────────────┘  │   │
 │  └────────────────────────────────────────────┘   │
 └──────────────────────────────────────────────────┘
@@ -60,13 +93,15 @@ Página principal (rota raiz `/`) da aplicação. Gerencia a navegação entre a
 | `activePage` | Componente Renderizado |
 |---|---|
 | `"cadastro"` | `<CadastroLayout />` — abas internas (Cadastro, Evolução, Histórico) |
-| `"agenda"` | `<AgendaPage />` | com header próprio em largura expandida (mas limitada a `1600px` com margens) |
-| `"financeiro"` | `<FinanceiroPage />` — placeholder com cards resumo |
+| `"agenda"` | `<AgendaPage />` com header próprio (max-w-1600px) |
+| `"financeiro"` | `<FinanceiroPage />` — recebimentos e pagamentos |
+| `"configuracoes"` | `<ConfiguracoesPage />` — procedimentos, formas de pagamento, alertas |
 
 ---
 
 ## Notas para Edição Futura
 
-- Para adicionar **novas seções**, crie o componente e adicione uma condição em `page.tsx` + um item no `menuItems` do `TopBar`
-- O gradiente de fundo agora está no `page.tsx` (antes estava no `CadastroLayout`)
+- Para adicionar **novas seções**, crie o componente e adicione condição em `page.tsx` + item no `menuItems` do `TopBar`
+- A chave `key={activePage}` no `<main>` faz o `animate-fade-in` executar a cada troca de aba
+- O `localStorage` usa a chave `"fisio_active_page"` — mude se precisar de múltiplos ambientes
 - Para **roteamento real** (URLs diferentes), migre para App Router com pastas em `src/app/`

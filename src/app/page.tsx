@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import TopBar from "@/components/TopBar";
 import CadastroLayout from "@/components/CadastroLayout";
 import AgendaPage from "@/components/AgendaPage";
@@ -11,8 +11,16 @@ import { useAuth } from "@/lib/auth/AuthContext";
 import { Loader2 } from "lucide-react";
 
 export default function Page() {
-  const [activePage, setActivePage] = useState("cadastro");
+  const [activePage, setActivePage] = useState(() =>
+    typeof window !== "undefined"
+      ? (localStorage.getItem("fisio_active_page") ?? "cadastro")
+      : "cadastro"
+  );
   const { usuario, isLoading } = useAuth();
+
+  useEffect(() => {
+    localStorage.setItem("fisio_active_page", activePage);
+  }, [activePage]);
 
   // Aguarda restauração da sessão do sessionStorage
   if (isLoading) {

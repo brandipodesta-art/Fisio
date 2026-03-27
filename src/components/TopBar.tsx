@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Users, CalendarDays, DollarSign, LogOut, Settings, User, ChevronDown } from "lucide-react";
+import { Activity, Users, CalendarDays, DollarSign, LogOut, Settings, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -143,11 +143,6 @@ export default function TopBar({ activePage, onPageChange }: TopBarProps) {
                   <span>Configurações</span>
                 </DropdownMenuItem>
               )}
-
-              <DropdownMenuItem className="gap-2 cursor-pointer">
-                <User className="w-4 h-4 text-muted-foreground" />
-                <span>Meu Perfil</span>
-              </DropdownMenuItem>
 
               <DropdownMenuSeparator />
 

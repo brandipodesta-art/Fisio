@@ -214,7 +214,10 @@ export default function AgendaPage() {
 
   // Change appointment status
   const handleStatusChange = async (appointmentId: string, newStatus: AppointmentStatus) => {
+    const appointment = appointments.find((a) => a.id === appointmentId);
+    const prevStatus = appointment?.status;
     const backup = [...appointments];
+
     setAppointments((prev) =>
       prev.map((a) =>
         a.id === appointmentId ? { ...a, status: newStatus } : a
@@ -229,6 +232,97 @@ export default function AgendaPage() {
     if (error) {
       toast.error("Erro ao alterar status. Tente novamente.");
       setAppointments(backup);
+      return;
+    }
+
+    // Integração Agenda → Histórico
+    const statusNaoTerminal = ["agendado", "confirmado", "em_atendimento"];
+    if (!appointment || !statusNaoTerminal.includes(prevStatus ?? "")) return;
+
+    if (newStatus === "concluido" && appointment.pacienteId) {
+      // 1. Criar recebimento (idempotente via observacoes)
+      const { data: existing } = await supabase
+        .from("recebimentos")
+        .select("id")
+        .ilike("observacoes", `%agendamento:${appointment.id}%`)
+        .maybeSingle();
+
+      if (!existing) {
+        let valor = 0;
+        if (appointment.procedimentoId) {
+          const { data: proc } = await supabase
+            .from("procedimentos")
+            .select("valor_padrao")
+            .eq("id", appointment.procedimentoId)
+            .maybeSingle();
+          valor = proc?.valor_padrao ?? 0;
+        }
+
+        const descricao = appointment.procedimentoNome ?? appointment.notes ?? "Atendimento";
+
+        if (valor > 0) {
+          await supabase.from("recebimentos").insert({
+            paciente_id: appointment.pacienteId,
+            paciente_nome: appointment.patientName,
+            procedimento_id: appointment.procedimentoId ?? null,
+            descricao,
+            valor,
+            data_vencimento: appointment.date,
+            status: "pendente",
+            observacoes: `agendamento:${appointment.id}`,
+          });
+        } else {
+          toast.error("Procedimento sem valor cadastrado — recebimento não criado. Cadastre o valor em Configurações.");
+        }
+      }
+
+      // 2. Registrar presença em frequencias
+      const mes = appointment.date.substring(0, 7); // "YYYY-MM"
+      const { data: freq } = await supabase
+        .from("frequencias")
+        .select("*")
+        .eq("paciente_id", appointment.pacienteId)
+        .eq("mes", mes)
+        .maybeSingle();
+
+      if (freq) {
+        await supabase
+          .from("frequencias")
+          .update({ presencas: freq.presencas + 1 })
+          .eq("id", freq.id);
+      } else {
+        await supabase.from("frequencias").insert({
+          paciente_id: appointment.pacienteId,
+          mes,
+          presencas: 1,
+          faltas: 0,
+        });
+      }
+    }
+
+    if (newStatus === "faltou" && appointment.pacienteId) {
+      // Registrar falta em frequencias
+      const mes = appointment.date.substring(0, 7);
+      const { data: freq } = await supabase
+        .from("frequencias")
+        .select("*")
+        .eq("paciente_id", appointment.pacienteId)
+        .eq("mes", mes)
+        .maybeSingle();
+
+      if (freq) {
+        await supabase
+          .from("frequencias")
+          .update({ faltas: freq.faltas + 1 })
+          .eq("id", freq.id);
+      } else {
+        await supabase.from("frequencias").insert({
+          paciente_id: appointment.pacienteId,
+          mes,
+          presencas: 0,
+          faltas: 1,
+        });
+      }
     }
   };
 

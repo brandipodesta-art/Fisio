@@ -1,12 +1,12 @@
 # AgendaPage.tsx — Pagina de Agendamento (Google Calendar Style)
 
-> **Arquivos:** `src/components/AgendaPage.tsx` (`"use client"`) + `AgendaEventCard.tsx` + `AgendaNewEventDialog.tsx` (`"use client"`) + `agendaTypes.ts` + `agendaData.ts`
+> **Arquivos:** `src/components/AgendaPage.tsx` (`"use client"`) + `AgendaEventCard.tsx` + `AgendaNewEventDialog.tsx` + `agendaTypes.ts` + `agendaData.ts`
 
 ---
 
 ## Proposito
 
-Sistema de agendamento estilo Google Calendar para a clinica de fisioterapia. Permite visualizar, criar, **editar** e filtrar agendamentos por profissional, com visao de dia e semana. Inclui gerenciamento de status (confirmar, iniciar atendimento, concluir, cancelar, faltou) e selecao de procedimento.
+Sistema de agendamento estilo Google Calendar para a clinica de fisioterapia. Permite visualizar, criar, editar e filtrar agendamentos por profissional, com visao de dia e semana. Inclui gerenciamento de status (confirmar, iniciar atendimento, concluir, cancelar, faltou) **com integração automática ao Histórico do Cliente** (recebimentos + frequências).
 
 ---
 
@@ -26,29 +26,16 @@ Sistema de agendamento estilo Google Calendar para a clinica de fisioterapia. Pe
 
 | Import | Tipo | Origem |
 |---|---|---|
-| `useState, useMemo, useEffect, useRef` | React Hooks | `react` |
-| `Button, Card, Input, Label` | UI Components | `@/components/ui/...` (shadcn/ui) |
-| `Select, Dialog` | UI Components | `@/components/ui/...` (shadcn/ui) |
-| `DropdownMenu` | UI Component | `@/components/ui/dropdown-menu` (shadcn/ui) |
-| `ChevronLeft, ChevronRight, Plus, Calendar, CalendarPlus, Pencil, MoreVertical, CheckCircle2, PlayCircle, XCircle, UserX, CalendarCheck` | Icones | `lucide-react` |
+| `useState, useMemo, useEffect` | React Hooks | `react` |
+| `Button, Card` | UI Components | `@/components/ui/...` (shadcn/ui) |
+| `DropdownMenu` | UI Component | `@/components/ui/dropdown-menu` |
+| `ChevronLeft, ChevronRight, Plus, Calendar, MoreVertical, CheckCircle2, PlayCircle, XCircle, UserX, CalendarCheck, Pencil` | Icones | `lucide-react` |
 | `toast` | Notificacoes | `sonner` |
 | `createClient` | Supabase client | `@/lib/supabase/client` |
 
 ---
 
 ## Interfaces TypeScript
-
-### `Professional`
-
-| Campo | Tipo | Descricao |
-|---|---|---|
-| `id` | `string` | Identificador unico (slug, ex: "ana-carolina") |
-| `name` | `string` | Nome completo |
-| `shortName` | `string` | Nome curto para mobile |
-| `color` | `string` | Cor hex para indicador visual |
-| `bgColor` | `string` | Classe Tailwind do fundo |
-| `borderColor` | `string` | Classe Tailwind da borda |
-| `textColor` | `string` | Classe Tailwind do texto |
 
 ### `Appointment`
 
@@ -80,16 +67,18 @@ Sistema de agendamento estilo Google Calendar para a clinica de fisioterapia. Pe
 
 ---
 
-## Fluxo de Status (Secretaria)
+## Fluxo de Status
 
 ```
-agendado ──> confirmado ──> em_atendimento ──> concluido
+agendado ──> confirmado ──> em_atendimento ──> concluido ★
    │              │
    ├──> cancelado ├──> cancelado
-   └──> faltou    └──> faltou
+   └──> faltou ★  └──> faltou ★
 
 cancelado ──> agendado (reagendar)
 faltou ──> agendado (reagendar)
+
+★ = dispara integração com Histórico (recebimentos + frequencias)
 ```
 
 ### Acoes disponiveis por status
@@ -102,6 +91,55 @@ faltou ──> agendado (reagendar)
 | `concluido` | (nenhuma) |
 | `cancelado` | Reagendar |
 | `faltou` | Reagendar |
+
+---
+
+## Integração Agenda → Histórico (handleStatusChange)
+
+Implementada em 27/03/2026. Ao alterar o status de um agendamento, além de atualizar a tabela `agendamentos`, o sistema dispara ações automáticas nas tabelas `recebimentos` e `frequencias`.
+
+### Regra de disparo
+
+Só ocorre se o agendamento estiver saindo de um **status não-terminal**:
+
+```
+statusNaoTerminal = ["agendado", "confirmado", "em_atendimento"]
+```
+
+### Ao concluir (`concluido`) — requer `pacienteId`
+
+**1. Criar recebimento (idempotente):**
+- Verifica se já existe um recebimento com `observacoes ILIKE '%agendamento:{id}%'`
+- Se não existe:
+  - Busca `valor_padrao` em `procedimentos`
+  - Se `valor > 0`: insere em `recebimentos` com `status = "pendente"` e `observacoes = "agendamento:{id}"`
+  - Se `valor = 0`: exibe `toast.error()` orientando a cadastrar o valor em Configurações
+
+**2. Registrar presença em `frequencias`:**
+- Calcula `mes = date.substring(0, 7)` (ex: `"2026-03"`)
+- Se registro do mês já existe: incrementa `presencas + 1`
+- Se não existe: cria com `presencas = 1, faltas = 0`
+
+### Ao registrar falta (`faltou`) — requer `pacienteId`
+
+- Calcula `mes` da data do agendamento
+- Se registro do mês já existe: incrementa `faltas + 1`
+- Se não existe: cria com `presencas = 0, faltas = 1`
+
+### Campos gravados em `recebimentos`
+
+| Campo | Valor |
+|---|---|
+| `paciente_id` | `appointment.pacienteId` |
+| `paciente_nome` | `appointment.patientName` |
+| `procedimento_id` | `appointment.procedimentoId` |
+| `descricao` | `procedimentoNome ?? notes ?? "Atendimento"` |
+| `valor` | `procedimento.valor_padrao` |
+| `data_vencimento` | `appointment.date` |
+| `status` | `"pendente"` |
+| `observacoes` | `"agendamento:{appointment.id}"` |
+
+> **Nota:** O campo `observacoes` com o ID do agendamento é usado como chave de idempotência — impede duplicação se o status for alterado para "concluido" mais de uma vez.
 
 ---
 
@@ -122,90 +160,6 @@ faltou ──> agendado (reagendar)
 | `status` | TEXT | Status do agendamento |
 | `notes` | TEXT | Observacoes opcionais |
 
-**Migracao:** `docs/sql_migracao_procedimento_agendamento.sql` — adiciona `procedimento_id`
-
----
-
-## Estrutura UI
-
-### Toolbar
-
-```
-┌──────────────────────────────────────────────────────────┐
-│  [Hoje] [<] [>]  Sexta, 20 de Marco de 2026             │
-│                          [Dia|Semana]  [+ Novo Agendamento]│
-└──────────────────────────────────────────────────────────┘
-```
-
-### Layout Principal (Desktop)
-
-```
-┌──────────────┬──────────────────────────────────────────┐
-│  SIDEBAR     │  CALENDAR GRID                           │
-│  w-48        │  flex-1                                  │
-│              │                                          │
-│  Profission. │  07:00 │                                 │
-│  ☑ Todos     │  08:00 │ ┌─────────────────────┐  [⋮]  │
-│  🟢 Ana C.   │        │ │ 08:00-08:50         │        │
-│  🔵 Amanda   │        │ │ Joao Silva          │        │
-│  🟠 Aline    │  09:00 │ │ Ana Carolina        │        │
-│              │        │ │ Consulta            │        │
-│              │        │ │ [Confirmado]        │        │
-│              │        │ └─────────────────────┘        │
-│              │  ...   │                                 │
-└──────────────┴──────────────────────────────────────────┘
-```
-
-### Modal Criar/Editar Agendamento
-
-```
-┌──────────────────────────────────────┐
-│  ✏️ Editar Agendamento       ✕       │  ← ou "Novo Agendamento"
-│  "Altere os dados do agendamento"   │
-│  ─────────────────────────────────  │
-│  Paciente *                          │
-│  [🔍 Buscar paciente... (autocomplete)]│
-│                                      │
-│  Profissional *                      │
-│  [Select ▼: 🟢 Ana Carolina  ]      │
-│                                      │
-│  Procedimento                        │  ← NOVO
-│  [Select ▼: Selecione procedimento]  │
-│                                      │
-│  Data *          Horario *           │
-│  [📅 20/03/2026] [⏰ 18:00 ▼]       │
-│                                      │
-│  Duracao                             │
-│  [Select ▼: 50 minutos      ]      │
-│                                      │
-│  Observacao (opcional)               │
-│  [Input                       ]      │
-│  ─────────────────────────────────  │
-│                [Cancelar] [Salvar]   │  ← "Agendar" para novo
-└──────────────────────────────────────┘
-```
-
-### Card de Evento com Menu de Acoes
-
-```
-┌─────────────────────────────────┐
-│▌ 18:00 - 18:50              [⋮]│  ← menu aparece no hover
-│▌ Renata Andrade                │
-│▌ Terezinha de Jesus            │
-│▌ Consulta                      │  ← tipo de procedimento
-│▌ [Confirmado]                  │  ← badge de status
-└─────────────────────────────────┘
-
-Menu [⋮] (contextual por status):
-  ┌─────────────────┐
-  │ ✏️ Editar        │
-  │ ─────────────── │
-  │ ✅ Confirmar     │  ← verde
-  │ ❌ Cancelar      │  ← vermelho
-  │ 👤 Faltou        │  ← amarelo
-  └─────────────────┘
-```
-
 ---
 
 ## Estados Internos (AgendaPage)
@@ -218,7 +172,6 @@ Menu [⋮] (contextual por status):
 | `professionals` | `Professional[]` | `[]` (carregado do Supabase) | Profissionais disponiveis |
 | `selectedProfessionals` | `string[]` | Todos os IDs | Filtro de profissionais ativos |
 | `dialogOpen` | `boolean` | `false` | Controla modal de agendamento |
-| `dialogDefaults` | `{ date?, time? }` | `{}` | Valores pre-preenchidos do modal |
 | `editingAppointment` | `Appointment \| null` | `null` | Agendamento sendo editado |
 | `isLoading` | `boolean` | `true` | Loading state do fetch |
 
@@ -228,53 +181,24 @@ Menu [⋮] (contextual por status):
 
 | Funcao | Descricao |
 |---|---|
+| `fetchProfessionals()` | Carrega profissionais do Supabase |
+| `fetchAppointments()` | Carrega agendamentos (com join procedimentos, fallback sem join) |
 | `goToday()` | Navega para a data atual |
-| `goPrev()` | Volta 1 dia (dia) ou 7 dias (semana) |
-| `goNext()` | Avanca 1 dia ou 7 dias |
+| `goPrev() / goNext()` | Navega 1 dia ou 7 dias conforme viewMode |
 | `toggleProfessional(id)` | Liga/desliga filtro de um profissional |
-| `toggleAllProfessionals()` | Liga/desliga todos os profissionais |
 | `getSlotAppointments(hour, date?)` | Retorna agendamentos de um horario especifico |
-| `openNewDialog(date?, time?)` | Abre modal para criar novo agendamento |
-| `handleEditClick(apt)` | Abre modal em modo edicao com dados preenchidos |
 | `handleSaveAppointment(apt)` | Cria novo agendamento no Supabase |
 | `handleUpdateAppointment(apt)` | Atualiza agendamento existente no Supabase |
-| `handleStatusChange(id, status)` | Altera status de um agendamento no Supabase |
-
----
-
-## Helpers de Data (agendaData.ts)
-
-| Funcao | Retorno | Descricao |
-|---|---|---|
-| `mapDbProfessional(row)` | `Professional` | Mapeia row do Supabase para interface |
-| `formatDateBR(date)` | `"08/03/2026"` | Formato brasileiro |
-| `formatDateISO(date)` | `"2026-03-08"` | Formato ISO para input date |
-| `formatDateFull(date)` | `"8 de Marco de 2026"` | Formato extenso pt-BR |
-| `getDayName(date, short?)` | `"Sabado"` / `"Sab"` | Nome do dia da semana |
-| `getMonthName(date)` | `"Marco"` | Nome do mes |
-| `getWeekStart(date)` | `Date` | Retorna a segunda-feira da semana |
-| `getWeekDays(date)` | `Date[7]` | Array de 7 dias (Seg-Dom) |
-| `calculateEndTime(start, dur)` | `"08:50"` | Calcula horario de termino |
-
----
-
-## Constantes Configuraveis
-
-| Constante | Valor Atual | Descricao |
-|---|---|---|
-| `TIME_SLOTS` | 07:00-20:00 (14 slots) | Horarios do grid |
-| `TIME_OPTIONS` | 07:00-20:00 a cada 30min | Opcoes do select de horario |
-| `DURATION_OPTIONS` | 30, 50, 60, 90 min | Opcoes de duracao da sessao |
-| `APPOINTMENT_STATUS_LABELS` | 6 status | Labels dos status em portugues |
-| `APPOINTMENT_STATUS_COLORS` | 6 status | Classes Tailwind para cada status |
+| `handleStatusChange(id, status)` | Altera status + dispara integração com Histórico |
 
 ---
 
 ## Notas para Edicao Futura
 
+- **Exclusão:** Ainda não há opção para excluir agendamentos
 - **Drag & drop:** Futuro: arrastar eventos para reagendar
-- **Recorrencia:** Futuro: agendamentos recorrentes (semanais)
-- **Notificacoes:** Futuro: lembrete por WhatsApp/email
-- **Conflito de horario:** Nao ha validacao de conflito — pode agendar 2 pacientes no mesmo horario/profissional
-- **Horarios configuraveis:** TIME_SLOTS hardcoded — futuro: pagina de configuracao da clinica
-- **Exclusao:** Ainda nao ha opcao para excluir agendamentos
+- **Recorrência:** Futuro: agendamentos recorrentes (semanais)
+- **Notificações:** Futuro: lembrete por WhatsApp/email
+- **Conflito de horário:** Não há validação de conflito — pode agendar 2 pacientes no mesmo horário/profissional
+- **Horários configuráveis:** TIME_SLOTS hardcoded — futuro: página de configuração da clínica
+- **Reversão de frequência:** Se um agendamento "concluido" for reaberto (ex: via Reagendar), a frequência registrada NÃO é decrementada automaticamente
