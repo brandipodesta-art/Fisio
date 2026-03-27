@@ -422,7 +422,7 @@ function SecaoFormasPagamentoRecebimento() {
   const salvar = async () => {
     if (!form.nome?.trim()) { setErroForm("O nome é obrigatório."); return; }
     const nomeNormalizado = form.nome.trim().toLowerCase();
-    const duplicado = itens.some(i =>
+    const duplicado = itensFiltrados.some(i =>
       i.nome.toLowerCase() === nomeNormalizado && i.id !== mostrando
     );
     if (duplicado) { setErroForm(`Já existe uma forma de pagamento com o nome "${form.nome.trim()}".`); return; }
@@ -565,7 +565,7 @@ function SecaoFormasPagamentoDespesa() {
   const salvar = async () => {
     if (!form.nome?.trim()) { setErroForm("O nome é obrigatório."); return; }
     const nomeNormalizado = form.nome.trim().toLowerCase();
-    const duplicado = itens.some(i =>
+    const duplicado = itensFiltrados.some(i =>
       i.nome.toLowerCase() === nomeNormalizado && i.id !== mostrando
     );
     if (duplicado) { setErroForm(`Já existe uma forma de pagamento com o nome "${form.nome.trim()}".`); return; }
