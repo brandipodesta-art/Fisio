@@ -36,7 +36,7 @@ export type AppointmentStatus =
   | "cancelado"
   | "faltou";
 
-export type ViewMode = "day" | "week";
+export type ViewMode = "day" | "week" | "month";
 
 export interface TimeSlot {
   hour: number;

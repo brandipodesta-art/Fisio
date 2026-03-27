@@ -14,6 +14,8 @@ import {
   formatDateISO,
   getDayName,
   getWeekDays,
+  getMonthDays,
+  getMonthName,
 } from "./agendaData";
 import AgendaEventCard from "./AgendaEventCard";
 import AgendaNewEventDialog from "./AgendaNewEventDialog";
@@ -97,13 +99,17 @@ export default function AgendaPage() {
 
   const goPrev = () => {
     const d = new Date(currentDate);
-    d.setDate(d.getDate() - (viewMode === "week" ? 7 : 1));
+    if (viewMode === "month") d.setMonth(d.getMonth() - 1);
+    else if (viewMode === "week") d.setDate(d.getDate() - 7);
+    else d.setDate(d.getDate() - 1);
     setCurrentDate(d);
   };
 
   const goNext = () => {
     const d = new Date(currentDate);
-    d.setDate(d.getDate() + (viewMode === "week" ? 7 : 1));
+    if (viewMode === "month") d.setMonth(d.getMonth() + 1);
+    else if (viewMode === "week") d.setDate(d.getDate() + 7);
+    else d.setDate(d.getDate() + 1);
     setCurrentDate(d);
   };
 
@@ -128,8 +134,16 @@ export default function AgendaPage() {
     return appointments.filter((apt) => {
       if (!selectedProfessionals.includes(apt.professionalId)) return false;
       if (viewMode === "day") return apt.date === dateStr;
-      const weekDays = getWeekDays(currentDate).map((d) => formatDateISO(d));
-      return weekDays.includes(apt.date);
+      if (viewMode === "week") {
+        const weekDates = getWeekDays(currentDate).map((d) => formatDateISO(d));
+        return weekDates.includes(apt.date);
+      }
+      // month: filter by year + month
+      const aptDate = new Date(apt.date + "T00:00:00");
+      return (
+        aptDate.getFullYear() === currentDate.getFullYear() &&
+        aptDate.getMonth() === currentDate.getMonth()
+      );
     });
   }, [appointments, currentDate, viewMode, selectedProfessionals]);
 
@@ -349,6 +363,10 @@ export default function AgendaPage() {
   };
 
   const weekDays = getWeekDays(currentDate);
+  const monthDays = useMemo(
+    () => viewMode === "month" ? getMonthDays(currentDate) : [],
+    [currentDate, viewMode]
+  );
 
   return (
     <div className="space-y-4">
@@ -379,7 +397,7 @@ export default function AgendaPage() {
                   <span className="hidden sm:inline">{getDayName(currentDate)}, </span>
                   {formatDateFull(currentDate)}
                 </>
-              ) : (
+              ) : viewMode === "week" ? (
                 <>
                   {getDayName(weekDays[0], true)} {weekDays[0].getDate()} -{" "}
                   {getDayName(weekDays[6], true)} {weekDays[6].getDate()},{" "}
@@ -388,6 +406,8 @@ export default function AgendaPage() {
                     : weekDays[0].toLocaleDateString("pt-BR", { month: "long" })}{" "}
                   {weekDays[0].getFullYear()}
                 </>
+              ) : (
+                `${getMonthName(currentDate)} de ${currentDate.getFullYear()}`
               )}
             </h2>
           </div>
@@ -407,13 +427,23 @@ export default function AgendaPage() {
               </button>
               <button
                 onClick={() => setViewMode("week")}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-border ${
                   viewMode === "week"
                     ? "bg-primary text-primary-foreground"
                     : "bg-card text-muted-foreground hover:bg-muted/50"
                 }`}
               >
                 Semana
+              </button>
+              <button
+                onClick={() => setViewMode("month")}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors border-l border-border ${
+                  viewMode === "month"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground hover:bg-muted/50"
+                }`}
+              >
+                Mês
               </button>
             </div>
             <Button
@@ -502,7 +532,79 @@ export default function AgendaPage() {
             </div>
           )}
 
+          {/* Month grid */}
+          {viewMode === "month" && (
+            <>
+              {/* Day name headers */}
+              <div className="grid grid-cols-7 border-b border-border bg-muted/50">
+                {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((d, i) => (
+                  <div
+                    key={d}
+                    className={`p-2 text-center text-xs font-medium text-muted-foreground ${i > 0 ? "border-l border-border" : ""}`}
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+              {/* Day cells */}
+              <div className="grid grid-cols-7">
+                {monthDays.map((day, i) => {
+                  const dateStr = formatDateISO(day);
+                  const isCurrentMonth = day.getMonth() === currentDate.getMonth();
+                  const dayApts = appointments
+                    .filter((a) => a.date === dateStr && selectedProfessionals.includes(a.professionalId))
+                    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+                  const visible = dayApts.slice(0, 3);
+                  const overflow = dayApts.length - 3;
+
+                  return (
+                    <div
+                      key={i}
+                      onClick={() => { setCurrentDate(new Date(day)); setViewMode("day"); }}
+                      className={`min-h-[90px] p-1.5 border-b border-border cursor-pointer hover:bg-muted/40 transition-colors ${
+                        i % 7 !== 0 ? "border-l border-border" : ""
+                      } ${!isCurrentMonth ? "bg-muted/20" : ""}`}
+                    >
+                      {/* Day number */}
+                      <div className={`w-7 h-7 flex items-center justify-center rounded-full text-sm font-medium mb-1 ${
+                        isToday(day)
+                          ? "bg-primary text-primary-foreground"
+                          : isCurrentMonth
+                            ? "text-foreground"
+                            : "text-muted-foreground/40"
+                      }`}>
+                        {day.getDate()}
+                      </div>
+                      {/* Events */}
+                      <div className="space-y-0.5">
+                        {visible.map((apt) => {
+                          const prof = getProfessional(apt.professionalId);
+                          return (
+                            <div
+                              key={apt.id}
+                              onClick={(e) => { e.stopPropagation(); handleEditClick(apt); }}
+                              title={`${apt.startTime} — ${apt.patientName}`}
+                              className={`text-[10px] px-1.5 py-0.5 rounded truncate font-medium cursor-pointer hover:opacity-80 ${prof.bgColor} ${prof.textColor}`}
+                            >
+                              {apt.startTime} {apt.patientName}
+                            </div>
+                          );
+                        })}
+                        {overflow > 0 && (
+                          <div className="text-[10px] text-muted-foreground pl-1 font-medium">
+                            +{overflow} mais
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
           {/* Time grid */}
+          {viewMode !== "month" && (
           <div className="overflow-y-auto max-h-[calc(100vh-320px)] relative">
             {isLoading && (
               <div className="absolute inset-0 bg-card/50 z-10 flex items-center justify-center">
@@ -578,9 +680,10 @@ export default function AgendaPage() {
               </div>
             ))}
           </div>
+          )}
 
-          {/* Empty state */}
-          {filteredAppointments.length === 0 && (
+          {/* Empty state — only for day/week view */}
+          {viewMode !== "month" && filteredAppointments.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Calendar className="w-12 h-12 text-muted-foreground/30 mb-4" />
               <h3 className="text-lg font-semibold text-muted-foreground mb-1">

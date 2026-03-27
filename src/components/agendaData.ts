@@ -125,3 +125,33 @@ export function getWeekDays(date: Date): Date[] {
   });
 }
 
+/**
+ * Helper: Get all days to display in a month calendar grid (Mon–Sun)
+ * Includes padding days from prev/next months to complete the grid rows
+ */
+export function getMonthDays(date: Date): Date[] {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+
+  // Start from Monday (if 1st is Sunday → go back 6 days)
+  const startDay = new Date(firstDay);
+  const startDow = startDay.getDay();
+  startDay.setDate(startDay.getDate() - (startDow === 0 ? 6 : startDow - 1));
+
+  // End on Sunday
+  const endDay = new Date(lastDay);
+  const endDow = endDay.getDay();
+  endDay.setDate(endDay.getDate() + (endDow === 0 ? 0 : 7 - endDow));
+
+  const days: Date[] = [];
+  const current = new Date(startDay);
+  while (current <= endDay) {
+    days.push(new Date(current));
+    current.setDate(current.getDate() + 1);
+  }
+  return days;
+}
+
