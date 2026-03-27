@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -177,7 +178,7 @@ export default function AgendaPage() {
     });
 
     if (error) {
-      console.error(error);
+      toast.error("Erro ao salvar agendamento. Tente novamente.");
       setAppointments(backup);
     }
   };
@@ -206,7 +207,7 @@ export default function AgendaPage() {
       .eq("id", apt.id);
 
     if (error) {
-      console.error(error);
+      toast.error("Erro ao atualizar agendamento. Tente novamente.");
       setAppointments(backup);
     }
   };
@@ -226,7 +227,7 @@ export default function AgendaPage() {
       .eq("id", appointmentId);
 
     if (error) {
-      console.error(error);
+      toast.error("Erro ao alterar status. Tente novamente.");
       setAppointments(backup);
     }
   };
