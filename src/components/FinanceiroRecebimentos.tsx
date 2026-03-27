@@ -274,6 +274,14 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.paciente_id) {
+      alert("Por favor, selecione o Nome do Paciente.");
+      return;
+    }
+    if (!form.forma_pagamento_id) {
+      alert("Por favor, selecione a Forma de Pagamento.");
+      return;
+    }
     await onSalvar(form, repete ? { meses } : undefined);
   }
 
@@ -292,7 +300,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Paciente — Autocomplete */}
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Nome do Paciente</label>
+            <label className="block text-xs font-medium text-muted-foreground mb-1">Nome do Paciente <span className="text-red-500">*</span></label>
             <AutocompletePaciente
               value={form.paciente_nome ?? ""}
               pacienteId={form.paciente_id}
@@ -369,7 +377,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
               </Select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Forma de Pagamento</label>
+              <label className="block text-xs font-medium text-muted-foreground mb-1">Forma de Pagamento <span className="text-red-500">*</span></label>
               <Select
                 value={form.forma_pagamento_id ?? ""}
                 onValueChange={v => {
