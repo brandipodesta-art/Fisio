@@ -17,7 +17,7 @@ Sistema de agendamento estilo Google Calendar para a clinica de fisioterapia. Pe
 | `agendaTypes.ts` | Interfaces (Professional, Appointment), constantes de status e duracao |
 | `agendaData.ts` | Mapeamento de profissionais, time slots, helpers de data pt-BR, `getMonthDays` |
 | `AgendaEventCard.tsx` | Card visual do evento com cor por profissional, menu de acoes de status |
-| `AgendaNewEventDialog.tsx` | Modal de criar/editar agendamento (paciente, profissional, procedimento, data, horario, duracao, observacao) |
+| `AgendaNewEventDialog.tsx` | Modal de criar/editar agendamento (paciente, profissional, procedimento, data, horario, duracao, observacao). Busca pacientes com `tipo_usuario = 'paciente'` |
 | `AgendaPage.tsx` | Pagina principal: toolbar + sidebar + grid + handlers de CRUD e status |
 
 ---
@@ -217,6 +217,29 @@ Retorna array de `Date` cobrindo a grade completa:
 
 ---
 
+## Integração com Histórico do Cliente (28/03/2026)
+
+| Status | Frequência | Recebimento |
+|--------|-----------|-------------|
+| `agendado` | sem efeito | sem efeito |
+| `confirmado` | sem efeito | **cria pendente** (idempotente via `observacoes`) |
+| `concluido` | +1 presença (recomputa de agendamentos) | fallback: cria se não existe |
+| `faltou` | +1 falta (recomputa de agendamentos) | mantém pendente (pagamento mensal) |
+| `cancelado` | sem efeito | admin gerencia manualmente |
+
+A frequência é sempre recomputada diretamente de `agendamentos WHERE status IN (concluido, faltou)` — nunca de contador incremental. Idempotente.
+
+---
+
+## AgendaNewEventDialog — Busca de Pacientes
+
+O autocomplete do campo "Paciente" filtra a tabela `pacientes` com:
+- `tipo_usuario = 'paciente'` — exclui funcionários, admins e financeiros
+- `ativo = true` — exclui inativos
+- `nome_completo ILIKE '%termo%'` — busca parcial
+
+---
+
 ## Notas para Edicao Futura
 
 - **Exclusão:** Ainda não há opção para excluir agendamentos
@@ -225,4 +248,4 @@ Retorna array de `Date` cobrindo a grade completa:
 - **Notificações:** Futuro: lembrete por WhatsApp/email
 - **Conflito de horário:** Não há validação de conflito — pode agendar 2 pacientes no mesmo horário/profissional
 - **Horários configuráveis:** TIME_SLOTS hardcoded — futuro: página de configuração da clínica
-- **Reversão de frequência:** Se um agendamento "concluido" for reaberto (ex: via Reagendar), a frequência registrada NÃO é decrementada automaticamente
+- **Reversão de frequência:** A frequência é recomputada do zero a partir dos agendamentos — se um appointment "concluido" for reaberto via Reagendar (faltou → agendado), a contagem é atualizada automaticamente

@@ -116,6 +116,7 @@ export default function AgendaNewEventDialog({
         .select("id, nome_completo")
         .ilike("nome_completo", `%${patientSearch}%`)
         .eq("ativo", true)
+        .eq("tipo_usuario", "paciente")
         .order("nome_completo")
         .limit(10);
       if (data) {
