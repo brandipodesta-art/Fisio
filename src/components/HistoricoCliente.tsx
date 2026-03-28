@@ -189,8 +189,8 @@ export default function HistoricoCliente({
           // ── Modo Paciente ────────────────────────────────────────────────────────────────────
           const [recebimentos, freqs, evols] = await Promise.all([
             get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status`),
-            get(`frequencias?select=*`),
-            get(`evolucoes?order=created_at.desc&select=*`),
+            get(`frequencias?paciente_id=eq.${pacienteId}&order=mes.desc&select=mes,presencas,faltas`),
+            get(`evolucoes?paciente_id=eq.${pacienteId}&order=created_at.desc&select=*`),
           ]);
 
           if (Array.isArray(recebimentos)) setRecebimentosRaw(recebimentos as RecebimentoRaw[]);

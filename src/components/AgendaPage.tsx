@@ -258,11 +258,63 @@ export default function AgendaPage() {
     }
 
     // Integração Agenda → Histórico
-    const statusNaoTerminal = ["agendado", "confirmado", "em_atendimento"];
-    if (!appointment || !statusNaoTerminal.includes(prevStatus ?? "")) return;
+    if (!appointment) return;
 
-    if (newStatus === "concluido" && appointment.pacienteId) {
-      // 1. Criar recebimento (idempotente via observacoes)
+    const statusNaoTerminal = ["agendado", "confirmado", "em_atendimento"];
+    const statusTerminal    = ["concluido", "faltou"];
+
+    // ── Frequências: recomputa do zero a partir dos agendamentos (idempotente) ──
+    // Dispara sempre que um status terminal está envolvido (novo OU anterior)
+    if (
+      appointment.pacienteId &&
+      (statusTerminal.includes(newStatus) || statusTerminal.includes(prevStatus ?? ""))
+    ) {
+      const mes = appointment.date.substring(0, 7); // "YYYY-MM"
+
+      // Conta diretamente na tabela agendamentos — resultado sempre correto
+      const [{ count: presencas }, { count: faltas }] = await Promise.all([
+        supabase
+          .from("agendamentos")
+          .select("*", { count: "exact", head: true })
+          .eq("paciente_id", appointment.pacienteId)
+          .eq("status", "concluido")
+          .like("date", `${mes}-%`),
+        supabase
+          .from("agendamentos")
+          .select("*", { count: "exact", head: true })
+          .eq("paciente_id", appointment.pacienteId)
+          .eq("status", "faltou")
+          .like("date", `${mes}-%`),
+      ]);
+
+      const { data: freq } = await supabase
+        .from("frequencias")
+        .select("id")
+        .eq("paciente_id", appointment.pacienteId)
+        .eq("mes", mes)
+        .maybeSingle();
+
+      if (freq) {
+        await supabase
+          .from("frequencias")
+          .update({ presencas: presencas ?? 0, faltas: faltas ?? 0 })
+          .eq("id", freq.id);
+      } else if ((presencas ?? 0) > 0 || (faltas ?? 0) > 0) {
+        await supabase.from("frequencias").insert({
+          paciente_id: appointment.pacienteId,
+          mes,
+          presencas: presencas ?? 0,
+          faltas: faltas ?? 0,
+        });
+      }
+    }
+
+    // ── Recebimentos: apenas na primeira conclusão (idempotente via observacoes) ──
+    if (
+      newStatus === "concluido" &&
+      appointment.pacienteId &&
+      statusNaoTerminal.includes(prevStatus ?? "")
+    ) {
       const { data: existing } = await supabase
         .from("recebimentos")
         .select("id")
@@ -296,54 +348,6 @@ export default function AgendaPage() {
         } else {
           toast.error("Procedimento sem valor cadastrado — recebimento não criado. Cadastre o valor em Configurações.");
         }
-      }
-
-      // 2. Registrar presença em frequencias
-      const mes = appointment.date.substring(0, 7); // "YYYY-MM"
-      const { data: freq } = await supabase
-        .from("frequencias")
-        .select("*")
-        .eq("paciente_id", appointment.pacienteId)
-        .eq("mes", mes)
-        .maybeSingle();
-
-      if (freq) {
-        await supabase
-          .from("frequencias")
-          .update({ presencas: freq.presencas + 1 })
-          .eq("id", freq.id);
-      } else {
-        await supabase.from("frequencias").insert({
-          paciente_id: appointment.pacienteId,
-          mes,
-          presencas: 1,
-          faltas: 0,
-        });
-      }
-    }
-
-    if (newStatus === "faltou" && appointment.pacienteId) {
-      // Registrar falta em frequencias
-      const mes = appointment.date.substring(0, 7);
-      const { data: freq } = await supabase
-        .from("frequencias")
-        .select("*")
-        .eq("paciente_id", appointment.pacienteId)
-        .eq("mes", mes)
-        .maybeSingle();
-
-      if (freq) {
-        await supabase
-          .from("frequencias")
-          .update({ faltas: freq.faltas + 1 })
-          .eq("id", freq.id);
-      } else {
-        await supabase.from("frequencias").insert({
-          paciente_id: appointment.pacienteId,
-          mes,
-          presencas: 0,
-          faltas: 1,
-        });
       }
     }
   };
