@@ -309,7 +309,43 @@ export default function AgendaPage() {
       }
     }
 
-    // ── Recebimentos: apenas na primeira conclusão (idempotente via observacoes) ──
+    // ── Recebimento ao confirmar: cria pendente assim que o paciente confirma presença ──
+    if (newStatus === "confirmado" && appointment.pacienteId) {
+      const { data: existingConf } = await supabase
+        .from("recebimentos")
+        .select("id")
+        .ilike("observacoes", `%agendamento:${appointment.id}%`)
+        .maybeSingle();
+
+      if (!existingConf) {
+        let valorConf = 0;
+        if (appointment.procedimentoId) {
+          const { data: proc } = await supabase
+            .from("procedimentos")
+            .select("valor_padrao")
+            .eq("id", appointment.procedimentoId)
+            .maybeSingle();
+          valorConf = proc?.valor_padrao ?? 0;
+        }
+        const descricaoConf = appointment.procedimentoNome ?? appointment.notes ?? "Atendimento";
+        if (valorConf > 0) {
+          await supabase.from("recebimentos").insert({
+            paciente_id: appointment.pacienteId,
+            paciente_nome: appointment.patientName,
+            procedimento_id: appointment.procedimentoId ?? null,
+            descricao: descricaoConf,
+            valor: valorConf,
+            data_vencimento: appointment.date,
+            status: "pendente",
+            observacoes: `agendamento:${appointment.id}`,
+          });
+        } else {
+          toast.error("Procedimento sem valor cadastrado — recebimento não criado. Cadastre o valor em Configurações.");
+        }
+      }
+    }
+
+    // ── Recebimentos: fallback na conclusão (idempotente — não duplica se já criado ao confirmar) ──
     if (
       newStatus === "concluido" &&
       appointment.pacienteId &&

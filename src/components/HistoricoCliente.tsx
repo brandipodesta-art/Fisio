@@ -187,17 +187,28 @@ export default function HistoricoCliente({
 
         } else if (pacienteId) {
           // ── Modo Paciente ────────────────────────────────────────────────────────────────────
-          const [recebimentos, freqs, evols] = await Promise.all([
+          const [recebimentos, agendamentosFreq, evols] = await Promise.all([
             get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status`),
-            get(`frequencias?paciente_id=eq.${pacienteId}&order=mes.desc&select=mes,presencas,faltas`),
+            // Frequências calculadas direto dos agendamentos — nunca desatualizado
+            get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou)&select=date,status`),
             get(`evolucoes?paciente_id=eq.${pacienteId}&order=created_at.desc&select=*`),
           ]);
 
           if (Array.isArray(recebimentos)) setRecebimentosRaw(recebimentos as RecebimentoRaw[]);
-          if (Array.isArray(freqs)) {
-            setFrequencia(freqs.map((f: { mes: string; presencas: number; faltas: number }) => ({
-              mes: f.mes, presencas: f.presencas, faltas: f.faltas,
-            })));
+          if (Array.isArray(agendamentosFreq)) {
+            // Agrupa por mês: conta presencas (concluido) e faltas (faltou)
+            const byMonth: Record<string, { presencas: number; faltas: number }> = {};
+            for (const apt of agendamentosFreq as { date: string; status: string }[]) {
+              const mes = apt.date.substring(0, 7);
+              if (!byMonth[mes]) byMonth[mes] = { presencas: 0, faltas: 0 };
+              if (apt.status === "concluido") byMonth[mes].presencas++;
+              else byMonth[mes].faltas++;
+            }
+            setFrequencia(
+              Object.entries(byMonth)
+                .sort(([a], [b]) => b.localeCompare(a))
+                .map(([mes, data]) => ({ mes, ...data }))
+            );
           }
           if (Array.isArray(evols)) {
             setEvolucoes(evols.map((e: { id: string; data_salva: string; texto: string }) => ({
