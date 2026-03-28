@@ -439,7 +439,7 @@ function SecaoFormasPagamentoRecebimento() {
   };
 
   return (
-    <Secao titulo="Formas de Pagamento — Recebimentos" icone={CreditCard} cor="bg-blue-600">
+    <Secao titulo="Formas de Recebimentos" icone={CreditCard} cor="bg-blue-600">
       <div className="p-4 border-b border-border flex justify-between items-center bg-card">
         <span className="text-xs text-muted-foreground">{itensFiltrados.length} forma(s) cadastrada(s)</span>
         <Button size="sm" onClick={abrirNovo} className="bg-blue-600 hover:bg-blue-700 text-white h-8 text-xs">
