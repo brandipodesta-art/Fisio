@@ -8,10 +8,12 @@
 
 Aba de histórico do cliente com sub-abas internas. Opera em **dois modos**:
 
-| Modo | Tipo de usuário | Sub-abas disponíveis |
-|------|----------------|----------------------|
-| **Paciente** | `tipo_usuario = "paciente"` | Procedimentos, Frequência, Financeiro, Evolução |
-| **Funcionário/Financeiro** | `tipo_usuario = "funcionario" \| "financeiro"` | Pacientes Vinculados (com comissões e recebimentos) |
+| Modo | Tipo de usuário | Sub-abas |
+|------|----------------|----------|
+| **Paciente** | `tipo_usuario = "paciente"` | Frequência · Financeiro · Evolução |
+| **Funcionário/Financeiro** | `tipo_usuario = "funcionario" \| "financeiro"` | Procedimentos · Financeiro |
+
+> **Nota:** A aba "Procedimentos" foi removida do modo Paciente em 28/03/2026 — as informações estão cobertas por Frequência (sessões + procedimento) e Financeiro (valores).
 
 ---
 
@@ -33,13 +35,22 @@ Aba de histórico do cliente com sub-abas internas. Opera em **dois modos**:
 
 ## Interfaces TypeScript
 
+### `FrequenciaSession`
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `date` | `string` | Data YYYY-MM-DD da sessão |
+| `status` | `"concluido" \| "faltou"` | Status do agendamento |
+| `procedimentoNome` | `string \| null` | Nome do procedimento (via join) |
+
 ### `Frequencia`
 
 | Campo | Tipo | Descrição |
 |---|---|---|
 | `mes` | `string` | Mês no formato `YYYY-MM` (ex: `"2026-03"`) |
-| `presencas` | `number` | Agendamentos com `status = "concluido"` |
-| `faltas` | `number` | Agendamentos com `status = "faltou"` |
+| `presencas` | `number` | Quantidade de agendamentos `concluido` |
+| `faltas` | `number` | Quantidade de agendamentos `faltou` |
+| `sessoes` | `FrequenciaSession[]` | Lista detalhada de cada sessão do mês |
 
 ### `RecebimentoRaw`
 
@@ -53,27 +64,25 @@ Aba de histórico do cliente com sub-abas internas. Opera em **dois modos**:
 | `valor` | `number` | Valor em R$ |
 | `data_vencimento` | `string` | Data ISO |
 | `data_pagamento` | `string \| null` | Data de quitação |
-| `status` | `string` | `pendente \| pago \| cancelado` |
+| `status` | `string` | `pendente \| pago \| cancelado \| atrasado \| recebido` |
 
 ### `Evolucao`
 
 | Campo | Tipo | Descrição |
 |---|---|---|
 | `id` | `string` | UUID |
-| `created_at` | `string` | Timestamp ISO |
-| `descricao` | `string` | Texto da evolução |
-| `profissional_nome` | `string \| null` | Nome do profissional |
+| `data` | `string` | Data (mapeada de `data_salva`) |
+| `descricao` | `string` | Texto (mapeado de `texto`) |
 
 ---
 
 ## Fonte dos dados — Modo Paciente
 
 ```typescript
-// Busca paralela no Supabase
 const [recebimentos, agendamentosFreq, evols] = await Promise.all([
-  get(`recebimentos?paciente_id=eq.${pacienteId}&...`),
-  // Frequências calculadas dos agendamentos — nunca da tabela frequencias
-  get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou)&select=date,status`),
+  get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=...`),
+  // Join com procedimentos para exibir o nome do procedimento em cada sessão
+  get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou)&select=date,status,procedimentos(nome)&order=date.desc`),
   get(`evolucoes?paciente_id=eq.${pacienteId}&order=created_at.desc&select=*`),
 ]);
 ```
@@ -81,76 +90,80 @@ const [recebimentos, agendamentosFreq, evols] = await Promise.all([
 ### Agrupamento de Frequência (client-side)
 
 ```typescript
-const byMonth: Record<string, { presencas: number; faltas: number }> = {};
+const byMonth: Record<string, { presencas: number; faltas: number; sessoes: FrequenciaSession[] }> = {};
 for (const apt of agendamentosFreq) {
   const mes = apt.date.substring(0, 7); // "2026-03"
-  if (!byMonth[mes]) byMonth[mes] = { presencas: 0, faltas: 0 };
+  if (!byMonth[mes]) byMonth[mes] = { presencas: 0, faltas: 0, sessoes: [] };
   if (apt.status === "concluido") byMonth[mes].presencas++;
   else byMonth[mes].faltas++;
+  byMonth[mes].sessoes.push({
+    date: apt.date,
+    status: apt.status,
+    procedimentoNome: apt.procedimentos?.nome ?? null,
+  });
 }
 ```
 
-> **Importante:** A tabela `frequencias` não é usada para exibição — apenas `agendamentos` é fonte de verdade. Isso evita dados desatualizados por manipulações diretas.
+> **Importante:** A tabela `frequencias` **não é usada para exibição** — apenas `agendamentos` é fonte de verdade. Elimina problema de dados desatualizados por manipulações diretas.
 
 ---
 
 ## Sub-aba: Frequência (Modo Paciente)
 
-Redesenhada em 28/03/2026. Ver detalhes em `docs/32_frequencia_redesign_28032026.md`.
+Ver detalhes completos em `docs/32_frequencia_redesign_28032026.md`.
 
 ### Helpers
 
 | Função/Componente | Descrição |
 |---|---|
 | `formatMesNome(mes)` | `"2026-03"` → `"Março 2026"` |
-| `TaxaBadge({ taxa })` | Badge colorido: 🟢 ≥85%, 🟡 70–84%, 🔴 <70% |
+| `TaxaBadge({ taxa })` | Badge colorido: 🟢 ≥85% Ótima · 🟡 70–84% Regular · 🔴 <70% Baixa |
 | `BarraPresenca({ taxa, showLabel? })` | Barra de progresso com cor dinâmica |
 
 ### Estrutura visual
 
-1. **Card Resumo Geral** — aparece com ≥ 2 meses (totais + taxa geral)
-2. **Gráfico de barras** — evolução mensal com código de cores (barras CSS, sem biblioteca)
-3. **Cards mensais** — um por mês com badge, presenças, faltas, barra de progresso e alerta se taxa < 70%
+1. **Card Resumo Geral** — aparece com ≥ 2 meses (totais + taxa geral + barra)
+2. **Gráfico de barras** — evolução mensal com código de cores (CSS puro, sem biblioteca)
+3. **Cards mensais** — por mês com badge, presenças, faltas, barra de progresso
+4. **Lista de sessões individuais** — dentro de cada card: data DD/MM + nome do procedimento + ✓/✗
 
 ### Faixas de taxa de presença
 
-| Taxa | Badge | Cor barra | Alerta |
-|------|-------|-----------|--------|
+| Taxa | Badge | Cor barra | Comportamento extra |
+|------|-------|-----------|---------------------|
 | ≥ 85% | ✓ Ótima (verde) | `bg-green-500` | — |
 | 70–84% | ⚠ Regular (amarelo) | `bg-amber-400` | — |
-| < 70% | ✗ Baixa (vermelho) | `bg-destructive` | ⚠ "Frequência abaixo do recomendado" |
+| < 70% | ✗ Baixa (vermelho) | `bg-destructive` | Alerta: "Frequência abaixo do recomendado" |
 
 ---
 
 ## Sub-aba: Financeiro (Modo Paciente)
 
 - Lista recebimentos do paciente ordenados por `data_vencimento DESC`
-- Status visual: **Pendente** (amarelo), **Pago** (verde), **Cancelado** (vermelho)
-- Admin/Financeiro: pode confirmar pagamento (dropdown com `ConfirmActionDialog`)
-- Chama `PATCH /api/recebimentos/[id]` para confirmar
-
----
-
-## Sub-aba: Procedimentos (Modo Paciente)
-
-- Lista agendamentos com `status IN (concluido, confirmado, agendado)` agrupados
-- Exibe profissional, procedimento, data e status
+- Status visual: **Pendente** (amarelo), **Pago** (verde), **Cancelado** (cinza)
+- Admin/Financeiro: pode confirmar pagamento via dropdown → `ConfirmActionDialog`
+- Confirmar chama `PATCH` direto na REST API do Supabase (status → `recebido`, `data_pagamento`, `confirmado_por`)
 
 ---
 
 ## Sub-aba: Evolução (Modo Paciente)
 
 - Lista registros da tabela `evolucoes` do paciente
-- Exibe data, profissional e descrição
+- Ordenado por `created_at DESC`
+- Mapeamento: `data_salva` → `data`, `texto` → `descricao`
 
 ---
 
 ## Modo Funcionário/Financeiro
 
-Exibe:
-- **Pacientes vinculados** ao profissional (tabela `pacientes_profissionais`)
-- Por paciente: procedimentos com % de comissão calculada
-- Recebimentos pendentes e pagos
+### Sub-aba: Procedimentos
+- Agrupa recebimentos por procedimento (via `extrairProcedimentoBase()`)
+- Mostra: total de sessões, pagas, pendentes, canceladas, valor total
+- Calcula comissão: `valorPago × comissaoPercentual / 100`
+- Exibe totais de comissão por procedimento e geral
+
+### Sub-aba: Financeiro
+- Mesma estrutura do modo paciente, mas filtra por pacientes vinculados ao profissional
 
 ---
 
