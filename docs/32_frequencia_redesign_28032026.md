@@ -91,6 +91,39 @@ Um card por mês, do mais recente ao mais antigo.
 
 ---
 
+## Sessões individuais por mês (adicionado 28/03/2026)
+
+Cada card mensal exibe abaixo da barra de progresso a lista de **sessões individuais** com:
+- ✓ (verde) = concluido / ✗ (vermelho) = faltou
+- Data no formato `DD/MM`
+- Nome do procedimento (ou *"Sem procedimento"* se null)
+
+Ordenadas por data crescente dentro do mês.
+
+**Query atualizada** para incluir join com procedimentos:
+```
+agendamentos?paciente_id=eq.{id}&status=in.(concluido,faltou)&select=date,status,procedimentos(nome)&order=date.desc
+```
+
+---
+
+## Aba Procedimentos removida do modo Paciente (28/03/2026)
+
+A aba **Procedimentos** foi removida da visão do paciente. Motivo: as informações estão cobertas por:
+- **Frequência** — sessões realizadas, procedimento, data, presença/falta
+- **Financeiro** — valores, status de pagamento, confirmação
+
+**Modo Funcionário/Financeiro:** a aba Procedimentos permanece (mostra pacientes vinculados + comissões).
+
+**Resultado:**
+
+| Modo | Abas |
+|------|------|
+| Paciente | Frequência · Financeiro · Evolução |
+| Funcionário/Financeiro | Procedimentos · Financeiro |
+
+---
+
 ## Estado vazio melhorado
 
 Quando não há nenhum registro:

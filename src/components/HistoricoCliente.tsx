@@ -49,10 +49,17 @@ interface ProcedimentoResumo {
   ultimaData: string;
 }
 
+interface FrequenciaSession {
+  date: string;
+  status: "concluido" | "faltou";
+  procedimentoNome: string | null;
+}
+
 interface Frequencia {
   mes: string;
   presencas: number;
   faltas: number;
+  sessoes: FrequenciaSession[];
 }
 
 interface FinanceiroItem {
@@ -238,19 +245,25 @@ export default function HistoricoCliente({
           const [recebimentos, agendamentosFreq, evols] = await Promise.all([
             get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status`),
             // Frequências calculadas direto dos agendamentos — nunca desatualizado
-            get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou)&select=date,status`),
+            get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou)&select=date,status,procedimentos(nome)&order=date.desc`),
             get(`evolucoes?paciente_id=eq.${pacienteId}&order=created_at.desc&select=*`),
           ]);
 
           if (Array.isArray(recebimentos)) setRecebimentosRaw(recebimentos as RecebimentoRaw[]);
           if (Array.isArray(agendamentosFreq)) {
             // Agrupa por mês: conta presencas (concluido) e faltas (faltou)
-            const byMonth: Record<string, { presencas: number; faltas: number }> = {};
-            for (const apt of agendamentosFreq as { date: string; status: string }[]) {
+            type AptFreq = { date: string; status: string; procedimentos?: { nome: string } | null };
+            const byMonth: Record<string, { presencas: number; faltas: number; sessoes: FrequenciaSession[] }> = {};
+            for (const apt of agendamentosFreq as AptFreq[]) {
               const mes = apt.date.substring(0, 7);
-              if (!byMonth[mes]) byMonth[mes] = { presencas: 0, faltas: 0 };
+              if (!byMonth[mes]) byMonth[mes] = { presencas: 0, faltas: 0, sessoes: [] };
               if (apt.status === "concluido") byMonth[mes].presencas++;
               else byMonth[mes].faltas++;
+              byMonth[mes].sessoes.push({
+                date: apt.date,
+                status: apt.status as "concluido" | "faltou",
+                procedimentoNome: apt.procedimentos?.nome ?? null,
+              });
             }
             setFrequencia(
               Object.entries(byMonth)
@@ -422,15 +435,19 @@ export default function HistoricoCliente({
       </Card>
 
       {/* Abas */}
-      <Tabs defaultValue="procedimentos" className="w-full">
-        <TabsList className={`grid w-full bg-muted border border-border rounded-lg p-1 ${isFuncionario ? "grid-cols-2" : "grid-cols-4"}`}>
-          <TabsTrigger
-            value="procedimentos"
-            className="flex items-center gap-2 data-[state=active]:bg-accent data-[state=active]:text-primary"
-          >
-            <Stethoscope className="w-4 h-4" />
-            <span className="hidden sm:inline">Procedimentos</span>
-          </TabsTrigger>
+      <Tabs defaultValue={isFuncionario ? "procedimentos" : "frequencia"} className="w-full">
+        <TabsList className={`grid w-full bg-muted border border-border rounded-lg p-1 ${isFuncionario ? "grid-cols-2" : "grid-cols-3"}`}>
+          {/* Procedimentos: somente para funcionário/financeiro */}
+          {isFuncionario && (
+            <TabsTrigger
+              value="procedimentos"
+              className="flex items-center gap-2 data-[state=active]:bg-accent data-[state=active]:text-primary"
+            >
+              <Stethoscope className="w-4 h-4" />
+              <span className="hidden sm:inline">Procedimentos</span>
+            </TabsTrigger>
+          )}
+          {/* Frequência: somente para paciente */}
           {!isFuncionario && (
             <TabsTrigger
               value="frequencia"
@@ -458,8 +475,8 @@ export default function HistoricoCliente({
           )}
         </TabsList>
 
-        {/* ── Tab: Procedimentos ──────────────────────────────────────────── */}
-        <TabsContent value="procedimentos" className="space-y-4">
+        {/* ── Tab: Procedimentos (somente funcionário/financeiro) ─────────── */}
+        {isFuncionario && <TabsContent value="procedimentos" className="space-y-4">
           {isLoading ? (
             <Card className="p-6 border-border shadow-sm text-center">
               <p className="text-muted-foreground">Carregando procedimentos...</p>
@@ -559,7 +576,7 @@ export default function HistoricoCliente({
               ))}
             </>
           )}
-        </TabsContent>
+        </TabsContent>}
 
         {/* ── Tab: Frequência (somente paciente) ─────────────────────────── */}
         {!isFuncionario && (
@@ -694,6 +711,32 @@ export default function HistoricoCliente({
                         <div className="mt-3 flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
                           <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
                           Frequência abaixo do recomendado. Conversar com o paciente.
+                        </div>
+                      )}
+                      {/* Lista de sessões individuais */}
+                      {freq.sessoes.length > 0 && (
+                        <div className="mt-4 pt-3 border-t border-border space-y-1">
+                          <p className="text-xs font-medium text-muted-foreground mb-2">Sessões do mês</p>
+                          {[...freq.sessoes].sort((a, b) => a.date.localeCompare(b.date)).map((s, i) => {
+                            const [, mm, dd] = s.date.split("-");
+                            const concluido = s.status === "concluido";
+                            return (
+                              <div
+                                key={i}
+                                className={`flex items-center gap-3 px-3 py-1.5 rounded-md text-sm ${
+                                  concluido ? "bg-green-50/60" : "bg-red-50/60"
+                                }`}
+                              >
+                                <span className={`font-bold text-xs w-4 text-center ${concluido ? "text-green-600" : "text-destructive"}`}>
+                                  {concluido ? "✓" : "✗"}
+                                </span>
+                                <span className="text-xs text-muted-foreground w-10 shrink-0">{dd}/{mm}</span>
+                                <span className={`text-xs font-medium ${concluido ? "text-foreground" : "text-destructive/80"}`}>
+                                  {s.procedimentoNome ?? <span className="italic text-muted-foreground/60">Sem procedimento</span>}
+                                </span>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </Card>
