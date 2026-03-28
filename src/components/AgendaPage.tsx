@@ -205,6 +205,52 @@ export default function AgendaPage() {
     }
   };
 
+  // Save multiple appointments (recurring weekly)
+  const handleSaveMultipleAppointments = async (apts: Appointment[]) => {
+    const backup = [...appointments];
+    setAppointments((prev) => [...prev, ...apts]); // optimistic
+
+    const rows = apts.map((apt) => ({
+      patient_name: apt.patientName,
+      paciente_id: apt.pacienteId || null,
+      professional_id: apt.professionalId,
+      procedimento_id: apt.procedimentoId || null,
+      date: apt.date,
+      start_time: apt.startTime,
+      end_time: apt.endTime,
+      duration: apt.duration,
+      status: apt.status,
+      notes: apt.notes,
+    }));
+
+    const { data, error } = await supabase
+      .from("agendamentos")
+      .insert(rows)
+      .select("id");
+
+    if (error) {
+      toast.error("Erro ao salvar agendamentos. Tente novamente.");
+      setAppointments(backup);
+      return;
+    }
+
+    // Substituir IDs temporários pelos UUIDs reais
+    if (data && data.length > 0) {
+      setAppointments((prev) => {
+        const tempIds = apts.map((a) => a.id);
+        let updated = [...prev];
+        data.forEach((row, idx) => {
+          if (tempIds[idx]) {
+            updated = updated.map((a) =>
+              a.id === tempIds[idx] ? { ...a, id: row.id } : a
+            );
+          }
+        });
+        return updated;
+      });
+    }
+  };
+
   // Update existing appointment
   const handleUpdateAppointment = async (apt: Appointment) => {
     const backup = [...appointments];
@@ -792,6 +838,7 @@ export default function AgendaPage() {
           if (!isOpen) setEditingAppointment(null);
         }}
         onSave={handleSaveAppointment}
+        onSaveMultiple={handleSaveMultipleAppointments}
         onUpdate={handleUpdateAppointment}
         appointmentToEdit={editingAppointment}
         defaultDate={dialogDefaults.date}

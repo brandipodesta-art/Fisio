@@ -19,7 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarPlus, Pencil, Search } from "lucide-react";
+import { CalendarDays, CalendarPlus, Pencil, Repeat2, Search } from "lucide-react";
 import { toast } from "sonner";
 import type { Appointment, Professional } from "./agendaTypes";
 import { DURATION_OPTIONS } from "./agendaTypes";
@@ -29,6 +29,7 @@ interface AgendaNewEventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: (appointment: Appointment) => void;
+  onSaveMultiple?: (appointments: Appointment[]) => void;
   onUpdate?: (appointment: Appointment) => void;
   appointmentToEdit?: Appointment | null;
   defaultDate?: string;
@@ -40,6 +41,7 @@ export default function AgendaNewEventDialog({
   open,
   onOpenChange,
   onSave,
+  onSaveMultiple,
   onUpdate,
   appointmentToEdit,
   defaultDate,
@@ -64,6 +66,8 @@ export default function AgendaNewEventDialog({
   const [startTime, setStartTime] = useState(defaultTime || "08:00");
   const [duration, setDuration] = useState("50");
   const [notes, setNotes] = useState("");
+  const [repete, setRepete] = useState(false);
+  const [semanas, setSemanas] = useState(4);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const supabase = createClient();
@@ -138,6 +142,20 @@ export default function AgendaNewEventDialog({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Preview das datas semanais adicionais
+  function datesPreview(): string[] {
+    if (!date || !repete) return [];
+    const [y, m, day] = date.split("-").map(Number);
+    const dates: string[] = [];
+    for (let i = 1; i <= semanas; i++) {
+      const next = new Date(y, m - 1, day + i * 7);
+      const dd = String(next.getDate()).padStart(2, "0");
+      const mm = String(next.getMonth() + 1).padStart(2, "0");
+      dates.push(`${dd}/${mm}`);
+    }
+    return dates;
+  }
+
   const resetForm = () => {
     setPatientSearch("");
     setSelectedPatient(null);
@@ -149,6 +167,8 @@ export default function AgendaNewEventDialog({
     setStartTime(defaultTime || "08:00");
     setDuration("50");
     setNotes("");
+    setRepete(false);
+    setSemanas(4);
   };
 
   const handleSave = () => {
@@ -187,6 +207,20 @@ export default function AgendaNewEventDialog({
     if (isEditing && onUpdate) {
       onUpdate(appointment);
       toast.success("Agendamento atualizado com sucesso!");
+    } else if (repete && semanas > 0 && onSaveMultiple) {
+      // Gerar série semanal: data base + N semanas seguintes
+      const [y, m, day] = date.split("-").map(Number);
+      const allApts: Appointment[] = [appointment];
+      for (let i = 1; i <= semanas; i++) {
+        const nextDate = new Date(y, m - 1, day + i * 7);
+        allApts.push({
+          ...appointment,
+          id: `${Date.now()}_${i}`,
+          date: formatDateISO(nextDate),
+        });
+      }
+      onSaveMultiple(allApts);
+      toast.success(`${allApts.length} agendamentos criados com sucesso!`);
     } else {
       onSave(appointment);
       toast.success("Agendamento criado com sucesso!");
@@ -359,6 +393,59 @@ export default function AgendaNewEventDialog({
               </Select>
             </div>
           </div>
+
+          {/* Repetição semanal — somente na criação */}
+          {!isEditing && (
+            <div className="space-y-2">
+              <label className={`flex items-center gap-2 text-sm font-medium select-none ${
+                date ? "text-foreground/80 cursor-pointer" : "text-muted-foreground/60 cursor-not-allowed"
+              }`}>
+                <input
+                  type="checkbox"
+                  checked={repete}
+                  disabled={!date}
+                  onChange={(e) => setRepete(e.target.checked)}
+                  className="w-4 h-4 accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                />
+                <Repeat2 className={`w-4 h-4 ${date ? "text-muted-foreground/60" : "text-muted-foreground/30"}`} />
+                Repetir semanalmente
+                {!date && (
+                  <span className="text-xs font-normal text-muted-foreground/60">(preencha a data primeiro)</span>
+                )}
+              </label>
+              {repete && (
+                <div className="flex items-center gap-2 pl-6">
+                  <span className="text-xs text-muted-foreground">Gerar mais</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={52}
+                    value={semanas}
+                    onChange={(e) => setSemanas(Math.max(1, Math.min(52, Number(e.target.value))))}
+                    className="w-16 text-center text-sm border border-border rounded-md px-2 py-1 bg-background"
+                  />
+                  <span className="text-xs text-muted-foreground">semana(s)</span>
+                </div>
+              )}
+              {repete && datesPreview().length > 0 && (
+                <div className="pl-6">
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                    <CalendarDays className="w-3.5 h-3.5" /> Datas que serão criadas:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {datesPreview().map((dateStr) => (
+                      <span
+                        key={dateStr}
+                        className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium"
+                      >
+                        {dateStr}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Duration */}
           <div>

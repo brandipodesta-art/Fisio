@@ -240,11 +240,33 @@ O autocomplete do campo "Paciente" filtra a tabela `pacientes` com:
 
 ---
 
+## AgendaNewEventDialog — Repetição Semanal
+
+Implementado em 27/03/2026. Permite criar múltiplos agendamentos semanais de uma só vez.
+
+### Comportamento
+- Exibe somente no modo **criação** (não aparece ao editar)
+- Checkbox **"Repetir semanalmente"** — ativo apenas quando data está preenchida
+- Campo numérico **"Gerar mais X semana(s)"** (padrão: 4, máximo: 52)
+- Preview das datas adicionais exibido como chips coloridos (`dd/MM`)
+- Ao salvar: cria o agendamento base + N agendamentos nas semanas seguintes
+
+### Implementação
+- Props: `onSaveMultiple?: (apts: Appointment[]) => void`
+- `datesPreview()`: gera as N datas futuras usando `new Date(y, m-1, day + i*7)`
+- Em `handleSave`: quando `repete=true`, monta array com base + N cópias e chama `onSaveMultiple`
+- Em `AgendaPage`: `handleSaveMultipleAppointments` faz batch insert via `supabase.from("agendamentos").insert(rows)` e atualiza IDs reais
+
+### Exemplo
+Data base: 27/03 (sexta), semanas=4 → cria: 27/03, 03/04, 10/04, 17/04, 24/04 (5 agendamentos no total)
+
+---
+
 ## Notas para Edicao Futura
 
 - **Exclusão:** Ainda não há opção para excluir agendamentos
 - **Drag & drop:** Futuro: arrastar eventos para reagendar
-- **Recorrência:** Futuro: agendamentos recorrentes (semanais)
+- **Recorrência mensal:** Futuro: além de semanal, opção mensal
 - **Notificações:** Futuro: lembrete por WhatsApp/email
 - **Conflito de horário:** Não há validação de conflito — pode agendar 2 pacientes no mesmo horário/profissional
 - **Horários configuráveis:** TIME_SLOTS hardcoded — futuro: página de configuração da clínica
