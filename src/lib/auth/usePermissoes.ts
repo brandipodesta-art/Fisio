@@ -37,7 +37,7 @@ export function usePermissoes() {
 
     // ── Histórico / Financeiro do Paciente ────────────────────────────────────
     /** Pode confirmar pagamento no histórico do paciente */
-    podeConfirmarPagamento: isAdmin || isFinanceiro,
+    podeConfirmarPagamento: isAdmin || isFinanceiro || isFuncionario,
 
     /** Pode alterar recebimento no histórico do paciente */
     podeAlterarRecebimento: isAdmin || isFinanceiro,
