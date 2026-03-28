@@ -116,6 +116,54 @@ function slugFromNome(nome: string): string {
     .replace(/[^a-z0-9-]/g, "");
 }
 
+// ─── Helpers de Frequência ────────────────────────────────────────────────────
+
+function formatMesNome(mes: string): string {
+  const [year, month] = mes.split("-");
+  const nomes = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
+  return `${nomes[parseInt(month) - 1]} ${year}`;
+}
+
+function TaxaBadge({ taxa }: { taxa: number }) {
+  if (taxa >= 85)
+    return (
+      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-100 text-green-700 border border-green-200 flex items-center gap-1">
+        <span>✓</span> Ótima ({taxa}%)
+      </span>
+    );
+  if (taxa >= 70)
+    return (
+      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-200 flex items-center gap-1">
+        <span>⚠</span> Regular ({taxa}%)
+      </span>
+    );
+  return (
+    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-700 border border-red-200 flex items-center gap-1">
+      <span>✗</span> Baixa ({taxa}%)
+    </span>
+  );
+}
+
+function BarraPresenca({ taxa, showLabel }: { taxa: number; showLabel?: boolean }) {
+  const color = taxa >= 85 ? "bg-green-500" : taxa >= 70 ? "bg-amber-400" : "bg-destructive";
+  return (
+    <div>
+      {showLabel && (
+        <div className="flex justify-between text-xs text-muted-foreground mb-1.5">
+          <span>Taxa de Presença</span>
+          <span className="font-semibold text-foreground">{taxa}%</span>
+        </div>
+      )}
+      <div className="w-full bg-muted rounded-full h-2.5">
+        <div
+          className={`h-2.5 rounded-full transition-all duration-500 ${color}`}
+          style={{ width: `${taxa}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 // ─── Componente Principal ─────────────────────────────────────────────────────
 
 export default function HistoricoCliente({
@@ -522,32 +570,136 @@ export default function HistoricoCliente({
               </Card>
             ) : frequencia.length === 0 ? (
               <Card className="p-6 border-border shadow-sm text-center">
-                <p className="text-muted-foreground">Nenhum registro de frequência</p>
+                <p className="text-muted-foreground">Nenhum registro de frequência ainda</p>
+                <p className="text-xs text-muted-foreground/60 mt-1">Aparece aqui após sessões concluídas ou faltas registradas</p>
               </Card>
             ) : (
-              frequencia.map((freq, index) => (
-                <Card key={index} className="p-6 border-border shadow-sm">
-                  <h3 className="font-semibold text-foreground mb-4">{freq.mes}</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-accent rounded-lg p-4 border border-primary/20">
-                      <p className="text-sm text-muted-foreground mb-1">Presenças</p>
-                      <p className="text-3xl font-bold text-primary">{freq.presencas}</p>
+              <>
+                {/* ── Resumo geral (aparece com 2+ meses) ── */}
+                {frequencia.length > 1 && (() => {
+                  const totalPresencas = frequencia.reduce((s, f) => s + f.presencas, 0);
+                  const totalFaltas    = frequencia.reduce((s, f) => s + f.faltas, 0);
+                  const totalSessoes   = totalPresencas + totalFaltas;
+                  const taxaGeral      = totalSessoes > 0 ? Math.round((totalPresencas / totalSessoes) * 100) : 0;
+                  return (
+                    <Card className="p-5 border-border shadow-sm bg-gradient-to-br from-primary/5 to-accent">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-foreground flex items-center gap-2">
+                          <Activity className="w-4 h-4 text-primary" />
+                          Resumo Geral
+                        </h3>
+                        <TaxaBadge taxa={taxaGeral} />
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 mb-4">
+                        <div className="text-center bg-background/60 rounded-lg p-3 border border-border">
+                          <p className="text-2xl font-bold text-primary">{totalPresencas}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Presenças</p>
+                        </div>
+                        <div className="text-center bg-background/60 rounded-lg p-3 border border-border">
+                          <p className="text-2xl font-bold text-destructive">{totalFaltas}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Faltas</p>
+                        </div>
+                        <div className="text-center bg-background/60 rounded-lg p-3 border border-border">
+                          <p className="text-2xl font-bold text-foreground">{totalSessoes}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Total</p>
+                        </div>
+                      </div>
+                      <BarraPresenca taxa={taxaGeral} showLabel />
+                    </Card>
+                  );
+                })()}
+
+                {/* ── Gráfico de evolução mensal (aparece com 2+ meses) ── */}
+                {frequencia.length > 1 && (
+                  <Card className="p-5 border-border shadow-sm">
+                    <h3 className="font-semibold text-foreground mb-4 flex items-center gap-2">
+                      <Activity className="w-4 h-4 text-primary" />
+                      Evolução Mensal
+                    </h3>
+                    <div className="flex items-end gap-2" style={{ height: "96px" }}>
+                      {[...frequencia].reverse().map((freq, i) => {
+                        const total = freq.presencas + freq.faltas;
+                        const taxa  = total > 0 ? Math.round((freq.presencas / total) * 100) : 0;
+                        const barColor =
+                          taxa >= 85 ? "bg-green-500" :
+                          taxa >= 70 ? "bg-amber-400" :
+                          "bg-destructive";
+                        const heightPct = `${Math.max(8, taxa)}%`;
+                        return (
+                          <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full">
+                            <span className="text-[10px] font-semibold text-foreground/80">{taxa}%</span>
+                            <div className="flex-1 w-full relative">
+                              <div
+                                className={`absolute bottom-0 w-full rounded-t-sm ${barColor} transition-all duration-500`}
+                                style={{ height: heightPct }}
+                              />
+                            </div>
+                            <span className="text-[9px] text-muted-foreground">
+                              {freq.mes.substring(5, 7)}/{freq.mes.substring(2, 4)}
+                            </span>
+                          </div>
+                        );
+                      })}
                     </div>
-                    <div className="bg-destructive/10 rounded-lg p-4 border border-destructive/20">
-                      <p className="text-sm text-muted-foreground mb-1">Faltas</p>
-                      <p className="text-3xl font-bold text-destructive">{freq.faltas}</p>
+                    <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-green-500 inline-block" />≥ 85% Ótima</span>
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-amber-400 inline-block" />70–84% Regular</span>
+                      <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-destructive inline-block" />&lt; 70% Baixa</span>
                     </div>
-                  </div>
-                  <div className="mt-4 pt-4 border-t border-border">
-                    <p className="text-sm text-muted-foreground">
-                      Taxa de Presença:{" "}
-                      <span className="font-semibold text-foreground">
-                        {Math.round((freq.presencas / (freq.presencas + freq.faltas)) * 100)}%
-                      </span>
-                    </p>
-                  </div>
-                </Card>
-              ))
+                  </Card>
+                )}
+
+                {/* ── Cards mensais individuais ── */}
+                {frequencia.map((freq, index) => {
+                  const total = freq.presencas + freq.faltas;
+                  const taxa  = total > 0 ? Math.round((freq.presencas / total) * 100) : 0;
+                  return (
+                    <Card key={index} className="p-5 border-border shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-foreground">{formatMesNome(freq.mes)}</h3>
+                        <TaxaBadge taxa={taxa} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        {/* Presenças */}
+                        <div className="bg-accent rounded-lg p-3 border border-primary/20 flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <Check className="w-4 h-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Presenças</p>
+                            <p className="text-2xl font-bold text-primary leading-tight">{freq.presencas}</p>
+                          </div>
+                        </div>
+                        {/* Faltas */}
+                        <div className={`rounded-lg p-3 border flex items-center gap-3 ${
+                          freq.faltas > 0
+                            ? "bg-destructive/10 border-destructive/20"
+                            : "bg-accent border-border"
+                        }`}>
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                            freq.faltas > 0 ? "bg-destructive/10" : "bg-muted"
+                          }`}>
+                            <X className={`w-4 h-4 ${freq.faltas > 0 ? "text-destructive" : "text-muted-foreground"}`} />
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Faltas</p>
+                            <p className={`text-2xl font-bold leading-tight ${freq.faltas > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                              {freq.faltas}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <BarraPresenca taxa={taxa} showLabel />
+                      {taxa < 70 && (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          Frequência abaixo do recomendado. Conversar com o paciente.
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+              </>
             )}
           </TabsContent>
         )}
