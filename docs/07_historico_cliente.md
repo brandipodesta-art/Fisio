@@ -1,12 +1,17 @@
-# 📊 HistoricoCliente.tsx — Histórico Completo do Cliente
+# HistoricoCliente.tsx — Histórico Completo do Cliente
 
-> **Arquivo:** `src/components/HistoricoCliente.tsx` · **Linhas:** 329
+> **Arquivo:** `src/components/HistoricoCliente.tsx` · **Dados:** Supabase (tempo real)
 
 ---
 
 ## Propósito
 
-Aba de histórico do cliente com 4 sub-abas internas: **Exames**, **Frequência**, **Financeiro** e **Evolução**. Exibe dados mockados (de exemplo) para demonstração. Cada seção apresenta informações em formato de cards individuais.
+Aba de histórico do cliente com sub-abas internas. Opera em **dois modos**:
+
+| Modo | Tipo de usuário | Sub-abas disponíveis |
+|------|----------------|----------------------|
+| **Paciente** | `tipo_usuario = "paciente"` | Procedimentos, Frequência, Financeiro, Evolução |
+| **Funcionário/Financeiro** | `tipo_usuario = "funcionario" \| "financeiro"` | Pacientes Vinculados (com comissões e recebimentos) |
 
 ---
 
@@ -14,258 +19,143 @@ Aba de histórico do cliente com 4 sub-abas internas: **Exames**, **Frequência*
 
 | Import | Tipo | Origem |
 |---|---|---|
+| `useState, useEffect, useMemo` | React Hooks | `react` |
 | `Card` | UI Component | `@/components/ui/card` |
 | `Tabs, TabsContent, TabsList, TabsTrigger` | UI Component | `@/components/ui/tabs` |
-| `Activity, DollarSign, Calendar, FileText` | Ícones | `lucide-react` |
+| `Activity, DollarSign, Calendar, Stethoscope, Users, AlertTriangle, MoreHorizontal, Eye, Check, Pencil, X` | Ícones | `lucide-react` |
+| `DropdownMenu` | UI Component | `@/components/ui/dropdown-menu` |
+| `ConfirmActionDialog` | UI Component | `@/components/ui/ConfirmActionDialog` |
+| `ModalPortal` | UI Component | `@/components/ui/ModalPortal` |
+| `usePermissoes` | Hook | `@/lib/auth/usePermissoes` |
+| `useAuth` | Hook | `@/lib/auth/AuthContext` |
 
 ---
 
-## Interfaces
-
-### `Exame`
-
-| Campo | Tipo | Descrição |
-|---|---|---|
-| `id` | `string` | Identificador único |
-| `tipo` | `string` | Tipo do exame (ex: Avaliação Inicial) |
-| `data` | `string` | Data do exame (DD/MM/AAAA) |
-| `resultado` | `string` | Resultado ou observação |
+## Interfaces TypeScript
 
 ### `Frequencia`
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `mes` | `string` | Mês/Ano (ex: Fevereiro/2026) |
-| `presencas` | `number` | Quantidade de presenças |
-| `faltas` | `number` | Quantidade de faltas |
+| `mes` | `string` | Mês no formato `YYYY-MM` (ex: `"2026-03"`) |
+| `presencas` | `number` | Agendamentos com `status = "concluido"` |
+| `faltas` | `number` | Agendamentos com `status = "faltou"` |
 
-### `Financeiro`
+### `RecebimentoRaw`
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `id` | `string` | Identificador único |
-| `descricao` | `string` | Descrição do serviço |
+| `id` | `string` | UUID |
+| `paciente_id` | `string \| null` | FK para pacientes |
+| `paciente_nome` | `string \| null` | Nome do paciente |
+| `procedimento_id` | `string \| null` | FK para procedimentos |
+| `descricao` | `string \| null` | Descrição do recebimento |
 | `valor` | `number` | Valor em R$ |
-| `data` | `string` | Data do registro (DD/MM/AAAA) |
-| `status` | `"pago" \| "pendente" \| "cancelado"` | Status do pagamento |
+| `data_vencimento` | `string` | Data ISO |
+| `data_pagamento` | `string \| null` | Data de quitação |
+| `status` | `string` | `pendente \| pago \| cancelado` |
 
 ### `Evolucao`
 
 | Campo | Tipo | Descrição |
 |---|---|---|
-| `id` | `string` | Identificador único |
-| `data` | `string` | Data da evolução (DD/MM/AAAA) |
-| `descricao` | `string` | Descrição da evolução |
+| `id` | `string` | UUID |
+| `created_at` | `string` | Timestamp ISO |
+| `descricao` | `string` | Texto da evolução |
+| `profissional_nome` | `string \| null` | Nome do profissional |
 
 ---
 
-## Dados Mockados (Exemplo)
+## Fonte dos dados — Modo Paciente
 
-### Exames (2 itens)
+```typescript
+// Busca paralela no Supabase
+const [recebimentos, agendamentosFreq, evols] = await Promise.all([
+  get(`recebimentos?paciente_id=eq.${pacienteId}&...`),
+  // Frequências calculadas dos agendamentos — nunca da tabela frequencias
+  get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou)&select=date,status`),
+  get(`evolucoes?paciente_id=eq.${pacienteId}&order=created_at.desc&select=*`),
+]);
+```
 
-| Tipo | Data | Resultado |
-|---|---|---|
-| Avaliação Inicial | 15/02/2026 | Limitação de movimento no ombro direito |
-| Ressonância Magnética | 10/02/2026 | Inflamação leve no tendão |
+### Agrupamento de Frequência (client-side)
 
-### Frequência (3 meses)
+```typescript
+const byMonth: Record<string, { presencas: number; faltas: number }> = {};
+for (const apt of agendamentosFreq) {
+  const mes = apt.date.substring(0, 7); // "2026-03"
+  if (!byMonth[mes]) byMonth[mes] = { presencas: 0, faltas: 0 };
+  if (apt.status === "concluido") byMonth[mes].presencas++;
+  else byMonth[mes].faltas++;
+}
+```
 
-| Mês | Presenças | Faltas | Taxa |
-|---|---|---|---|
-| Fevereiro/2026 | 8 | 2 | 80% |
-| Janeiro/2026 | 10 | 0 | 100% |
-| Dezembro/2025 | 9 | 1 | 90% |
+> **Importante:** A tabela `frequencias` não é usada para exibição — apenas `agendamentos` é fonte de verdade. Isso evita dados desatualizados por manipulações diretas.
 
-### Financeiro (3 itens)
+---
 
-| Descrição | Valor | Data | Status |
-|---|---|---|---|
-| Sessão de Fisioterapia | R$ 150,00 | 15/02/2026 | ✅ Pago |
-| Avaliação Inicial | R$ 200,00 | 10/02/2026 | ✅ Pago |
-| Sessão de Fisioterapia | R$ 150,00 | 08/02/2026 | ⏳ Pendente |
+## Sub-aba: Frequência (Modo Paciente)
 
-### Evolução (2 itens)
+Redesenhada em 28/03/2026. Ver detalhes em `docs/32_frequencia_redesign_28032026.md`.
 
-| Data | Descrição |
+### Helpers
+
+| Função/Componente | Descrição |
 |---|---|
-| 15/02/2026 | Melhora significativa na amplitude de movimento. Redução de 40% da dor. |
-| 12/02/2026 | Iniciado programa de fortalecimento. Paciente tolerou bem. |
+| `formatMesNome(mes)` | `"2026-03"` → `"Março 2026"` |
+| `TaxaBadge({ taxa })` | Badge colorido: 🟢 ≥85%, 🟡 70–84%, 🔴 <70% |
+| `BarraPresenca({ taxa, showLabel? })` | Barra de progresso com cor dinâmica |
+
+### Estrutura visual
+
+1. **Card Resumo Geral** — aparece com ≥ 2 meses (totais + taxa geral)
+2. **Gráfico de barras** — evolução mensal com código de cores (barras CSS, sem biblioteca)
+3. **Cards mensais** — um por mês com badge, presenças, faltas, barra de progresso e alerta se taxa < 70%
+
+### Faixas de taxa de presença
+
+| Taxa | Badge | Cor barra | Alerta |
+|------|-------|-----------|--------|
+| ≥ 85% | ✓ Ótima (verde) | `bg-green-500` | — |
+| 70–84% | ⚠ Regular (amarelo) | `bg-amber-400` | — |
+| < 70% | ✗ Baixa (vermelho) | `bg-destructive` | ⚠ "Frequência abaixo do recomendado" |
 
 ---
 
-## Funções
+## Sub-aba: Financeiro (Modo Paciente)
 
-### `getStatusColor(status: string): string`
-
-Retorna classes CSS de cor baseado no status do pagamento:
-
-| Status | Classes | Visual |
-|---|---|---|
-| `"pago"` | `bg-emerald-100 text-emerald-800` | 🟢 Verde |
-| `"pendente"` | `bg-amber-100 text-amber-800` | 🟡 Amarelo |
-| `"cancelado"` | `bg-red-100 text-red-800` | 🔴 Vermelho |
-| *outro* | `bg-slate-100 text-slate-800` | 🔘 Cinza |
+- Lista recebimentos do paciente ordenados por `data_vencimento DESC`
+- Status visual: **Pendente** (amarelo), **Pago** (verde), **Cancelado** (vermelho)
+- Admin/Financeiro: pode confirmar pagamento (dropdown com `ConfirmActionDialog`)
+- Chama `PATCH /api/recebimentos/[id]` para confirmar
 
 ---
 
-## Estrutura UI — Diagrama Visual Completo
+## Sub-aba: Procedimentos (Modo Paciente)
 
-### Header do Histórico
-
-```
-┌──────────────────────────────────────────────────────────┐
-│  Card  bg-gradient-to-r from-slate-50 to-emerald-50     │
-│                                                          │
-│  h2: "Histórico do Cliente"                              │
-│  text-2xl font-bold text-slate-900                       │
-│                                                          │
-│  p: "Visualize exames, frequência, dados financeiros..." │
-│  text-slate-600                                          │
-└──────────────────────────────────────────────────────────┘
-```
-
-### Tabs de Navegação (4 sub-abas)
-
-```
-┌────────────┬─────────────┬─────────────┬─────────────┐
-│ 📄 Exames  │ 📅 Frequên. │ 💰 Finance. │ 📊 Evolução │
-│  (ativo)   │             │             │             │
-└────────────┴─────────────┴─────────────┴─────────────┘
-bg-white  border border-slate-200  rounded-lg  p-1
-grid-cols-4
-Ativo: bg-emerald-50 text-emerald-700
-```
-
-> **Responsividade:** Texto das abas usa `hidden sm:inline` — em mobile, só ícones.
+- Lista agendamentos com `status IN (concluido, confirmado, agendado)` agrupados
+- Exibe profissional, procedimento, data e status
 
 ---
 
-### Sub-aba: Exames
+## Sub-aba: Evolução (Modo Paciente)
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  Card  p-6  border-slate-200  shadow-sm                  │
-│  ┌──────────────────────────────────────────────┐        │
-│  │  h3: "Avaliação Inicial"    [Concluído] 🟢  │        │
-│  │  text-sm: "15/02/2026"                       │        │
-│  └──────────────────────────────────────────────┘        │
-│  p: "Paciente com limitação de movimento..."             │
-│  text-slate-700 text-sm                                  │
-└──────────────────────────────────────────────────────────┘
-```
-
-Badge "Concluído":
-- `px-3 py-1 bg-emerald-100 text-emerald-800 text-xs font-medium rounded-full`
+- Lista registros da tabela `evolucoes` do paciente
+- Exibe data, profissional e descrição
 
 ---
 
-### Sub-aba: Frequência
+## Modo Funcionário/Financeiro
 
-```
-┌──────────────────────────────────────────────────────────┐
-│  Card  p-6                                               │
-│  h3: "Fevereiro/2026"                                    │
-│  ┌────────────────────────┬────────────────────────┐     │
-│  │  bg-emerald-50         │  bg-red-50             │     │
-│  │  border-emerald-200    │  border-red-200        │     │
-│  │                        │                        │     │
-│  │  Presenças             │  Faltas                │     │
-│  │  text-sm text-slate-600│  text-sm text-slate-600│     │
-│  │                        │                        │     │
-│  │  8                     │  2                     │     │
-│  │  text-3xl font-bold    │  text-3xl font-bold    │     │
-│  │  text-emerald-700      │  text-red-700          │     │
-│  └────────────────────────┴────────────────────────┘     │
-│  ───────────────── border-t border-slate-200 ──────────  │
-│  Taxa de Presença: 80%                                   │
-│  text-sm  span: font-semibold text-slate-900             │
-└──────────────────────────────────────────────────────────┘
-```
-
-**Cálculo da taxa:** `Math.round((presencas / (presencas + faltas)) * 100)`
-
----
-
-### Sub-aba: Financeiro
-
-#### Card de Resumo (topo)
-
-```
-┌──────────────────────────────────────────────────────────┐
-│  Card  bg-slate-50  p-6                                  │
-│  grid-cols-3                                             │
-│  ┌──────────────┬──────────────┬──────────────┐          │
-│  │ Total Pago   │ Pendente     │ Total Geral  │          │
-│  │ text-sm      │ text-sm      │ text-sm      │          │
-│  │              │              │              │          │
-│  │ R$ 350.00    │ R$ 150.00    │ R$ 500.00    │          │
-│  │ text-2xl     │ text-2xl     │ text-2xl     │          │
-│  │ font-bold    │ font-bold    │ font-bold    │          │
-│  │ emerald-700  │ amber-700    │ slate-900    │          │
-│  └──────────────┴──────────────┴──────────────┘          │
-└──────────────────────────────────────────────────────────┘
-```
-
-**Cálculos:**
-- Total Pago: `filter(status === "pago").reduce(sum + valor)`
-- Pendente: `filter(status === "pendente").reduce(sum + valor)`
-- Total Geral: `reduce(sum + valor)` (todos)
-
-#### Cards Individuais (por transação)
-
-```
-┌──────────────────────────────────────────────────────────┐
-│  Card  p-6                                               │
-│  ┌──────────────────────────────────┬─────────────────┐  │
-│  │  h3: "Sessão de Fisioterapia"   │  R$ 150.00      │  │
-│  │  p: "15/02/2026"                │  font-bold      │  │
-│  │  flex-1                         │                  │  │
-│  │                                 │  [Pago] 🟢      │  │
-│  │                                 │  rounded-full    │  │
-│  └──────────────────────────────────┴─────────────────┘  │
-└──────────────────────────────────────────────────────────┘
-```
-
-Status badges:
-- `px-3 py-1 text-xs font-medium rounded-full`
-- Cores via `getStatusColor()`
-
----
-
-### Sub-aba: Evolução
-
-```
-┌──────────────────────────────────────────────────────────┐
-│  Card  p-6                                               │
-│  p: "15/02/2026"                                         │
-│  text-sm font-medium text-slate-900                      │
-│                                                          │
-│  p: "Paciente apresentou melhora significativa..."       │
-│  text-slate-700 text-sm leading-relaxed                  │
-└──────────────────────────────────────────────────────────┘
-```
-
----
-
-## Mapa Completo dos Ícones
-
-| Aba | Ícone Lucide | Tamanho |
-|---|---|---|
-| Exames | `FileText` 📄 | `w-4 h-4` |
-| Frequência | `Calendar` 📅 | `w-4 h-4` |
-| Financeiro | `DollarSign` 💰 | `w-4 h-4` |
-| Evolução | `Activity` 📊 | `w-4 h-4` |
+Exibe:
+- **Pacientes vinculados** ao profissional (tabela `pacientes_profissionais`)
+- Por paciente: procedimentos com % de comissão calculada
+- Recebimentos pendentes e pagos
 
 ---
 
 ## Notas para Edição Futura
 
-- **Dados mockados:** Todos os dados são hardcoded dentro do componente — precisam ser substituídos por chamadas de API
-- **Sem estado:** Componente não usa `useState` — é puramente visual/display
-- **Duplicação:** A sub-aba "Evolução" aqui mostra dados diferentes da aba "Evolução" principal (`EvolucaoField.tsx`). Considerar unificar ou sincronizar os dados
-- **Financeiro:** Valores formatados sem localização brasileira (usa ponto ao invés de vírgula). Considerar usar `Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })`
-- **Exames:** Todos os exames têm badge "Concluído" fixo — precisa de lógica para outros status
-- **Sem interação:** Nenhuma ação de adicionar/editar/deletar nas sub-abas — tudo é somente leitura
-- **Paginação:** Sem paginação em nenhuma das sub-abas — pode causar problemas com muitos registros
-- **Responsividade do resumo financeiro:** `grid-cols-3` sem breakpoint — pode ficam apertado em mobile. Considerar `grid-cols-1 md:grid-cols-3`
-- **Divisão por zero:** Taxa de Presença divide por `(presencas + faltas)` — se ambos forem 0, resulta em `NaN`. Adicionar proteção
+- **Gráfico avançado:** Possível usar Recharts quando necessário para visualizações mais ricas
+- **Filtro de período:** Hoje mostra todos os meses — futuramente filtrar por ano
+- **Export:** Exportar frequência como PDF/CSV para fisioterapeuta apresentar ao plano de saúde
