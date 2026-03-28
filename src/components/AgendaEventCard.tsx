@@ -10,7 +10,6 @@ import {
 import {
   MoreVertical,
   CheckCircle2,
-  PlayCircle,
   XCircle,
   UserX,
   CalendarCheck,
@@ -46,7 +45,7 @@ function getStatusActions(
       ];
     case "confirmado":
       return [
-        { label: "Iniciar Atendimento", status: "em_atendimento", icon: <PlayCircle className="w-4 h-4" />, color: "text-blue-600" },
+        { label: "Concluir", status: "concluido", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-green-600" },
         { label: "Cancelar", status: "cancelado", icon: <XCircle className="w-4 h-4" />, color: "text-red-600" },
         { label: "Faltou", status: "faltou", icon: <UserX className="w-4 h-4" />, color: "text-amber-600" },
       ];

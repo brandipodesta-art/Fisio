@@ -174,11 +174,11 @@ export default function AgendaPage() {
   // Save new appointment
   const handleSaveAppointment = async (apt: Appointment) => {
     const backup = [...appointments];
-    setAppointments((prev) => [...prev, apt]);
+    setAppointments((prev) => [...prev, apt]); // otimismo com ID temporário
 
     const { id, procedimentoNome, ...rest } = apt;
 
-    const { error } = await supabase.from("agendamentos").insert({
+    const { data, error } = await supabase.from("agendamentos").insert({
       patient_name: rest.patientName,
       paciente_id: rest.pacienteId || null,
       professional_id: rest.professionalId,
@@ -189,11 +189,19 @@ export default function AgendaPage() {
       duration: rest.duration,
       status: rest.status,
       notes: rest.notes,
-    });
+    }).select("id").single();
 
     if (error) {
       toast.error("Erro ao salvar agendamento. Tente novamente.");
       setAppointments(backup);
+      return;
+    }
+
+    // Substituir o ID temporário pelo UUID real gerado pelo Supabase
+    if (data?.id) {
+      setAppointments((prev) =>
+        prev.map((a) => (a.id === apt.id ? { ...a, id: data.id } : a))
+      );
     }
   };
 
