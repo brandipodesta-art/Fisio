@@ -251,73 +251,22 @@ export default function AgendaPage() {
     }
   };
 
-  // Update existing appointment
-  const handleUpdateAppointment = async (apt: Appointment) => {
-    const backup = [...appointments];
-    setAppointments((prev) =>
-      prev.map((a) => (a.id === apt.id ? apt : a))
-    );
-
-    const { error } = await supabase
-      .from("agendamentos")
-      .update({
-        patient_name: apt.patientName,
-        paciente_id: apt.pacienteId || null,
-        professional_id: apt.professionalId,
-        procedimento_id: apt.procedimentoId || null,
-        date: apt.date,
-        start_time: apt.startTime,
-        end_time: apt.endTime,
-        duration: apt.duration,
-        status: apt.status,
-        notes: apt.notes,
-      })
-      .eq("id", apt.id);
-
-    if (error) {
-      toast.error("Erro ao atualizar agendamento. Tente novamente.");
-      setAppointments(backup);
-    }
-  };
-
-  // Change appointment status
-  const handleStatusChange = async (appointmentId: string, newStatus: AppointmentStatus) => {
-    const appointment = appointments.find((a) => a.id === appointmentId);
-    const prevStatus = appointment?.status;
-    const backup = [...appointments];
-
-    setAppointments((prev) =>
-      prev.map((a) =>
-        a.id === appointmentId ? { ...a, status: newStatus } : a
-      )
-    );
-
-    const { error } = await supabase
-      .from("agendamentos")
-      .update({ status: newStatus })
-      .eq("id", appointmentId);
-
-    if (error) {
-      toast.error("Erro ao alterar status. Tente novamente.");
-      setAppointments(backup);
-      return;
-    }
-
-    // Integração Agenda → Histórico
-    if (!appointment) return;
-
+  // Side effects when status changes (frequency + financial integration)
+  const runStatusSideEffects = async (
+    appointment: Appointment,
+    prevStatus: AppointmentStatus,
+    newStatus: AppointmentStatus
+  ) => {
     const statusNaoTerminal = ["agendado", "confirmado", "em_atendimento"];
     const statusTerminal    = ["concluido", "faltou"];
 
     // ── Frequências: recomputa do zero a partir dos agendamentos (idempotente) ──
-    // Dispara sempre que um status terminal está envolvido (novo OU anterior)
     if (
       appointment.pacienteId &&
-      (statusTerminal.includes(newStatus) || statusTerminal.includes(prevStatus ?? ""))
+      (statusTerminal.includes(newStatus) || statusTerminal.includes(prevStatus))
     ) {
       const mes = appointment.date.substring(0, 7); // "YYYY-MM"
 
-      // Conta diretamente na tabela agendamentos — resultado sempre correto
       const [{ count: presencas }, { count: faltas }] = await Promise.all([
         supabase
           .from("agendamentos")
@@ -355,7 +304,7 @@ export default function AgendaPage() {
       }
     }
 
-    // ── Recebimento ao confirmar: cria pendente assim que o paciente confirma presença ──
+    // ── Recebimento ao confirmar ──
     if (newStatus === "confirmado" && appointment.pacienteId) {
       const { data: existingConf } = await supabase
         .from("recebimentos")
@@ -391,11 +340,11 @@ export default function AgendaPage() {
       }
     }
 
-    // ── Recebimentos: fallback na conclusão (idempotente — não duplica se já criado ao confirmar) ──
+    // ── Recebimentos: fallback na conclusão (idempotente) ──
     if (
       newStatus === "concluido" &&
       appointment.pacienteId &&
-      statusNaoTerminal.includes(prevStatus ?? "")
+      statusNaoTerminal.includes(prevStatus)
     ) {
       const { data: existing } = await supabase
         .from("recebimentos")
@@ -432,6 +381,69 @@ export default function AgendaPage() {
         }
       }
     }
+  };
+
+  // Update existing appointment
+  const handleUpdateAppointment = async (apt: Appointment) => {
+    const prev = appointments.find((a) => a.id === apt.id);
+    const backup = [...appointments];
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === apt.id ? apt : a))
+    );
+
+    const { error } = await supabase
+      .from("agendamentos")
+      .update({
+        patient_name: apt.patientName,
+        paciente_id: apt.pacienteId || null,
+        professional_id: apt.professionalId,
+        procedimento_id: apt.procedimentoId || null,
+        date: apt.date,
+        start_time: apt.startTime,
+        end_time: apt.endTime,
+        duration: apt.duration,
+        status: apt.status,
+        notes: apt.notes,
+      })
+      .eq("id", apt.id);
+
+    if (error) {
+      toast.error("Erro ao atualizar agendamento. Tente novamente.");
+      setAppointments(backup);
+      return;
+    }
+
+    // Disparar side effects se o status mudou
+    if (prev && prev.status !== apt.status) {
+      await runStatusSideEffects(apt, prev.status, apt.status);
+    }
+  };
+
+  // Change appointment status
+  const handleStatusChange = async (appointmentId: string, newStatus: AppointmentStatus) => {
+    const appointment = appointments.find((a) => a.id === appointmentId);
+    const prevStatus = appointment?.status ?? "agendado";
+    const backup = [...appointments];
+
+    setAppointments((prev) =>
+      prev.map((a) =>
+        a.id === appointmentId ? { ...a, status: newStatus } : a
+      )
+    );
+
+    const { error } = await supabase
+      .from("agendamentos")
+      .update({ status: newStatus })
+      .eq("id", appointmentId);
+
+    if (error) {
+      toast.error("Erro ao alterar status. Tente novamente.");
+      setAppointments(backup);
+      return;
+    }
+
+    if (!appointment) return;
+    await runStatusSideEffects(appointment, prevStatus, newStatus);
   };
 
   // Get professional by ID (com fallback para profissional não encontrado)

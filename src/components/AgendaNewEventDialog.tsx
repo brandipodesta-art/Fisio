@@ -19,10 +19,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarDays, CalendarPlus, Pencil, Repeat2, Search } from "lucide-react";
+import { CalendarDays, CalendarPlus, Lock, Pencil, Repeat2, Search } from "lucide-react";
 import { toast } from "sonner";
-import type { Appointment, Professional } from "./agendaTypes";
-import { DURATION_OPTIONS } from "./agendaTypes";
+import type { Appointment, AppointmentStatus, Professional } from "./agendaTypes";
+import { DURATION_OPTIONS, APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS } from "./agendaTypes";
 import { TIME_OPTIONS, calculateEndTime, formatDateISO } from "./agendaData";
 
 interface AgendaNewEventDialogProps {
@@ -66,6 +66,8 @@ export default function AgendaNewEventDialog({
   const [startTime, setStartTime] = useState(defaultTime || "08:00");
   const [duration, setDuration] = useState("50");
   const [notes, setNotes] = useState("");
+  const [status, setStatus] = useState<AppointmentStatus>("agendado");
+  const [isForceEdit, setIsForceEdit] = useState(false);
   const [repete, setRepete] = useState(false);
   const [semanas, setSemanas] = useState(4);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -73,6 +75,8 @@ export default function AgendaNewEventDialog({
   const supabase = createClient();
 
   const isEditing = !!appointmentToEdit;
+  const TERMINAL_STATUSES: AppointmentStatus[] = ["concluido", "cancelado", "faltou"];
+  const isLocked = isEditing && TERMINAL_STATUSES.includes(status) && !isForceEdit;
 
   // Buscar procedimentos ativos
   useEffect(() => {
@@ -105,6 +109,7 @@ export default function AgendaNewEventDialog({
       setStartTime(appointmentToEdit.startTime);
       setDuration(String(appointmentToEdit.duration));
       setNotes(appointmentToEdit.notes || "");
+      setStatus(appointmentToEdit.status);
     }
   }, [appointmentToEdit, open]);
 
@@ -167,6 +172,8 @@ export default function AgendaNewEventDialog({
     setStartTime(defaultTime || "08:00");
     setDuration("50");
     setNotes("");
+    setStatus("agendado");
+    setIsForceEdit(false);
     setRepete(false);
     setSemanas(4);
   };
@@ -200,7 +207,7 @@ export default function AgendaNewEventDialog({
       startTime,
       endTime,
       duration: durationNum,
-      status: isEditing ? appointmentToEdit!.status : "agendado",
+      status: isEditing ? status : "agendado",
       notes: notes.trim() || undefined,
     };
 
@@ -260,6 +267,22 @@ export default function AgendaNewEventDialog({
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
+          {/* Banner de status bloqueado */}
+          {isLocked && (
+            <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border ${
+              status === "concluido"
+                ? "bg-green-50 border-green-200 text-green-700"
+                : status === "cancelado"
+                ? "bg-red-50 border-red-200 text-red-700"
+                : "bg-amber-50 border-amber-200 text-amber-700"
+            }`}>
+              <Lock className="w-4 h-4 shrink-0" />
+              <span>
+                Agendamento <strong>{APPOINTMENT_STATUS_LABELS[status]}</strong> — campos bloqueados para edição
+              </span>
+            </div>
+          )}
+
           {/* Patient Search with Autocomplete */}
           <div ref={dropdownRef}>
             <Label htmlFor="patient" className="text-sm font-medium text-foreground/80">
@@ -285,6 +308,7 @@ export default function AgendaNewEventDialog({
                 }}
                 className="pl-9"
                 autoComplete="off"
+                disabled={isLocked}
               />
               {showPatientDropdown && patientResults.length > 0 && (
                 <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-md max-h-48 overflow-y-auto">
@@ -322,7 +346,7 @@ export default function AgendaNewEventDialog({
             <Label htmlFor="professional" className="text-sm font-medium text-foreground/80">
               Profissional *
             </Label>
-            <Select value={professionalId} onValueChange={setProfessionalId}>
+            <Select value={professionalId} onValueChange={setProfessionalId} disabled={isLocked}>
               <SelectTrigger id="professional" className="mt-1.5">
                 <SelectValue placeholder="Selecione o profissional" />
               </SelectTrigger>
@@ -347,7 +371,7 @@ export default function AgendaNewEventDialog({
             <Label htmlFor="procedimento" className="text-sm font-medium text-foreground/80">
               Procedimento
             </Label>
-            <Select value={procedimentoId} onValueChange={setProcedimentoId}>
+            <Select value={procedimentoId} onValueChange={setProcedimentoId} disabled={isLocked}>
               <SelectTrigger id="procedimento" className="mt-1.5">
                 <SelectValue placeholder="Selecione o procedimento" />
               </SelectTrigger>
@@ -373,13 +397,14 @@ export default function AgendaNewEventDialog({
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 className="mt-1.5"
+                disabled={isLocked}
               />
             </div>
             <div>
               <Label htmlFor="time" className="text-sm font-medium text-foreground/80">
                 Horário *
               </Label>
-              <Select value={startTime} onValueChange={setStartTime}>
+              <Select value={startTime} onValueChange={setStartTime} disabled={isLocked}>
                 <SelectTrigger id="time" className="mt-1.5">
                   <SelectValue />
                 </SelectTrigger>
@@ -452,7 +477,7 @@ export default function AgendaNewEventDialog({
             <Label htmlFor="duration" className="text-sm font-medium text-foreground/80">
               Duração
             </Label>
-            <Select value={duration} onValueChange={setDuration}>
+            <Select value={duration} onValueChange={setDuration} disabled={isLocked}>
               <SelectTrigger id="duration" className="mt-1.5">
                 <SelectValue />
               </SelectTrigger>
@@ -479,12 +504,53 @@ export default function AgendaNewEventDialog({
               className="mt-1.5"
             />
           </div>
+
+          {/* Status — somente no modo edição */}
+          {isEditing && (
+            <div>
+              <Label className="text-sm font-medium text-foreground/80">Status</Label>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                {(Object.keys(APPOINTMENT_STATUS_LABELS) as AppointmentStatus[]).map((s) => {
+                  const isActive = status === s;
+                  return (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => !isLocked && setStatus(s)}
+                      disabled={isLocked}
+                      className={`
+                        px-2.5 py-1 rounded-full text-xs font-medium border transition-all
+                        ${APPOINTMENT_STATUS_COLORS[s]}
+                        ${isActive
+                          ? "border-current opacity-100 ring-1 ring-current ring-offset-1"
+                          : "border-transparent opacity-50 hover:opacity-75"
+                        }
+                        ${isLocked ? "cursor-default" : ""}
+                      `}
+                    >
+                      {APPOINTMENT_STATUS_LABELS[s]}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Action buttons */}
         <div className="flex gap-2 justify-end mt-4 pt-4 border-t border-border">
+          {isLocked && (
+            <Button
+              variant="outline"
+              onClick={() => setIsForceEdit(true)}
+              className="mr-auto gap-1.5 text-muted-foreground"
+            >
+              <Pencil className="w-4 h-4" />
+              Editar
+            </Button>
+          )}
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
-            Cancelar
+            {isLocked ? "Fechar" : "Cancelar"}
           </Button>
           <Button
             onClick={handleSave}

@@ -51,7 +51,7 @@ interface ProcedimentoResumo {
 
 interface FrequenciaSession {
   date: string;
-  status: "concluido" | "faltou";
+  status: "concluido" | "faltou" | "cancelado";
   procedimentoNome: string | null;
 }
 
@@ -245,7 +245,7 @@ export default function HistoricoCliente({
           const [recebimentos, agendamentosFreq, evols] = await Promise.all([
             get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status`),
             // Frequências calculadas direto dos agendamentos — nunca desatualizado
-            get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou)&select=date,status,procedimentos(nome)&order=date.desc`),
+            get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou,cancelado)&select=date,status,procedimentos(nome)&order=date.desc`),
             get(`evolucoes?paciente_id=eq.${pacienteId}&order=created_at.desc&select=*`),
           ]);
 
@@ -258,10 +258,11 @@ export default function HistoricoCliente({
               const mes = apt.date.substring(0, 7);
               if (!byMonth[mes]) byMonth[mes] = { presencas: 0, faltas: 0, sessoes: [] };
               if (apt.status === "concluido") byMonth[mes].presencas++;
-              else byMonth[mes].faltas++;
+              else if (apt.status === "faltou") byMonth[mes].faltas++;
+              // cancelado: aparece na lista mas não conta em presencas nem faltas
               byMonth[mes].sessoes.push({
                 date: apt.date,
-                status: apt.status as "concluido" | "faltou",
+                status: apt.status as "concluido" | "faltou" | "cancelado",
                 procedimentoNome: apt.procedimentos?.nome ?? null,
               });
             }
@@ -720,20 +721,26 @@ export default function HistoricoCliente({
                           {[...freq.sessoes].sort((a, b) => a.date.localeCompare(b.date)).map((s, i) => {
                             const [, mm, dd] = s.date.split("-");
                             const concluido = s.status === "concluido";
+                            const cancelado = s.status === "cancelado";
+                            const bgClass = concluido ? "bg-green-50/60" : cancelado ? "bg-slate-50" : "bg-red-50/60";
+                            const iconClass = concluido ? "text-green-600" : cancelado ? "text-slate-400" : "text-destructive";
+                            const textClass = concluido ? "text-foreground" : cancelado ? "text-muted-foreground" : "text-destructive/80";
+                            const icon = concluido ? "✓" : cancelado ? "–" : "✗";
                             return (
                               <div
                                 key={i}
-                                className={`flex items-center gap-3 px-3 py-1.5 rounded-md text-sm ${
-                                  concluido ? "bg-green-50/60" : "bg-red-50/60"
-                                }`}
+                                className={`flex items-center gap-3 px-3 py-1.5 rounded-md text-sm ${bgClass}`}
                               >
-                                <span className={`font-bold text-xs w-4 text-center ${concluido ? "text-green-600" : "text-destructive"}`}>
-                                  {concluido ? "✓" : "✗"}
+                                <span className={`font-bold text-xs w-4 text-center ${iconClass}`}>
+                                  {icon}
                                 </span>
                                 <span className="text-xs text-muted-foreground w-10 shrink-0">{dd}/{mm}</span>
-                                <span className={`text-xs font-medium ${concluido ? "text-foreground" : "text-destructive/80"}`}>
+                                <span className={`text-xs font-medium ${textClass}`}>
                                   {s.procedimentoNome ?? <span className="italic text-muted-foreground/60">Sem procedimento</span>}
                                 </span>
+                                {cancelado && (
+                                  <span className="ml-auto text-[10px] text-slate-400 font-normal">Cancelado</span>
+                                )}
                               </div>
                             );
                           })}

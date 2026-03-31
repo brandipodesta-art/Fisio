@@ -40,7 +40,7 @@ Aba de histórico do cliente com sub-abas internas. Opera em **dois modos**:
 | Campo | Tipo | Descrição |
 |---|---|---|
 | `date` | `string` | Data YYYY-MM-DD da sessão |
-| `status` | `"concluido" \| "faltou"` | Status do agendamento |
+| `status` | `"concluido" \| "faltou" \| "cancelado"` | Status do agendamento |
 | `procedimentoNome` | `string \| null` | Nome do procedimento (via join) |
 
 ### `Frequencia`
@@ -50,7 +50,7 @@ Aba de histórico do cliente com sub-abas internas. Opera em **dois modos**:
 | `mes` | `string` | Mês no formato `YYYY-MM` (ex: `"2026-03"`) |
 | `presencas` | `number` | Quantidade de agendamentos `concluido` |
 | `faltas` | `number` | Quantidade de agendamentos `faltou` |
-| `sessoes` | `FrequenciaSession[]` | Lista detalhada de cada sessão do mês |
+| `sessoes` | `FrequenciaSession[]` | Lista detalhada de cada sessão do mês (inclui cancelados) |
 
 ### `RecebimentoRaw`
 
@@ -82,7 +82,7 @@ Aba de histórico do cliente com sub-abas internas. Opera em **dois modos**:
 const [recebimentos, agendamentosFreq, evols] = await Promise.all([
   get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=...`),
   // Join com procedimentos para exibir o nome do procedimento em cada sessão
-  get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou)&select=date,status,procedimentos(nome)&order=date.desc`),
+  get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou,cancelado)&select=date,status,procedimentos(nome)&order=date.desc`),
   get(`evolucoes?paciente_id=eq.${pacienteId}&order=created_at.desc&select=*`),
 ]);
 ```
@@ -95,7 +95,8 @@ for (const apt of agendamentosFreq) {
   const mes = apt.date.substring(0, 7); // "2026-03"
   if (!byMonth[mes]) byMonth[mes] = { presencas: 0, faltas: 0, sessoes: [] };
   if (apt.status === "concluido") byMonth[mes].presencas++;
-  else byMonth[mes].faltas++;
+  else if (apt.status === "faltou") byMonth[mes].faltas++;
+  // cancelado: aparece na lista mas NÃO conta em presencas nem faltas
   byMonth[mes].sessoes.push({
     date: apt.date,
     status: apt.status,
@@ -125,7 +126,10 @@ Ver detalhes completos em `docs/32_frequencia_redesign_28032026.md`.
 1. **Card Resumo Geral** — aparece com ≥ 2 meses (totais + taxa geral + barra)
 2. **Gráfico de barras** — evolução mensal com código de cores (CSS puro, sem biblioteca)
 3. **Cards mensais** — por mês com badge, presenças, faltas, barra de progresso
-4. **Lista de sessões individuais** — dentro de cada card: data DD/MM + nome do procedimento + ✓/✗
+4. **Lista de sessões individuais** — dentro de cada card: data DD/MM + nome do procedimento + ícone de status:
+   - `✓` verde = concluído
+   - `✗` vermelho = faltou
+   - `–` cinza + label "Cancelado" = cancelado (não conta em presenças nem faltas)
 
 ### Faixas de taxa de presença
 

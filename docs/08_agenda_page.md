@@ -17,7 +17,7 @@ Sistema de agendamento estilo Google Calendar para a clinica de fisioterapia. Pe
 | `agendaTypes.ts` | Interfaces (Professional, Appointment), constantes de status e duracao |
 | `agendaData.ts` | Mapeamento de profissionais, time slots, helpers de data pt-BR, `getMonthDays` |
 | `AgendaEventCard.tsx` | Card visual do evento com cor por profissional, menu de acoes de status |
-| `AgendaNewEventDialog.tsx` | Modal de criar/editar agendamento (paciente, profissional, procedimento, data, horario, duracao, observacao). Busca pacientes com `tipo_usuario = 'paciente'` |
+| `AgendaNewEventDialog.tsx` | Modal de criar/editar agendamento. No modo edição: exibe seletor de Status (badges) e modo bloqueado para status terminais (somente Observação editável + botão Editar para desbloquear) |
 | `AgendaPage.tsx` | Pagina principal: toolbar + sidebar + grid + handlers de CRUD e status |
 
 ---
@@ -189,8 +189,9 @@ statusNaoTerminal = ["agendado", "confirmado", "em_atendimento"]
 | `toggleProfessional(id)` | Liga/desliga filtro de um profissional |
 | `getSlotAppointments(hour, date?)` | Retorna agendamentos de um horario especifico |
 | `handleSaveAppointment(apt)` | Cria novo agendamento no Supabase |
-| `handleUpdateAppointment(apt)` | Atualiza agendamento existente no Supabase |
-| `handleStatusChange(id, status)` | Altera status + dispara integração com Histórico |
+| `handleUpdateAppointment(apt)` | Atualiza agendamento existente; se status mudou, chama `runStatusSideEffects` |
+| `handleStatusChange(id, status)` | Altera status no Supabase e chama `runStatusSideEffects` |
+| `runStatusSideEffects(apt, prev, new)` | Side effects de mudança de status: atualiza frequências e cria recebimentos |
 
 ---
 
@@ -217,7 +218,7 @@ Retorna array de `Date` cobrindo a grade completa:
 
 ---
 
-## Integração com Histórico do Cliente (28/03/2026)
+## Integração com Histórico do Cliente (28/03/2026, atualizado 30/03/2026)
 
 | Status | Frequência | Recebimento |
 |--------|-----------|-------------|
@@ -225,9 +226,35 @@ Retorna array de `Date` cobrindo a grade completa:
 | `confirmado` | sem efeito | **cria pendente** (idempotente via `observacoes`) |
 | `concluido` | +1 presença (recomputa de agendamentos) | fallback: cria se não existe |
 | `faltou` | +1 falta (recomputa de agendamentos) | mantém pendente (pagamento mensal) |
-| `cancelado` | sem efeito | admin gerencia manualmente |
+| `cancelado` | sem efeito (aparece na lista de sessões em cinza) | admin gerencia manualmente |
 
 A frequência é sempre recomputada diretamente de `agendamentos WHERE status IN (concluido, faltou)` — nunca de contador incremental. Idempotente.
+
+Os side effects são disparados tanto ao usar o menu de status nos cards (`handleStatusChange`) quanto ao salvar o modal de edição com status alterado (`handleUpdateAppointment → runStatusSideEffects`).
+
+---
+
+## AgendaNewEventDialog — Seletor de Status e Modo Bloqueado (30/03/2026)
+
+### Seletor de Status
+- Exibido **somente no modo edição**
+- Linha de badges clicáveis com as cores de `APPOINTMENT_STATUS_COLORS`
+- Badge ativo: `ring-1 ring-current ring-offset-1 opacity-100`; inativo: `opacity-50`
+- Status salvo junto ao `onUpdate` — dispara `runStatusSideEffects` se mudou
+
+### Modo Bloqueado (`isLocked`)
+Ativado quando `isEditing && status IN (concluido, cancelado, faltou) && !isForceEdit`
+
+| Elemento | Comportamento quando bloqueado |
+|---|---|
+| Banner colorido | Exibe "Agendamento **Concluído/Cancelado/Faltou** — campos bloqueados" |
+| Paciente, Profissional, Procedimento, Data, Horário, Duração | `disabled` |
+| Status (badges) | `disabled`, sem clique |
+| **Observação** | **Permanece editável** — para a funcionária adicionar notas |
+| Botão "Editar" | Aparece no rodapé esquerdo — seta `isForceEdit = true` (desbloqueia tudo) |
+| Botão "Cancelar" | Muda label para "Fechar" |
+
+`isForceEdit` é resetado ao fechar o modal.
 
 ---
 
