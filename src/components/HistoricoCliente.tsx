@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Activity, DollarSign, Calendar, Stethoscope, Users, AlertTriangle, MoreHorizontal, Eye, Check, Pencil, X } from "lucide-react";
+import { Activity, Ban, DollarSign, Calendar, Stethoscope, Users, AlertTriangle, MoreHorizontal, Eye, Check, Pencil, X } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -59,6 +59,7 @@ interface Frequencia {
   mes: string;
   presencas: number;
   faltas: number;
+  cancelamentos: number;
   sessoes: FrequenciaSession[];
 }
 
@@ -253,13 +254,13 @@ export default function HistoricoCliente({
           if (Array.isArray(agendamentosFreq)) {
             // Agrupa por mês: conta presencas (concluido) e faltas (faltou)
             type AptFreq = { date: string; status: string; procedimentos?: { nome: string } | null };
-            const byMonth: Record<string, { presencas: number; faltas: number; sessoes: FrequenciaSession[] }> = {};
+            const byMonth: Record<string, { presencas: number; faltas: number; cancelamentos: number; sessoes: FrequenciaSession[] }> = {};
             for (const apt of agendamentosFreq as AptFreq[]) {
               const mes = apt.date.substring(0, 7);
-              if (!byMonth[mes]) byMonth[mes] = { presencas: 0, faltas: 0, sessoes: [] };
+              if (!byMonth[mes]) byMonth[mes] = { presencas: 0, faltas: 0, cancelamentos: 0, sessoes: [] };
               if (apt.status === "concluido") byMonth[mes].presencas++;
               else if (apt.status === "faltou") byMonth[mes].faltas++;
-              // cancelado: aparece na lista mas não conta em presencas nem faltas
+              else if (apt.status === "cancelado") byMonth[mes].cancelamentos++;
               byMonth[mes].sessoes.push({
                 date: apt.date,
                 status: apt.status as "concluido" | "faltou" | "cancelado",
@@ -375,17 +376,12 @@ export default function HistoricoCliente({
   async function confirmarPagamento(item: FinanceiroItem) {
     setSalvandoAcao(true);
     try {
-      const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-      await fetch(`${url}/rest/v1/recebimentos?id=eq.${item.id}`, {
-        method: "PATCH",
-        headers: {
-          apikey: key,
-          Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
-          Prefer: "return=minimal",
-        },
+      // Usa a API route para garantir criação automática de comissão
+      await fetch(`/api/recebimentos/${item.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...item,
           status: "recebido",
           data_pagamento: new Date().toISOString().slice(0, 10),
           confirmado_por: usuario?.nome_completo ?? usuario?.nome_acesso ?? null,
@@ -595,10 +591,11 @@ export default function HistoricoCliente({
               <>
                 {/* ── Resumo geral (aparece com 2+ meses) ── */}
                 {frequencia.length > 1 && (() => {
-                  const totalPresencas = frequencia.reduce((s, f) => s + f.presencas, 0);
-                  const totalFaltas    = frequencia.reduce((s, f) => s + f.faltas, 0);
-                  const totalSessoes   = totalPresencas + totalFaltas;
-                  const taxaGeral      = totalSessoes > 0 ? Math.round((totalPresencas / totalSessoes) * 100) : 0;
+                  const totalPresencas     = frequencia.reduce((s, f) => s + f.presencas, 0);
+                  const totalFaltas        = frequencia.reduce((s, f) => s + f.faltas, 0);
+                  const totalCancelamentos = frequencia.reduce((s, f) => s + f.cancelamentos, 0);
+                  const totalSessoes       = totalPresencas + totalFaltas; // cancelamentos não entram na taxa
+                  const taxaGeral          = totalSessoes > 0 ? Math.round((totalPresencas / totalSessoes) * 100) : 0;
                   return (
                     <Card className="p-5 border-border shadow-sm bg-gradient-to-br from-primary/5 to-accent">
                       <div className="flex items-center justify-between mb-4">
@@ -608,7 +605,7 @@ export default function HistoricoCliente({
                         </h3>
                         <TaxaBadge taxa={taxaGeral} />
                       </div>
-                      <div className="grid grid-cols-3 gap-3 mb-4">
+                      <div className="grid grid-cols-4 gap-3 mb-4">
                         <div className="text-center bg-background/60 rounded-lg p-3 border border-border">
                           <p className="text-2xl font-bold text-primary">{totalPresencas}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">Presenças</p>
@@ -616,6 +613,10 @@ export default function HistoricoCliente({
                         <div className="text-center bg-background/60 rounded-lg p-3 border border-border">
                           <p className="text-2xl font-bold text-destructive">{totalFaltas}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">Faltas</p>
+                        </div>
+                        <div className="text-center bg-background/60 rounded-lg p-3 border border-border">
+                          <p className="text-2xl font-bold text-slate-500">{totalCancelamentos}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Cancelamentos</p>
                         </div>
                         <div className="text-center bg-background/60 rounded-lg p-3 border border-border">
                           <p className="text-2xl font-bold text-foreground">{totalSessoes}</p>
@@ -677,7 +678,7 @@ export default function HistoricoCliente({
                         <h3 className="font-semibold text-foreground">{formatMesNome(freq.mes)}</h3>
                         <TaxaBadge taxa={taxa} />
                       </div>
-                      <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="grid grid-cols-3 gap-3 mb-4">
                         {/* Presenças */}
                         <div className="bg-accent rounded-lg p-3 border border-primary/20 flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
@@ -703,6 +704,24 @@ export default function HistoricoCliente({
                             <p className="text-xs text-muted-foreground">Faltas</p>
                             <p className={`text-2xl font-bold leading-tight ${freq.faltas > 0 ? "text-destructive" : "text-muted-foreground"}`}>
                               {freq.faltas}
+                            </p>
+                          </div>
+                        </div>
+                        {/* Cancelamentos */}
+                        <div className={`rounded-lg p-3 border flex items-center gap-3 ${
+                          freq.cancelamentos > 0
+                            ? "bg-slate-50 border-slate-200"
+                            : "bg-accent border-border"
+                        }`}>
+                          <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                            freq.cancelamentos > 0 ? "bg-slate-100" : "bg-muted"
+                          }`}>
+                            <Ban className={`w-4 h-4 ${freq.cancelamentos > 0 ? "text-slate-500" : "text-muted-foreground"}`} />
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground">Cancelamentos</p>
+                            <p className={`text-2xl font-bold leading-tight ${freq.cancelamentos > 0 ? "text-slate-500" : "text-muted-foreground"}`}>
+                              {freq.cancelamentos}
                             </p>
                           </div>
                         </div>

@@ -94,6 +94,58 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
   const [repete, setRepete]   = useState(false);
   const [meses, setMeses]     = useState(3);
 
+  // ── Campos extras para Comissões ─────────────────────────────────────────
+  const [profissionais, setProfissionais] = useState<{ id: string; name: string }[]>([]);
+  const [procedimentos, setProcedimentos] = useState<{ id: string; nome: string; valor_padrao: number | null }[]>([]);
+  const [profissionalId, setProfissionalId] = useState("");
+  const [procedimentoId, setProcedimentoId] = useState("");
+  const [pacienteNome, setPacienteNome]     = useState("");
+  const [percentualComissao, setPercentualComissao] = useState<number | null>(null);
+
+  const isComissoes = !!form.categoria_id &&
+    (categorias.find(c => c.id === form.categoria_id)?.nome?.toLowerCase().includes("comiss") ?? false);
+
+  // Carregar profissionais e procedimentos ao selecionar Comissões
+  useEffect(() => {
+    if (!isComissoes) return;
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    const h = { apikey: key, Authorization: `Bearer ${key}` };
+    fetch(`${url}/rest/v1/profissionais?select=id,name&order=name`, { headers: h })
+      .then(r => r.json()).then(d => { if (Array.isArray(d)) setProfissionais(d); }).catch(() => {});
+    fetch(`${url}/rest/v1/procedimentos?ativo=eq.true&select=id,nome,valor_padrao&order=nome`, { headers: h })
+      .then(r => r.json()).then(d => { if (Array.isArray(d)) setProcedimentos(d); }).catch(() => {});
+  }, [isComissoes]);
+
+  // Auto-calcular comissão ao selecionar profissional + procedimento
+  useEffect(() => {
+    if (!isComissoes || !profissionalId || !procedimentoId) { setPercentualComissao(null); return; }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    fetch(
+      `${url}/rest/v1/comissoes_profissional?profissional_id=eq.${profissionalId}&procedimento_id=eq.${procedimentoId}&select=percentual`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } }
+    )
+      .then(r => r.json())
+      .then(d => {
+        const percentual = Array.isArray(d) && d[0]?.percentual > 0 ? Number(d[0].percentual) : null;
+        setPercentualComissao(percentual);
+        if (percentual !== null) {
+          const proc = procedimentos.find(p => p.id === procedimentoId);
+          const valorBase = proc?.valor_padrao ?? 0;
+          const valorCalc = Math.round(valorBase * percentual) / 100;
+          if (valorCalc > 0) set("valor", valorCalc);
+        }
+        // Auto-preencher descrição e fornecedor
+        const prof = profissionais.find(p => p.id === profissionalId);
+        if (prof) {
+          set("descricao", `${prof.name} - Comissão`);
+          set("fornecedor", prof.name);
+        }
+      })
+      .catch(() => {});
+  }, [profissionalId, procedimentoId, isComissoes]);
+
   function set(campo: keyof PagamentoInput, valor: unknown) {
     setForm(f => ({ ...f, [campo]: valor }));
   }
@@ -157,6 +209,8 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
                   const cat = categorias.find(c => c.id === v);
                   set("categoria_id", v || null);
                   set("categoria", cat?.nome ?? null);
+                  // Resetar campos de comissão ao trocar de categoria
+                  setProfissionalId(""); setProcedimentoId(""); setPacienteNome(""); setPercentualComissao(null);
                 }}
               >
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -171,15 +225,72 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-muted-foreground mb-1">Fornecedor</label>
-              <Input
-                value={form.fornecedor ?? ""}
-                onChange={e => set("fornecedor", e.target.value || null)}
-                placeholder="Nome do fornecedor"
-              />
-            </div>
+            {/* Fornecedor: só exibido quando NÃO é comissão */}
+            {!isComissoes && (
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Fornecedor</label>
+                <Input
+                  value={form.fornecedor ?? ""}
+                  onChange={e => set("fornecedor", e.target.value || null)}
+                  placeholder="Nome do fornecedor"
+                />
+              </div>
+            )}
           </div>
+
+          {/* Campos extras — somente quando Comissões */}
+          {isComissoes && (
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-3">
+              <p className="text-xs font-semibold text-primary">Dados da Comissão</p>
+              {/* Profissional */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Profissional *</label>
+                <Select value={profissionalId} onValueChange={v => {
+                  setProfissionalId(v);
+                  const prof = profissionais.find(p => p.id === v);
+                  if (prof) { set("fornecedor", prof.name); set("descricao", `${prof.name} - Comissão`); }
+                }}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {profissionais.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Procedimento */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Procedimento</label>
+                <Select value={procedimentoId} onValueChange={setProcedimentoId}>
+                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    {procedimentos.map(p => <SelectItem key={p.id} value={p.id}>{p.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              {/* Paciente */}
+              <div>
+                <label className="block text-xs font-medium text-muted-foreground mb-1">Paciente</label>
+                <Input
+                  value={pacienteNome}
+                  onChange={e => {
+                    setPacienteNome(e.target.value);
+                    set("observacoes", e.target.value ? `Paciente: ${e.target.value}` : null);
+                  }}
+                  placeholder="Nome do paciente (opcional)"
+                />
+              </div>
+              {/* Indicador de percentual */}
+              {percentualComissao !== null && (
+                <p className="text-xs text-primary/80">
+                  Comissão: <strong>{percentualComissao}%</strong> sobre o valor do procedimento
+                </p>
+              )}
+              {profissionalId && procedimentoId && percentualComissao === null && (
+                <p className="text-xs text-amber-600">
+                  Nenhuma comissão cadastrada para esta combinação. Configure em Configurações.
+                </p>
+              )}
+            </div>
+          )}
           {/* Valor + Vencimento */}
           <div className="grid grid-cols-2 gap-3">
             <div>

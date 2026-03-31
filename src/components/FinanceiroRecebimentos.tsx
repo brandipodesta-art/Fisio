@@ -521,6 +521,7 @@ export default function FinanceiroRecebimentos() {
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando]   = useState<Recebimento | null>(null);
   const [visualizando, setVisualizando] = useState<Recebimento | null>(null);
+  const [profissionalModal, setProfissionalModal] = useState<string | null>(null);
   const [salvando, setSalvando]   = useState(false);
   const [excluindo, setExcluindo] = useState<string | null>(null);
   const [excluirDialogId, setExcluirDialogId] = useState<string | null>(null);
@@ -863,7 +864,26 @@ export default function FinanceiroRecebimentos() {
                           </>
                         )}
                         <DropdownMenuItem
-                          onClick={() => setVisualizando(item)}
+                          onClick={async () => {
+                            setVisualizando(item);
+                            setProfissionalModal(null);
+                            // Busca o profissional via agendamento vinculado (observacoes = "agendamento:{id}")
+                            const match = item.observacoes?.match(/agendamento:([a-f0-9-]+)/i);
+                            if (match?.[1]) {
+                              const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+                              const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+                              try {
+                                const res = await fetch(
+                                  `${url}/rest/v1/agendamentos?id=eq.${match[1]}&select=professional_id,profissionais(name)`,
+                                  { headers: { apikey: key, Authorization: `Bearer ${key}` } }
+                                );
+                                const data = await res.json();
+                                if (Array.isArray(data) && data[0]?.profissionais?.name) {
+                                  setProfissionalModal(data[0].profissionais.name);
+                                }
+                              } catch (_) {}
+                            }
+                          }}
                           className="cursor-pointer"
                         >
                           <Eye className="w-4 h-4 mr-2" />
@@ -915,7 +935,7 @@ export default function FinanceiroRecebimentos() {
               <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                 <Eye className="w-5 h-5 text-blue-500" /> Detalhes do Recebimento
               </h2>
-              <button onClick={() => setVisualizando(null)} className="text-muted-foreground/60 hover:text-muted-foreground">
+              <button onClick={() => { setVisualizando(null); setProfissionalModal(null); }} className="text-muted-foreground/60 hover:text-muted-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -934,6 +954,12 @@ export default function FinanceiroRecebimentos() {
                         {visualizando.descricao.match(/(\(\d+\/\d+\))$/)?.[1]}
                       </span>
                     )}
+                  </p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Profissional</p>
+                  <p className="text-sm text-foreground">
+                    {profissionalModal ?? <span className="italic text-muted-foreground/60">—</span>}
                   </p>
                 </div>
                 <div>
@@ -982,15 +1008,21 @@ export default function FinanceiroRecebimentos() {
                   </p>
                 </div>
               )}
-              {visualizando.observacoes && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Observações</p>
-                  <p className="text-sm text-foreground/80 bg-muted/50 rounded-lg p-3">{visualizando.observacoes}</p>
-                </div>
-              )}
+              {(() => {
+                // Remove a referência interna "agendamento:{uuid}" usada como chave de idempotência
+                const obsLimpa = (visualizando.observacoes ?? "")
+                  .replace(/agendamento:[a-f0-9-]+/gi, "")
+                  .trim();
+                return obsLimpa ? (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Observações</p>
+                    <p className="text-sm text-foreground/80 bg-muted/50 rounded-lg p-3">{obsLimpa}</p>
+                  </div>
+                ) : null;
+              })()}
             </div>
             <div className="flex justify-end gap-3 p-5 border-t border-border/60">
-              <Button variant="outline" onClick={() => setVisualizando(null)}>Fechar</Button>
+              <Button variant="outline" onClick={() => { setVisualizando(null); setProfissionalModal(null); }}>Fechar</Button>
               <Button onClick={() => { setEditarDialogId(visualizando); setVisualizando(null); }}
                 className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2">
                 <Pencil className="w-4 h-4" /> Editar
