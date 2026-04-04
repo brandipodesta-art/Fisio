@@ -35,6 +35,8 @@ import {
   MoreHorizontal,
   ToggleLeft,
   ToggleRight,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -106,7 +108,11 @@ export default function ClientesListagem({
   const [clientes, setClientes] = useState<PacienteResumo[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-   const [totalGeral, setTotalGeral] = useState(0);
+  const [totalGeral, setTotalGeral] = useState(0);
+
+  // ── Paginação ──────────────────────────────────────────────────
+  const [paginaAtual, setPaginaAtual] = useState(1);
+  const itensPorPagina = 10;
 
   // ── Filtros ──────────────────────────────────────────────────────
   const [filtroNome, setFiltroNome] = useState("");
@@ -169,6 +175,7 @@ export default function ClientesListagem({
           data = data.filter(c => !['funcionario','admin','financeiro'].includes(c.tipo_usuario));
         }
         setClientes(data);
+        setPaginaAtual(1); // Reseta a página sempre que realizar uma nova busca
 
         if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos" || tipo === "paciente") && (!profissional || profissional === "todos") && (!status || status === "todos")) {
           setTotalGeral(data.length);
@@ -205,6 +212,7 @@ export default function ClientesListagem({
     setFiltroTipo("paciente");
     setFiltroProfissional("todos");
     setFiltroStatus("todos");
+    setPaginaAtual(1);
   };
 
   const handleFiltroCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -467,140 +475,190 @@ export default function ClientesListagem({
         </Card>
       )}
 
-      {/* Lista de clientes */}
+      {/* Lista de clientes (Tabela com Paginação) */}
       {!loading && !erro && clientes.length > 0 && (
-        <div className="space-y-2">
-          {clientes.map((cliente) => (
-            <Card
-              key={cliente.id}
-              className={`hover-lift shadow-sm ${
-                cliente.ativo
-                  ? "border-border"
-                  : "border-border bg-muted/30 opacity-70"
-              }`}
-            >
-              <div className="p-4 flex items-center gap-4">
-                {/* Avatar com iniciais */}
-                <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold shadow-sm bg-gradient-to-br ${
-                    cliente.ativo ? getAvatarColor(cliente.nome_completo) : "from-gray-400 to-gray-500"
-                  }`}
-                >
-                  {getIniciais(cliente.nome_completo)}
-                </div>
-
-                {/* Dados principais */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className={`font-semibold text-sm truncate ${
-                      cliente.ativo ? "text-foreground" : "text-muted-foreground"
-                    }`}>
-                      {cliente.nome_completo}
-                    </span>
-                    {!cliente.ativo && (
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-muted text-muted-foreground border border-border">
-                        Inativo
-                      </span>
-                    )}
-                    <span
-                      className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-                        TIPO_USUARIO_COLOR[cliente.tipo_usuario] ??
-                        "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {TIPO_USUARIO_LABEL[cliente.tipo_usuario] ??
-                        cliente.tipo_usuario}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                    <span className="font-mono">{cliente.cpf}</span>
-                    {cliente.telefone_cel && (
-                      <span className="flex items-center gap-1">
-                        <Phone className="w-3 h-3" />
-                        {cliente.telefone_cel}
-                      </span>
-                    )}
-                    {cliente.data_nascimento && (
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        Nasc.: {formatarData(cliente.data_nascimento)}
-                      </span>
-                    )}
-                    {cliente.profissional_responsavel && (
-                      <span className="hidden sm:inline">
-                        Responsavel:{" "}
-                        {cliente.profissional_responsavel
-                          .replace(/-/g, " ")
-                          .replace(/\b\w/g, (c) => c.toUpperCase())}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Data de cadastro + cidade */}
-                <div className="hidden md:flex flex-col items-end gap-1 shrink-0">
-                  <span className="text-[11px] text-muted-foreground/60">
-                    Cadastro: {formatarData(cliente.created_at)}
-                  </span>
-                  {cliente.cidade && (
-                    <span className="text-[11px] text-muted-foreground/60">
-                      {cliente.cidade}
-                    </span>
-                  )}
-                </div>
-
-                {/* Menu de acoes (tres pontos) */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuItem
-                      onClick={() => onVisualizarCliente?.(cliente)}
-                      className="cursor-pointer"
-                    >
-                      <Eye className="w-4 h-4 mr-2" />
-                      Visualizar
-                    </DropdownMenuItem>
-                    {podeEditarCadastro && (
-                      <DropdownMenuItem
-                        onClick={() => onEditarCliente?.(cliente)}
-                        className="cursor-pointer"
-                      >
-                        <Pencil className="w-4 h-4 mr-2" />
-                        Editar
-                      </DropdownMenuItem>
-                    )}
-                    {podeAlternarStatus && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => alternarStatus(cliente)}
-                          className={`cursor-pointer ${cliente.ativo ? "text-amber-600 focus:text-amber-600" : "text-primary focus:text-primary"}`}
+        <Card className="overflow-hidden border-border shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-left">
+              <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
+                <tr>
+                  <th className="px-4 py-3 font-medium">Nome / Status</th>
+                  <th className="px-4 py-3 font-medium">Contato</th>
+                  <th className="px-4 py-3 font-medium">Detalhes</th>
+                  <th className="px-4 py-3 font-medium text-right">Ações</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border text-foreground">
+                {clientes.slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina).map((cliente) => (
+                  <tr
+                    key={cliente.id}
+                    className={`hover:bg-muted/30 transition-colors ${!cliente.ativo ? "opacity-70 bg-muted/10" : "bg-card"}`}
+                  >
+                    {/* Nome e Status */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3 w-[220px] max-w-xs">
+                        <div
+                          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-semibold shadow-sm bg-gradient-to-br ${
+                            cliente.ativo ? getAvatarColor(cliente.nome_completo) : "from-gray-400 to-gray-500"
+                          }`}
                         >
-                          {cliente.ativo ? (
+                          {getIniciais(cliente.nome_completo)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`font-semibold truncate ${!cliente.ativo && "text-muted-foreground"}`}>
+                            {cliente.nome_completo}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                            <span
+                              className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                                TIPO_USUARIO_COLOR[cliente.tipo_usuario] ?? "bg-muted text-muted-foreground"
+                              }`}
+                            >
+                              {TIPO_USUARIO_LABEL[cliente.tipo_usuario] ?? cliente.tipo_usuario}
+                            </span>
+                            {!cliente.ativo && (
+                              <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-muted text-muted-foreground border border-border">
+                                Inativo
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Contato (CPF/Telefone) */}
+                    <td className="px-4 py-3 text-muted-foreground">
+                      <div className="flex flex-col gap-1 text-xs">
+                        {cliente.telefone_cel ? (
+                          <span className="flex items-center gap-1.5">
+                            <Phone className="w-3.5 h-3.5" />
+                            {cliente.telefone_cel}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground/50">- sem tel -</span>
+                        )}
+                        <span className="font-mono text-[11px]">{cliente.cpf || "- sem cpf -"}</span>
+                      </div>
+                    </td>
+
+                    {/* Detalhes (Nascimento, Profissional, Cadastro) */}
+                    <td className="px-4 py-3 text-muted-foreground">
+                      <div className="flex flex-col gap-1 text-xs">
+                        {cliente.data_nascimento && (
+                          <span className="flex items-center gap-1.5 truncate max-w-[200px]">
+                            <Calendar className="w-3.5 h-3.5 shrink-0" />
+                            Nasc.: {formatarData(cliente.data_nascimento)}
+                          </span>
+                        )}
+                        {cliente.profissional_responsavel && (
+                          <span className="truncate max-w-[200px]" title={cliente.profissional_responsavel}>
+                            Resp: <span className="font-medium text-foreground/80">{cliente.profissional_responsavel.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</span>
+                          </span>
+                        )}
+                        <span className="text-[11px] text-muted-foreground/60">
+                          Cadastro: {formatarData(cliente.created_at)}
+                        </span>
+                      </div>
+                    </td>
+
+                    {/* Ações */}
+                    <td className="px-4 py-3 text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="p-1.5 rounded-lg text-muted-foreground/60 hover:text-foreground hover:bg-muted ml-auto block">
+                            <MoreHorizontal className="w-4 h-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={() => onVisualizarCliente?.(cliente)}
+                            className="cursor-pointer"
+                          >
+                            <Eye className="w-4 h-4 mr-2" />
+                            Visualizar
+                          </DropdownMenuItem>
+                          {podeEditarCadastro && (
+                            <DropdownMenuItem
+                              onClick={() => onEditarCliente?.(cliente)}
+                              className="cursor-pointer"
+                            >
+                              <Pencil className="w-4 h-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                          )}
+                          {podeAlternarStatus && (
                             <>
-                              <ToggleLeft className="w-4 h-4 mr-2" />
-                              Desativar
-                            </>
-                          ) : (
-                            <>
-                              <ToggleRight className="w-4 h-4 mr-2" />
-                              Ativar
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => alternarStatus(cliente)}
+                                className={`cursor-pointer ${cliente.ativo ? "text-amber-600 focus:text-amber-600" : "text-primary focus:text-primary"}`}
+                              >
+                                {cliente.ativo ? (
+                                  <>
+                                    <ToggleLeft className="w-4 h-4 mr-2" />
+                                    Desativar
+                                  </>
+                                ) : (
+                                  <>
+                                    <ToggleRight className="w-4 h-4 mr-2" />
+                                    Ativar
+                                  </>
+                                )}
+                              </DropdownMenuItem>
                             </>
                           )}
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Table Footer - Paginação */}
+          {clientes.length > itensPorPagina && (
+            <div className="bg-muted/20 border-t border-border px-4 py-3 flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">
+                Mostrando <span className="font-medium text-foreground">{(paginaAtual - 1) * itensPorPagina + 1}</span> a{" "}
+                <span className="font-medium text-foreground">
+                  {Math.min(paginaAtual * itensPorPagina, clientes.length)}
+                </span>{" "}
+                de <span className="font-medium text-foreground">{clientes.length}</span> registros
+              </span>
+              <div className="flex items-center gap-1 rounded-md border border-border p-0.5 bg-card shadow-sm">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPaginaAtual((p) => Math.max(1, p - 1))}
+                  disabled={paginaAtual === 1}
+                  className="h-7 w-7 p-0"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                
+                {/* Numeros de pagina - Simplificado */}
+                <span className="text-xs font-semibold px-2">
+                  <span className="text-foreground">{paginaAtual}</span>
+                  <span className="text-muted-foreground/60 mx-1">/</span>
+                  <span className="text-muted-foreground">{Math.ceil(clientes.length / itensPorPagina)}</span>
+                </span>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    setPaginaAtual((p) => Math.min(Math.ceil(clientes.length / itensPorPagina), p + 1))
+                  }
+                  disabled={paginaAtual >= Math.ceil(clientes.length / itensPorPagina)}
+                  className="h-7 w-7 p-0"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
               </div>
-            </Card>
-          ))}
-        </div>
+            </div>
+          )}
+        </Card>
       )}
     </div>
   );
