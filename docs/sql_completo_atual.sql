@@ -195,6 +195,8 @@ CREATE TABLE IF NOT EXISTS public.recebimentos (
   forma_pagamento     TEXT,                                        -- legado (compatibilidade)
   forma_pagamento_id  UUID        REFERENCES public.formas_pagamento(id) ON DELETE SET NULL, -- Melhoria 4
   observacoes         TEXT,
+  confirmado_por      TEXT,
+  confirmado_por_id   UUID        REFERENCES public.usuarios_acesso(id) ON DELETE SET NULL,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE public.recebimentos ENABLE ROW LEVEL SECURITY;

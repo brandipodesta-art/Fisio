@@ -3,10 +3,11 @@
 import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 import ConfirmActionDialog from "@/components/ui/ConfirmActionDialog";
 import ModalPortal from "@/components/ui/ModalPortal";
+import { AutocompletePaciente } from "@/components/ui/AutocompletePaciente";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { toast } from "sonner";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
   AlertCircle, XCircle, Pencil, Trash2, Check, Eye, Repeat2, CalendarDays, MoreHorizontal,
@@ -116,119 +117,6 @@ interface FormModalProps {
   formas: FormaPagamentoItem[];
 }
 
-// ─── Autocomplete de Pacientes ───────────────────────────────────────────────
-
-interface PacienteSugestao { id: string; nome_completo: string; }
-
-function AutocompletePaciente({
-  value, pacienteId, onChange
-}: {
-  value: string;
-  pacienteId: string | null;
-  onChange: (nome: string, id: string | null) => void;
-}) {
-  const [query, setQuery]           = useState(value);
-  const [sugestoes, setSugestoes]   = useState<PacienteSugestao[]>([]);
-  const [aberto, setAberto]         = useState(false);
-  const [buscando, setBuscando]     = useState(false);
-  const timer                       = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const wrapperRef                  = useRef<HTMLDivElement>(null);
-
-  // Fecha dropdown ao clicar fora
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
-        setAberto(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, []);
-
-  // Busca com debounce
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const v = e.target.value;
-    setQuery(v);
-    onChange(v, null); // reseta o id ao digitar
-    if (timer.current) clearTimeout(timer.current);
-    if (v.length < 2) { setSugestoes([]); setAberto(false); return; }
-    timer.current = setTimeout(async () => {
-      setBuscando(true);
-      try {
-        const res = await fetch(`/api/pacientes?nome=${encodeURIComponent(v)}&limit=8`);
-        const data = await res.json();
-        setSugestoes(data.map((p: { id: string; nome_completo: string }) => ({ id: p.id, nome: p.nome_completo })).map((p: { id: string; nome: string }) => ({ id: p.id, nome_completo: p.nome })));
-        setAberto(true);
-      } finally {
-        setBuscando(false);
-      }
-    }, 300);
-  }
-
-  function selecionar(p: PacienteSugestao) {
-    setQuery(p.nome_completo);
-    onChange(p.nome_completo, p.id);
-    setSugestoes([]);
-    setAberto(false);
-  }
-
-  function limpar() {
-    setQuery("");
-    onChange("", null);
-    setSugestoes([]);
-    setAberto(false);
-  }
-
-  return (
-    <div ref={wrapperRef} className="relative">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60" />
-        <input
-          type="text"
-          value={query}
-          onChange={handleChange}
-          onFocus={() => sugestoes.length > 0 && setAberto(true)}
-          placeholder="Digite o nome do paciente..."
-          className="w-full pl-9 pr-8 py-2 border border-border rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        {query && (
-          <button
-            type="button"
-            onClick={limpar}
-            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-muted-foreground"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-      {buscando && (
-        <p className="text-xs text-muted-foreground/60 mt-1 pl-1">Buscando...</p>
-      )}
-      {pacienteId && (
-        <p className="text-xs text-primary mt-1 pl-1">✓ Paciente vinculado</p>
-      )}
-      {aberto && sugestoes.length > 0 && (
-        <ul className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
-          {sugestoes.map(p => (
-            <li
-              key={p.id}
-              onMouseDown={() => selecionar(p)}
-              className="px-4 py-2.5 text-sm text-foreground hover:bg-accent hover:text-primary cursor-pointer"
-            >
-              {p.nome_completo}
-            </li>
-          ))}
-        </ul>
-      )}
-      {aberto && sugestoes.length === 0 && !buscando && query.length >= 2 && (
-        <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg px-4 py-3 text-sm text-muted-foreground/60">
-          Nenhum paciente encontrado
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Formulário Modal ─────────────────────────────────────────────────────────
 
 function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalProps) {
@@ -238,6 +126,10 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
   const procedimentoBase = inicial?.descricao
     ? inicial.descricao.replace(/\s*\(\d+\/\d+\)$/, "").trim()
     : "";
+
+  // Preserva a chave interna de idempotência (agendamento:{uuid}) para recolocar ao salvar
+  const agendamentoRef = inicial?.observacoes?.match(/agendamento:[a-f0-9-]+/i)?.[0] ?? null;
+  const obsLimpa = (inicial?.observacoes ?? "").replace(/agendamento:[a-f0-9-]+/gi, "").trim() || null;
 
   const [form, setForm] = useState<RecebimentoInput>({
     paciente_id:      inicial?.paciente_id      ?? null,
@@ -250,7 +142,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
     status:              inicial?.status              ?? "pendente",
     forma_pagamento:     inicial?.forma_pagamento     ?? null,
     forma_pagamento_id:  inicial?.forma_pagamento_id  ?? null,
-    observacoes:         inicial?.observacoes         ?? null,
+    observacoes:         obsLimpa,
     confirmado_por:      inicial?.confirmado_por      ?? null,
     confirmado_por_id:   inicial?.confirmado_por_id   ?? null,
   });
@@ -287,7 +179,11 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
       toast.error("Selecione a forma de pagamento antes de salvar.");
       return;
     }
-    await onSalvar(form, repete ? { meses } : undefined);
+    // Recolocar a chave interna de idempotência (agendamento:{uuid}) nas observações ao salvar
+    const dadosFinais = agendamentoRef
+      ? { ...form, observacoes: [agendamentoRef, form.observacoes].filter(Boolean).join(" ") }
+      : form;
+    await onSalvar(dadosFinais, repete ? { meses } : undefined);
   }
 
   return (
@@ -371,7 +267,12 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1">Status *</label>
-              <Select value={form.status} onValueChange={v => set("status", v)}>
+              <Select value={form.status} onValueChange={v => {
+                set("status", v);
+                if (v === "recebido" && !form.data_pagamento) {
+                  set("data_pagamento", new Date().toISOString().slice(0, 10));
+                }
+              }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pendente">Pendente</SelectItem>
@@ -573,6 +474,19 @@ export default function FinanceiroRecebimentos() {
   async function salvar(dados: RecebimentoInput, recorrencia?: { meses: number }) {
     setSalvando(true);
     try {
+      // Auto-preencher data_pagamento e confirmado_por ao salvar com status recebido
+      if (dados.status === "recebido") {
+        if (!dados.data_pagamento) {
+          dados = { ...dados, data_pagamento: new Date().toISOString().slice(0, 10) };
+        }
+        if (!dados.confirmado_por) {
+          dados = {
+            ...dados,
+            confirmado_por:    usuario?.nome_completo ?? usuario?.nome_acesso ?? null,
+            confirmado_por_id: usuario?.id ?? null,
+          };
+        }
+      }
       const url    = editando ? `/api/recebimentos/${editando.id}` : "/api/recebimentos";
       const method = editando ? "PUT" : "POST";
       const res = await fetch(url, {

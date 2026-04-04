@@ -25,6 +25,8 @@ Gerencia os recebimentos (receitas) da clínica, permitindo o registro de pagame
 - Modal para registrar ou editar um recebimento.
 - Autocomplete integrado para vincular o recebimento a um paciente existente.
 - Auto-preenchimento do valor ao selecionar procedimento (`valor_padrao`).
+- **Auto-preenchimento de `data_pagamento`:** Ao selecionar status "Recebido" no formulário, a data de pagamento é preenchida com a data atual automaticamente (se ainda estiver vazia). O mesmo ocorre ao salvar sem informar a data.
+- **`confirmado_por` automático:** Ao salvar com status "recebido", o nome e ID do usuário logado são capturados automaticamente (sem sobrescrever valor já existente).
 - **Recorrência Mensal:** Permite gerar múltiplas parcelas mensais futuras automaticamente, com pré-visualização das datas.
 
 ### 3. Ações Rápidas
@@ -49,6 +51,7 @@ Gerencia os recebimentos (receitas) da clínica, permitindo o registro de pagame
 | `ConfirmActionDialog` | UI Component | `@/components/ui/ConfirmActionDialog` |
 | `ModalPortal` | UI Component | `@/components/ui/ModalPortal` |
 | `useAuth` | Hook | `@/lib/auth/AuthContext` |
+| `AutocompletePaciente` | UI Component | `@/components/ui/AutocompletePaciente` |
 | `Recebimento, RecebimentoInput` | Interfaces | `@/lib/types/financeiro` |
 | Ícones variados | Ícones | `lucide-react` |
 
@@ -102,8 +105,18 @@ async function handleSubmit(e: React.FormEvent) {
 
 ---
 
+## Chave Interna de Idempotência (`agendamento:{uuid}`)
+
+Recebimentos gerados pela Agenda armazenam `observacoes = "agendamento:{uuid}"`. Essa chave é usada pelo backend para:
+- Detectar duplicatas ao confirmar recebimento
+- Calcular e criar comissão do profissional vinculado
+
+**Comportamento no formulário de edição:**
+- A chave `agendamento:{uuid}` é **filtrada** do textarea antes de exibir ao usuário
+- Ao salvar, ela é **recolocada automaticamente** no início de `observacoes` (invisível para o usuário)
+- O modal de visualização também a filtra (comportamento anterior, mantido)
+
 ## Notas para Edição Futura
 
-- Recebimentos criados automaticamente pela Agenda têm `observacoes` com o ID do agendamento — não remover esse campo ao editar manualmente
 - Para adicionar novos campos obrigatórios, adicionar validação em `handleSubmit` usando `toast.error()`
-- O campo `confirmado_por` é preenchido automaticamente ao marcar como recebido — não exibir no formulário de edição
+- O campo `confirmado_por` é preenchido automaticamente ao marcar como recebido ou ao salvar via formulário com status "recebido" — não exibir como campo editável no formulário

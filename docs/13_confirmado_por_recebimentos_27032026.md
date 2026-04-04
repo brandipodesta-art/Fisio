@@ -30,9 +30,10 @@ Novas colunas adicionadas na tabela `recebimentos`:
 | Local | Quando grava |
 |---|---|
 | `FinanceiroRecebimentos` → botão "Marcar Recebido" | Ao clicar em Marcar Recebido no dropdown |
+| `FinanceiroRecebimentos` → formulário de criação/edição | Ao salvar com status "recebido" (se `confirmado_por` ainda não preenchido) |
 | `HistoricoCliente` → botão "Confirmar Pagamento" | Ao confirmar pelo histórico do paciente |
 
-O campo `confirmado_por` recebe `nome_completo` do usuário logado (ou `nome_acesso` como fallback).
+O campo `confirmado_por` recebe `nome_completo` do usuário logado (ou `nome_acesso` como fallback). Nunca sobrescreve um valor já existente.
 
 ---
 

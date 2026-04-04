@@ -8,6 +8,7 @@ import FinanceiroPage from "@/components/FinanceiroPage";
 import ConfiguracoesPage from "@/components/ConfiguracoesPage";
 import LoginPage from "@/components/LoginPage";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { usePermissoes } from "@/lib/auth/usePermissoes";
 import { Loader2 } from "lucide-react";
 
 export default function Page() {
@@ -17,6 +18,14 @@ export default function Page() {
       : "cadastro"
   );
   const { usuario, isLoading } = useAuth();
+  const { podeVerFinanceiro, podeVerConfiguracoes } = usePermissoes();
+
+  // Redireciona para cadastro se a página salva não é permitida para o perfil atual
+  useEffect(() => {
+    if (isLoading) return;
+    if (activePage === "financeiro" && !podeVerFinanceiro) setActivePage("cadastro");
+    if (activePage === "configuracoes" && !podeVerConfiguracoes) setActivePage("cadastro");
+  }, [activePage, podeVerFinanceiro, podeVerConfiguracoes, isLoading]);
 
   useEffect(() => {
     localStorage.setItem("fisio_active_page", activePage);
@@ -56,8 +65,8 @@ export default function Page() {
             <AgendaPage />
           </div>
         )}
-        {activePage === "financeiro" && <FinanceiroPage />}
-        {activePage === "configuracoes" && <ConfiguracoesPage />}
+        {activePage === "financeiro" && podeVerFinanceiro && <FinanceiroPage />}
+        {activePage === "configuracoes" && podeVerConfiguracoes && <ConfiguracoesPage />}
       </main>
     </div>
   );

@@ -61,6 +61,20 @@ Lê o `tipo_usuario` da sessão via `useAuth()` e expõe flags booleanas:
 | Componente | Controle Aplicado |
 |---|---|
 | `TopBar` | Menu Financeiro oculto para Funcionário; Configurações apenas para Admin |
+| `page.tsx` | Guard duplo: `useEffect` redireciona para "cadastro" se `activePage` salvo no `localStorage` não for permitido para o perfil; renderização condicional impede exibição mesmo por um frame |
 | `ClientesListagem` | Filtro de tipo oculta funcionario/admin/financeiro para Funcionário; botões Editar e Ativar/Desativar ocultos |
 | `CadastroForm` | Select de tipoUsuario desabilitado e fixado em "paciente" para Funcionário |
 | `HistoricoCliente` | Opções Confirmar Pagamento e Alterar ocultas para Funcionário |
+
+---
+
+## Correção: Acesso indevido via localStorage (04/04/2026)
+
+**Problema:** O `activePage` era persistido no `localStorage`. Se um usuário com acesso ao Financeiro saía e um Funcionário fazia login, a página "financeiro" era renderizada antes de qualquer checagem de permissão, expondo dados financeiros brevemente.
+
+**Causa raiz:** Proteção existia apenas na `TopBar` (ocultando o menu), mas não no nível de renderização da página.
+
+**Solução aplicada em `src/app/page.tsx`:**
+- Importado `usePermissoes`
+- `useEffect` que observa `activePage` + permissões: redireciona imediatamente para "cadastro" se a página ativa não for permitida (e limpa o `localStorage`)
+- Guard direto na renderização: `{activePage === "financeiro" && podeVerFinanceiro && <FinanceiroPage />}` — garante que nenhum dado seja exibido mesmo que o `useEffect` não tenha executado ainda

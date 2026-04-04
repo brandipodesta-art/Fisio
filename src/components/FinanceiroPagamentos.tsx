@@ -2,6 +2,7 @@
 import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 import ConfirmActionDialog from "@/components/ui/ConfirmActionDialog";
 import ModalPortal from "@/components/ui/ModalPortal";
+import { AutocompletePaciente } from "@/components/ui/AutocompletePaciente";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
@@ -89,7 +90,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
     forma_pagamento:  inicial?.forma_pagamento  ?? null,
     forma_pagamento_id: inicial?.forma_pagamento_id ?? null,
     fornecedor:       inicial?.fornecedor       ?? null,
-    observacoes:      inicial?.observacoes      ?? null,
+    observacoes:      (inicial?.observacoes ?? "").replace(/recebimento:[a-f0-9-]+/gi, "").trim() || null,
   });
   const [repete, setRepete]   = useState(false);
   const [meses, setMeses]     = useState(3);
@@ -100,6 +101,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
   const [profissionalId, setProfissionalId] = useState("");
   const [procedimentoId, setProcedimentoId] = useState("");
   const [pacienteNome, setPacienteNome]     = useState("");
+  const [pacienteId, setPacienteId]         = useState<string | null>(null);
   const [percentualComissao, setPercentualComissao] = useState<number | null>(null);
 
   const isComissoes = !!form.categoria_id &&
@@ -269,13 +271,15 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
               {/* Paciente */}
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1">Paciente</label>
-                <Input
+                <AutocompletePaciente
                   value={pacienteNome}
-                  onChange={e => {
-                    setPacienteNome(e.target.value);
-                    set("observacoes", e.target.value ? `Paciente: ${e.target.value}` : null);
-                  }}
+                  pacienteId={pacienteId}
                   placeholder="Nome do paciente (opcional)"
+                  onChange={(nome, id) => {
+                    setPacienteNome(nome);
+                    setPacienteId(id);
+                    set("observacoes", nome ? `Paciente: ${nome}` : null);
+                  }}
                 />
               </div>
               {/* Indicador de percentual */}
@@ -1048,12 +1052,17 @@ export default function FinanceiroPagamentos() {
                   <p className="text-sm text-foreground">{visualizando.fornecedor ?? <span className="italic text-muted-foreground/60">—</span>}</p>
                 </div>
               </div>
-              {visualizando.observacoes && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Observações</p>
-                  <p className="text-sm text-foreground/80 bg-muted/50 rounded-lg p-3">{visualizando.observacoes}</p>
-                </div>
-              )}
+              {(() => {
+                const obsLimpa = (visualizando.observacoes ?? "")
+                  .replace(/recebimento:[a-f0-9-]+/gi, "")
+                  .trim();
+                return obsLimpa ? (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Observações</p>
+                    <p className="text-sm text-foreground/80 bg-muted/50 rounded-lg p-3">{obsLimpa}</p>
+                  </div>
+                ) : null;
+              })()}
             </div>
             <div className="flex justify-end gap-3 p-5 border-t border-border/60">
               <Button variant="outline" onClick={() => setVisualizando(null)}>Fechar</Button>
