@@ -192,7 +192,7 @@ export default function RelatoriosPage() {
 
   // ── Exportar para Excel (DEVE ficar antes de qualquer return condicional) ──
   const exportarExcel = useCallback(async () => {
-    const XLSX = (await import("xlsx")).default;
+    const XLSX = await import("xlsx");
     const linhas: (string | number)[][] = [];
 
     const titulo =
