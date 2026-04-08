@@ -381,6 +381,49 @@ export default function AgendaPage() {
         }
       }
     }
+
+    // ── Recebimentos: falta registrada (idempotente) ──
+    // Quando o paciente falta, o valor continua sendo devido — gera recebimento pendente
+    if (
+      newStatus === "faltou" &&
+      appointment.pacienteId &&
+      statusNaoTerminal.includes(prevStatus)
+    ) {
+      const { data: existingFalta } = await supabase
+        .from("recebimentos")
+        .select("id")
+        .ilike("observacoes", `%agendamento:${appointment.id}%`)
+        .maybeSingle();
+
+      if (!existingFalta) {
+        let valorFalta = 0;
+        if (appointment.procedimentoId) {
+          const { data: proc } = await supabase
+            .from("procedimentos")
+            .select("valor_padrao")
+            .eq("id", appointment.procedimentoId)
+            .maybeSingle();
+          valorFalta = proc?.valor_padrao ?? 0;
+        }
+
+        const descricaoFalta = appointment.procedimentoNome ?? appointment.notes ?? "Atendimento";
+
+        if (valorFalta > 0) {
+          await supabase.from("recebimentos").insert({
+            paciente_id: appointment.pacienteId,
+            paciente_nome: appointment.patientName,
+            procedimento_id: appointment.procedimentoId ?? null,
+            descricao: descricaoFalta,
+            valor: valorFalta,
+            data_vencimento: appointment.date,
+            status: "pendente",
+            observacoes: `agendamento:${appointment.id}`,
+          });
+        } else {
+          toast.error("Procedimento sem valor cadastrado — recebimento não criado. Cadastre o valor em Configurações.");
+        }
+      }
+    }
   };
 
   // Update existing appointment
