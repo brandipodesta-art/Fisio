@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Users, CalendarDays, DollarSign, LogOut, Settings, ChevronDown } from "lucide-react";
+import { Activity, Users, CalendarDays, DollarSign, LogOut, Settings, ChevronDown, FileText } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,15 +22,17 @@ const TODOS_MENUS = [
   { key: "cadastro",   label: "Cadastro",   icon: Users,         requerAdmin: false },
   { key: "agenda",     label: "Agenda",     icon: CalendarDays,  requerAdmin: false },
   { key: "financeiro", label: "Financeiro", icon: DollarSign,    requerAdmin: false, requerFinanceiro: true },
+  { key: "relatorios", label: "Relatórios", icon: FileText,      requerAdmin: true },
 ];
 
 export default function TopBar({ activePage, onPageChange }: TopBarProps) {
   const { usuario, logout } = useAuth();
-  const { podeVerConfiguracoes, isFuncionario } = usePermissoes();
+  const { podeVerConfiguracoes, isFuncionario, isAdmin } = usePermissoes();
 
   // Filtra menus conforme permissões do perfil
   const menuItems = TODOS_MENUS.filter(m => {
     if (m.requerFinanceiro && isFuncionario) return false;
+    if ((m as { requerAdmin?: boolean }).requerAdmin && !isAdmin) return false;
     return true;
   });
 

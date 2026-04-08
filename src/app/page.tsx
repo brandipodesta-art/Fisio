@@ -6,6 +6,7 @@ import CadastroLayout from "@/components/CadastroLayout";
 import AgendaPage from "@/components/AgendaPage";
 import FinanceiroPage from "@/components/FinanceiroPage";
 import ConfiguracoesPage from "@/components/ConfiguracoesPage";
+import RelatoriosPage from "@/components/RelatoriosPage";
 import LoginPage from "@/components/LoginPage";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
@@ -18,13 +19,14 @@ export default function Page() {
       : "cadastro"
   );
   const { usuario, isLoading } = useAuth();
-  const { podeVerFinanceiro, podeVerConfiguracoes } = usePermissoes();
+  const { podeVerFinanceiro, podeVerConfiguracoes, isAdmin } = usePermissoes();
 
   // Redireciona para cadastro se a página salva não é permitida para o perfil atual
   useEffect(() => {
     if (isLoading) return;
     if (activePage === "financeiro" && !podeVerFinanceiro) setActivePage("cadastro");
     if (activePage === "configuracoes" && !podeVerConfiguracoes) setActivePage("cadastro");
+    if (activePage === "relatorios" && !isAdmin) setActivePage("cadastro");
   }, [activePage, podeVerFinanceiro, podeVerConfiguracoes, isLoading]);
 
   useEffect(() => {
@@ -67,6 +69,7 @@ export default function Page() {
         )}
         {activePage === "financeiro" && podeVerFinanceiro && <FinanceiroPage />}
         {activePage === "configuracoes" && podeVerConfiguracoes && <ConfiguracoesPage />}
+        {activePage === "relatorios" && isAdmin && <RelatoriosPage />}
       </main>
     </div>
   );
