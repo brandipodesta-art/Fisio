@@ -376,25 +376,32 @@ export default function HistoricoCliente({
   async function confirmarPagamento(item: FinanceiroItem) {
     setSalvandoAcao(true);
     try {
-      // Usa a API route para garantir criação automática de comissão
-      await fetch(`/api/recebimentos/${item.id}`, {
+      // Busca o recebimento completo para não perder campos ao fazer PUT
+      const recAtual = await fetch(`/api/recebimentos/${item.id}`).then(r => r.json());
+
+      const res = await fetch(`/api/recebimentos/${item.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...item,
+          ...recAtual,
           status: "recebido",
           data_pagamento: new Date().toISOString().slice(0, 10),
           confirmado_por: usuario?.nome_completo ?? usuario?.nome_acesso ?? null,
           confirmado_por_id: usuario?.id ?? null,
         }),
       });
-      // Atualiza localmente
-      setRecebimentosRaw(prev =>
-        prev.map(r => r.id === item.id
-          ? { ...r, status: "recebido", data_pagamento: new Date().toISOString().slice(0, 10) }
-          : r
-        )
-      );
+
+      if (res.ok) {
+        // Atualiza localmente para resposta imediata na UI
+        setRecebimentosRaw(prev =>
+          prev.map(r => r.id === item.id
+            ? { ...r, status: "recebido", data_pagamento: new Date().toISOString().slice(0, 10) }
+            : r
+          )
+        );
+      }
+    } catch (err) {
+      console.warn("Erro ao confirmar pagamento:", err);
     } finally {
       setSalvandoAcao(false);
       setConfirmandoItem(null);
