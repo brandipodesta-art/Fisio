@@ -222,6 +222,21 @@ export default function RelatoriosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipoRelatorio, dataInicial, dataFinal, clienteId, funcionarioId, filtroStatus, pacientes]);
 
+  // ── Helpers locais para exportação ────────────────────────────────────────────
+  const _nomeProcLocal = (id: string | null) =>
+    id ? (procedimentos.find((p) => p.id === id)?.nome ?? "—") : "—";
+  const _nomeProfLocal = (slug: string | null) =>
+    slug ? (profissionais.find((p) => p.id === slug)?.name ?? slug) : "—";
+  const _comissaoRec = (r: Recebimento) => {
+    if (!r.procedimento_id) return null;
+    const pac = pacientes.find((p) => p.id === r.paciente_id);
+    const profSlug = pac?.profissional_responsavel ?? null;
+    if (!profSlug) return null;
+    return comissoes.find(
+      (c) => c.profissional_id === profSlug && c.procedimento_id === r.procedimento_id
+    ) ?? null;
+  };
+
   // ── Exportar para Excel (DEVE ficar antes de qualquer return condicional) ──
   const exportarExcel = useCallback(async () => {
     const XLSX = await import("xlsx");
@@ -235,51 +250,72 @@ export default function RelatoriosPage() {
     linhas.push([`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`]);
     linhas.push([]);
 
-    const nomeProcedimentoLocal = (id: string | null) => {
-      if (!id) return "—";
-      return procedimentos.find((p) => p.id === id)?.nome ?? "—";
-    };
-    const nomeProfissionalLocal = (slug: string | null) => {
-      if (!slug) return "—";
-      return profissionais.find((p) => p.id === slug)?.name ?? slug;
-    };
-
     if (tipoRelatorio === "clientes") {
+      // ── Clientes: agrupado por data ──
+      const grupos = groupByDate(recebimentos);
       linhas.push(["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor (R$)", "Profissional"]);
-      for (const r of recebimentos) {
-        const paciente = pacientes.find((p) => p.id === r.paciente_id);
-        const profSlug = paciente?.profissional_responsavel ?? null;
-        linhas.push([
-          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
-          r.paciente_nome,
-          fmtDate(r.data_vencimento),
-          fmtDate(r.data_pagamento),
-          nomeProcedimentoLocal(r.procedimento_id),
-          Number(r.valor),
-          nomeProfissionalLocal(profSlug),
-        ]);
+      for (const [data, itens] of grupos.entries()) {
+        linhas.push([`Data: ${fmtDate(data)}`]);
+        for (const r of itens) {
+          const pac = pacientes.find((p) => p.id === r.paciente_id);
+          linhas.push([
+            r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+            r.paciente_nome,
+            fmtDate(r.data_vencimento),
+            fmtDate(r.data_pagamento),
+            _nomeProcLocal(r.procedimento_id),
+            Number(r.valor),
+            _nomeProfLocal(pac?.profissional_responsavel ?? null),
+          ]);
+        }
+        const subtotal = itens.reduce((s, r) => s + Number(r.valor), 0);
+        linhas.push(["", "", "", "", "Subtotal do dia", subtotal, ""]);
+        linhas.push([]);
       }
+      const total = recebimentos.reduce((s, r) => s + Number(r.valor), 0);
+      linhas.push(["", "", "", "", "TOTAL GERAL", total, ""]);
     } else {
+      // ── Funcionários: agrupado por profissional → data ──
       linhas.push(["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor (R$)", "Comissão (R$)", "Cliente"]);
-      const lista = funcionarioId && funcionarioId !== "todos" ? recebimentos : recebimentos;
-      for (const r of lista) {
-        const com = comissoes.find(
-          (c) => c.profissional_id === funcionarioId && c.procedimento_id === r.procedimento_id
-        );
-        const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : 0;
-        const paciente = pacientes.find((p) => p.id === r.paciente_id);
-        const profSlug = paciente?.profissional_responsavel ?? null;
-        linhas.push([
-          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
-          nomeProfissionalLocal(profSlug),
-          nomeProcedimentoLocal(r.procedimento_id),
-          fmtDate(r.data_vencimento),
-          fmtDate(r.data_pagamento),
-          Number(r.valor),
-          valorCom,
-          r.paciente_nome,
-        ]);
+      const grupos = groupByProfissional(recebimentos, pacientes);
+      let totalGeralValor = 0;
+      let totalGeralComissao = 0;
+      for (const [profSlug, dateMap] of grupos.entries()) {
+        const profNome = _nomeProfLocal(profSlug);
+        linhas.push([`Profissional: ${profNome}`]);
+        let totalProfValor = 0;
+        let totalProfComissao = 0;
+        for (const [data, itens] of dateMap.entries()) {
+          linhas.push([`  Data: ${fmtDate(data)}`]);
+          for (const r of itens) {
+            const com = _comissaoRec(r);
+            const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : 0;
+            linhas.push([
+              r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+              profNome,
+              _nomeProcLocal(r.procedimento_id),
+              fmtDate(r.data_vencimento),
+              fmtDate(r.data_pagamento),
+              Number(r.valor),
+              valorCom,
+              r.paciente_nome,
+            ]);
+            totalProfValor += Number(r.valor);
+            totalProfComissao += valorCom;
+          }
+          const subtotalItens = itens.reduce((s, r) => s + Number(r.valor), 0);
+          const subtotalCom = itens.reduce((s, r) => {
+            const c = _comissaoRec(r);
+            return c ? s + (Number(r.valor) * c.percentual) / 100 : s;
+          }, 0);
+          linhas.push(["", "", "", "", "Subtotal do dia", subtotalItens, subtotalCom, ""]);
+        }
+        linhas.push(["", "", "", "", `Total ${profNome}`, totalProfValor, totalProfComissao, ""]);
+        linhas.push([]);
+        totalGeralValor += totalProfValor;
+        totalGeralComissao += totalProfComissao;
       }
+      linhas.push(["", "", "", "", "TOTAL GERAL", totalGeralValor, totalGeralComissao, ""]);
     }
 
     const ws = XLSX.utils.aoa_to_sheet(linhas);
@@ -305,63 +341,89 @@ export default function RelatoriosPage() {
     doc.setFontSize(9);
     doc.text(`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, 14, 22);
 
-    const nomeProcedimentoLocal = (id: string | null) => {
-      if (!id) return "—";
-      return procedimentos.find((p) => p.id === id)?.nome ?? "—";
-    };
-    const nomeProfissionalLocal = (slug: string | null) => {
-      if (!slug) return "—";
-      return profissionais.find((p) => p.id === slug)?.name ?? slug;
-    };
-
-    let head: string[][];
-    let body: (string | number)[][];
-
     if (tipoRelatorio === "clientes") {
-      head = [["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor", "Profissional"]];
-      body = recebimentos.map((r) => {
-        const paciente = pacientes.find((p) => p.id === r.paciente_id);
-        const profSlug = paciente?.profissional_responsavel ?? null;
-        return [
-          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
-          r.paciente_nome,
-          fmtDate(r.data_vencimento),
-          fmtDate(r.data_pagamento),
-          nomeProcedimentoLocal(r.procedimento_id),
-          fmt(Number(r.valor)),
-          nomeProfissionalLocal(profSlug),
-        ];
+      // ── Clientes: tabela única agrupada por data ──
+      const head = [["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor", "Profissional"]];
+      const body: (string | number)[][] = [];
+      const grupos = groupByDate(recebimentos);
+      for (const [data, itens] of grupos.entries()) {
+        body.push([{ content: `Data: ${fmtDate(data)}`, colSpan: 7, styles: { fontStyle: "bold", fillColor: [240, 253, 244] } } as unknown as string]);
+        for (const r of itens) {
+          const pac = pacientes.find((p) => p.id === r.paciente_id);
+          body.push([
+            r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+            r.paciente_nome,
+            fmtDate(r.data_vencimento),
+            fmtDate(r.data_pagamento),
+            _nomeProcLocal(r.procedimento_id),
+            fmt(Number(r.valor)),
+            _nomeProfLocal(pac?.profissional_responsavel ?? null),
+          ]);
+        }
+        const subtotal = itens.reduce((s, r) => s + Number(r.valor), 0);
+        body.push([{ content: `Subtotal: ${fmt(subtotal)}`, colSpan: 7, styles: { fontStyle: "bold", halign: "right", fillColor: [220, 252, 231] } } as unknown as string]);
+      }
+      const total = recebimentos.reduce((s, r) => s + Number(r.valor), 0);
+      body.push([{ content: `TOTAL GERAL: ${fmt(total)}`, colSpan: 7, styles: { fontStyle: "bold", halign: "right", fillColor: [187, 247, 208] } } as unknown as string]);
+      autoTable(doc, {
+        head,
+        body,
+        startY: 27,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
       });
     } else {
-      head = [["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor", "Comissão", "Cliente"]];
-      body = recebimentos.map((r) => {
-        const com = comissoes.find(
-          (c) => c.profissional_id === funcionarioId && c.procedimento_id === r.procedimento_id
-        );
-        const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : 0;
-        const paciente = pacientes.find((p) => p.id === r.paciente_id);
-        const profSlug = paciente?.profissional_responsavel ?? null;
-        return [
-          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
-          nomeProfissionalLocal(profSlug),
-          nomeProcedimentoLocal(r.procedimento_id),
-          fmtDate(r.data_vencimento),
-          fmtDate(r.data_pagamento),
-          fmt(Number(r.valor)),
-          valorCom > 0 ? fmt(valorCom) : "—",
-          r.paciente_nome,
-        ];
+      // ── Funcionários: tabela agrupada por profissional → data ──
+      const head = [["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor", "Comissão", "Cliente"]];
+      const body: (string | number)[][] = [];
+      const grupos = groupByProfissional(recebimentos, pacientes);
+      let totalGeralValor = 0;
+      let totalGeralComissao = 0;
+      for (const [profSlug, dateMap] of grupos.entries()) {
+        const profNome = _nomeProfLocal(profSlug);
+        body.push([{ content: `Profissional: ${profNome}`, colSpan: 8, styles: { fontStyle: "bold", fillColor: [219, 234, 254], textColor: [30, 64, 175] } } as unknown as string]);
+        let totalProfValor = 0;
+        let totalProfComissao = 0;
+        for (const [data, itens] of dateMap.entries()) {
+          body.push([{ content: `Data: ${fmtDate(data)}`, colSpan: 8, styles: { fontStyle: "italic", fillColor: [240, 253, 244] } } as unknown as string]);
+          for (const r of itens) {
+            const com = _comissaoRec(r);
+            const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : 0;
+            body.push([
+              r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+              profNome,
+              _nomeProcLocal(r.procedimento_id),
+              fmtDate(r.data_vencimento),
+              fmtDate(r.data_pagamento),
+              fmt(Number(r.valor)),
+              valorCom > 0 ? fmt(valorCom) : "—",
+              r.paciente_nome,
+            ]);
+            totalProfValor += Number(r.valor);
+            totalProfComissao += valorCom;
+          }
+          const subtotalItens = itens.reduce((s, r) => s + Number(r.valor), 0);
+          const subtotalCom = itens.reduce((s, r) => {
+            const c = _comissaoRec(r);
+            return c ? s + (Number(r.valor) * c.percentual) / 100 : s;
+          }, 0);
+          body.push([{ content: `Subtotal: ${fmt(subtotalItens)} | Comissão: ${fmt(subtotalCom)}`, colSpan: 8, styles: { fontStyle: "bold", halign: "right", fillColor: [220, 252, 231] } } as unknown as string]);
+        }
+        body.push([{ content: `Total ${profNome}: ${fmt(totalProfValor)} | Comissão: ${fmt(totalProfComissao)}`, colSpan: 8, styles: { fontStyle: "bold", halign: "right", fillColor: [187, 247, 208] } } as unknown as string]);
+        totalGeralValor += totalProfValor;
+        totalGeralComissao += totalProfComissao;
+      }
+      body.push([{ content: `TOTAL GERAL: ${fmt(totalGeralValor)} | Total Comissão: ${fmt(totalGeralComissao)}`, colSpan: 8, styles: { fontStyle: "bold", halign: "right", fillColor: [134, 239, 172], textColor: [20, 83, 45] } } as unknown as string]);
+      autoTable(doc, {
+        head,
+        body,
+        startY: 27,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: "bold" },
+        alternateRowStyles: { fillColor: [245, 245, 245] },
       });
     }
-
-    autoTable(doc, {
-      head,
-      body,
-      startY: 27,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-    });
 
     doc.save(`relatorio_${tipoRelatorio}_${dataInicial}_${dataFinal}.pdf`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
