@@ -121,6 +121,9 @@ export default function RelatoriosPage() {
   const [loadingRel, setLoadingRel] = useState(false);
   const [gerado, setGerado] = useState(false);
 
+  // ── Ref do relatório (deve ficar junto com os outros hooks, antes de useEffect) ──
+  const relatorioRef = useRef<HTMLDivElement>(null);
+
   // ── Carrega dados auxiliares ───────────────────────────────────────────────
   useEffect(() => {
     async function load() {
@@ -393,8 +396,6 @@ export default function RelatoriosPage() {
     tipoRelatorio !== "" &&
     dataInicial !== "" &&
     dataFinal !== "";
-
-  const relatorioRef = useRef<HTMLDivElement>(null);
 
   // ── Exportar para Excel ────────────────────────────────────────────────────
   const exportarExcel = useCallback(async () => {
