@@ -106,6 +106,7 @@ export default function RelatoriosPage() {
   const [tipoSelecionado, setTipoSelecionado] = useState<"" | "cliente" | "funcionario">("");
   const [clienteId, setClienteId] = useState("");
   const [funcionarioId, setFuncionarioId] = useState("");
+  const [filtroStatus, setFiltroStatus] = useState<"todos" | "confirmado" | "pendente">("todos");
 
   // ── Dados auxiliares ───────────────────────────────────────────────────────
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
@@ -174,6 +175,13 @@ export default function RelatoriosPage() {
         query += `&paciente_id=in.(${ids})`;
       }
 
+      // Filtro de status
+      if (filtroStatus === "confirmado") {
+        query += `&status=in.(recebido,pago)`;
+      } else if (filtroStatus === "pendente") {
+        query += `&status=in.(pendente,atrasado)`;
+      }
+
       query += `&order=data_vencimento.asc`;
 
       const data = await get(query);
@@ -183,7 +191,7 @@ export default function RelatoriosPage() {
       setLoadingRel(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipoRelatorio, dataInicial, dataFinal, clienteId, funcionarioId, pacientes]);
+  }, [tipoRelatorio, dataInicial, dataFinal, clienteId, funcionarioId, filtroStatus, pacientes]);
 
   // ── Helpers de lookup ──────────────────────────────────────────────────────
   const nomeProcedimento = (id: string | null) => {
@@ -461,6 +469,34 @@ export default function RelatoriosPage() {
               onChange={(e) => { setDataFinal(e.target.value); setGerado(false); }}
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
+          </div>
+
+          {/* Filtro de Status */}
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Status do Pagamento</Label>
+            <Select
+              value={filtroStatus}
+              onValueChange={(v) => { setFiltroStatus(v as typeof filtroStatus); setGerado(false); }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Todos os status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos os status</SelectItem>
+                <SelectItem value="confirmado">
+                  <span className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    Confirmados
+                  </span>
+                </SelectItem>
+                <SelectItem value="pendente">
+                  <span className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    Pendentes
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Seleção de Cliente */}
