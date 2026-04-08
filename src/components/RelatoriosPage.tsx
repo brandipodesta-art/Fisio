@@ -331,98 +331,487 @@ export default function RelatoriosPage() {
     const autoTable = (await import("jspdf-autotable")).default;
 
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const PW = 297; // largura A4 landscape
+    const ML = 14;  // margem esquerda
+    const MR = 14;  // margem direita
+    const CW = PW - ML - MR; // largura útil
+
+    // ── Paleta de cores ──
+    const COR_VERDE_HEADER: [number, number, number]  = [22, 163, 74];   // green-600
+    const COR_VERDE_LIGHT: [number, number, number]   = [240, 253, 244]; // green-50
+    const COR_VERDE_MED: [number, number, number]     = [220, 252, 231]; // green-100
+    const COR_VERDE_DARK: [number, number, number]    = [187, 247, 208]; // green-200
+    const COR_VERDE_TOTAL: [number, number, number]   = [134, 239, 172]; // green-300
+    const COR_AMBER_HEADER: [number, number, number]  = [217, 119, 6];   // amber-600
+    const COR_AMBER_LIGHT: [number, number, number]   = [255, 251, 235]; // amber-50
+    const COR_AMBER_MED: [number, number, number]     = [254, 243, 199]; // amber-100
+    const COR_AMBER_DARK: [number, number, number]    = [253, 230, 138]; // amber-200
+    const COR_AZUL_PROF: [number, number, number]     = [219, 234, 254]; // blue-100
+    const COR_AZUL_TEXT: [number, number, number]     = [30, 64, 175];   // blue-800
+    const COR_EMERALD_TOTAL: [number, number, number] = [16, 185, 129];  // emerald-500
+    const COR_CINZA_HEADER: [number, number, number]  = [248, 250, 252]; // slate-50
+    const COR_CINZA_ALT: [number, number, number]     = [241, 245, 249]; // slate-100
+    const COR_TEXTO: [number, number, number]         = [15, 23, 42];    // slate-900
+    const COR_TEXTO_MUTED: [number, number, number]   = [100, 116, 139]; // slate-500
+    const COR_BRANCO: [number, number, number]        = [255, 255, 255];
+
     const titulo =
       tipoRelatorio === "clientes"
-        ? "Financeiro (Clientes) — Pagamentos Mensais"
-        : "Financeiro (Funcionários) — Pagamentos Mensais";
+        ? "Relatório Financeiro — Clientes"
+        : "Relatório Financeiro — Funcionários";
 
+    // ── Cabeçalho do documento ──
+    doc.setFillColor(...COR_VERDE_HEADER);
+    doc.rect(0, 0, PW, 22, "F");
     doc.setFontSize(14);
-    doc.text(titulo, 14, 15);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...COR_BRANCO);
+    doc.text(titulo, ML, 10);
     doc.setFontSize(9);
-    doc.text(`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, 14, 22);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML, 17);
+    doc.setTextColor(...COR_TEXTO);
 
-    if (tipoRelatorio === "clientes") {
-      // ── Clientes: tabela única agrupada por data ──
-      const head = [["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor", "Profissional"]];
-      const body: (string | number)[][] = [];
-      const grupos = groupByDate(recebimentos);
-      for (const [data, itens] of grupos.entries()) {
-        body.push([{ content: `Data: ${fmtDate(data)}`, colSpan: 7, styles: { fontStyle: "bold", fillColor: [240, 253, 244] } } as unknown as string]);
-        for (const r of itens) {
+    // ── Linha de geração ──
+    const agora = new Date().toLocaleString("pt-BR");
+    doc.setFontSize(7);
+    doc.setTextColor(...COR_TEXTO_MUTED);
+    doc.text(`Gerado em: ${agora}`, PW - MR, 17, { align: "right" });
+    doc.setTextColor(...COR_TEXTO);
+
+    let cursorY = 26;
+
+    // ── Helper: desenha um banner de seção ──
+    const drawSectionBanner = (
+      y: number,
+      label: string,
+      cor: [number, number, number],
+      corTexto: [number, number, number] = COR_BRANCO
+    ): number => {
+      doc.setFillColor(...cor);
+      doc.roundedRect(ML, y, CW, 8, 1.5, 1.5, "F");
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...corTexto);
+      doc.text(label, ML + 3, y + 5.5);
+      doc.setTextColor(...COR_TEXTO);
+      return y + 11;
+    };
+
+    // ── Helper: desenha um banner de profissional ──
+    const drawProfBanner = (y: number, label: string): number => {
+      doc.setFillColor(...COR_AZUL_PROF);
+      doc.roundedRect(ML, y, CW, 7, 1, 1, "F");
+      doc.setFontSize(8.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...COR_AZUL_TEXT);
+      doc.text(`▸ ${label}`, ML + 3, y + 4.8);
+      doc.setTextColor(...COR_TEXTO);
+      return y + 9;
+    };
+
+    // ── Helper: desenha um banner de data ──
+    const drawDateBanner = (y: number, label: string, count: number): number => {
+      doc.setFillColor(...COR_CINZA_HEADER);
+      doc.rect(ML, y, CW, 6, "F");
+      doc.setFontSize(7.5);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text(`📅 ${label}`, ML + 3, y + 4.2);
+      doc.text(`${count} registro(s)`, ML + CW - 3, y + 4.2, { align: "right" });
+      doc.setTextColor(...COR_TEXTO);
+      return y + 7;
+    };
+
+    // ── Helper: desenha caixa de total alinhada à direita ──
+    const drawTotalBox = (
+      y: number,
+      label: string,
+      valor: string,
+      cor: [number, number, number],
+      corTexto: [number, number, number],
+      width = 70
+    ): number => {
+      const x = ML + CW - width;
+      doc.setFillColor(...cor);
+      doc.roundedRect(x, y, width, 12, 1.5, 1.5, "F");
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text(label, x + width - 3, y + 4.5, { align: "right" });
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...corTexto);
+      doc.text(valor, x + width - 3, y + 10, { align: "right" });
+      doc.setTextColor(...COR_TEXTO);
+      return y + 15;
+    };
+
+    // ── Helper: desenha duas caixas de total lado a lado ──
+    const drawDoubleTotalBox = (
+      y: number,
+      label1: string, valor1: string, cor1: [number, number, number], corT1: [number, number, number],
+      label2: string, valor2: string, cor2: [number, number, number], corT2: [number, number, number],
+      width = 70
+    ): number => {
+      const gap = 4;
+      const x2 = ML + CW - width;
+      const x1 = x2 - width - gap;
+      doc.setFillColor(...cor1);
+      doc.roundedRect(x1, y, width, 12, 1.5, 1.5, "F");
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text(label1, x1 + width - 3, y + 4.5, { align: "right" });
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...corT1);
+      doc.text(valor1, x1 + width - 3, y + 10, { align: "right" });
+
+      doc.setFillColor(...cor2);
+      doc.roundedRect(x2, y, width, 12, 1.5, 1.5, "F");
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text(label2, x2 + width - 3, y + 4.5, { align: "right" });
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...corT2);
+      doc.text(valor2, x2 + width - 3, y + 10, { align: "right" });
+      doc.setTextColor(...COR_TEXTO);
+      return y + 15;
+    };
+
+    // ── Helper: verifica se precisa de nova página ──
+    const checkPage = (neededHeight: number) => {
+      const pageH = 210; // A4 landscape height
+      const marginBottom = 15;
+      if (cursorY + neededHeight > pageH - marginBottom) {
+        doc.addPage();
+        cursorY = 15;
+      }
+    };
+
+    // ── Helper: renderiza tabela de itens por data ──
+    const renderTabelaData = (
+      data: string,
+      itens: Recebimento[],
+      tipo: "clientes" | "funcionarios",
+      corSubtotal: [number, number, number]
+    ) => {
+      checkPage(30);
+      cursorY = drawDateBanner(cursorY, fmtDate(data), itens.length);
+
+      const subtotal = itens.reduce((s, r) => s + Number(r.valor), 0);
+      const subtotalCom = tipo === "funcionarios"
+        ? itens.reduce((s, r) => {
+            const c = _comissaoRec(r);
+            return c ? s + (Number(r.valor) * c.percentual) / 100 : s;
+          }, 0)
+        : 0;
+
+      if (tipo === "clientes") {
+        const head = [["Cliente", "Vencimento", "Pagamento", "Procedimento", "Valor", "Profissional"]];
+        const body = itens.map((r) => {
           const pac = pacientes.find((p) => p.id === r.paciente_id);
-          body.push([
-            r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+          return [
             r.paciente_nome,
             fmtDate(r.data_vencimento),
             fmtDate(r.data_pagamento),
             _nomeProcLocal(r.procedimento_id),
             fmt(Number(r.valor)),
             _nomeProfLocal(pac?.profissional_responsavel ?? null),
-          ]);
-        }
-        const subtotal = itens.reduce((s, r) => s + Number(r.valor), 0);
-        body.push([{ content: `Subtotal: ${fmt(subtotal)}`, colSpan: 7, styles: { fontStyle: "bold", halign: "right", fillColor: [220, 252, 231] } } as unknown as string]);
+          ];
+        });
+        body.push([
+          { content: "Subtotal do dia", colSpan: 4, styles: { fontStyle: "bold" as const, textColor: COR_TEXTO_MUTED, fillColor: corSubtotal } } as unknown as string,
+          { content: fmt(subtotal), styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: corSubtotal } } as unknown as string,
+          { content: "", styles: { fillColor: corSubtotal } } as unknown as string,
+        ]);
+        autoTable(doc, {
+          head,
+          body,
+          startY: cursorY,
+          margin: { left: ML, right: MR },
+          styles: { fontSize: 7.5, cellPadding: 1.8, textColor: COR_TEXTO },
+          headStyles: { fillColor: COR_CINZA_HEADER, textColor: COR_TEXTO_MUTED, fontStyle: "bold", fontSize: 7 },
+          alternateRowStyles: { fillColor: COR_CINZA_ALT },
+          columnStyles: { 4: { halign: "right" } },
+          tableLineColor: [226, 232, 240],
+          tableLineWidth: 0.1,
+          didDrawPage: () => { cursorY = 15; },
+        });
+      } else {
+        const head = [["Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor", "Comissão", "Cliente"]];
+        const body = itens.map((r) => {
+          const com = _comissaoRec(r);
+          const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : null;
+          const pac = pacientes.find((p) => p.id === r.paciente_id);
+          return [
+            _nomeProfLocal(pac?.profissional_responsavel ?? null),
+            _nomeProcLocal(r.procedimento_id),
+            fmtDate(r.data_vencimento),
+            fmtDate(r.data_pagamento),
+            fmt(Number(r.valor)),
+            valorCom !== null ? `${com!.percentual}% = ${fmt(valorCom)}` : "—",
+            r.paciente_nome,
+          ];
+        });
+        body.push([
+          { content: "Subtotal do dia", colSpan: 4, styles: { fontStyle: "bold" as const, textColor: COR_TEXTO_MUTED, fillColor: corSubtotal } } as unknown as string,
+          { content: fmt(subtotal), styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: corSubtotal } } as unknown as string,
+          { content: fmt(subtotalCom), styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: corSubtotal, textColor: COR_EMERALD_TOTAL } } as unknown as string,
+          { content: "", styles: { fillColor: corSubtotal } } as unknown as string,
+        ]);
+        autoTable(doc, {
+          head,
+          body,
+          startY: cursorY,
+          margin: { left: ML, right: MR },
+          styles: { fontSize: 7.5, cellPadding: 1.8, textColor: COR_TEXTO },
+          headStyles: { fillColor: COR_CINZA_HEADER, textColor: COR_TEXTO_MUTED, fontStyle: "bold", fontSize: 7 },
+          alternateRowStyles: { fillColor: COR_CINZA_ALT },
+          columnStyles: { 4: { halign: "right" }, 5: { halign: "right" } },
+          tableLineColor: [226, 232, 240],
+          tableLineWidth: 0.1,
+          didDrawPage: () => { cursorY = 15; },
+        });
       }
-      const total = recebimentos.reduce((s, r) => s + Number(r.valor), 0);
-      body.push([{ content: `TOTAL GERAL: ${fmt(total)}`, colSpan: 7, styles: { fontStyle: "bold", halign: "right", fillColor: [187, 247, 208] } } as unknown as string]);
-      autoTable(doc, {
-        head,
-        body,
-        startY: 27,
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: "bold" },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-      });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      cursorY = (doc as any).lastAutoTable.finalY + 4;
+    };
+
+    // ════════════════════════════════════════════════════════════
+    // RELATÓRIO CLIENTES
+    // ════════════════════════════════════════════════════════════
+    if (tipoRelatorio === "clientes") {
+      const recConf = recebimentos.filter((r) => r.status === "recebido" || r.status === "pago");
+      const recPend = recebimentos.filter((r) => r.status === "pendente" || r.status === "atrasado");
+      const totalConf = recConf.reduce((s, r) => s + Number(r.valor), 0);
+      const totalPend = recPend.reduce((s, r) => s + Number(r.valor), 0);
+      const totalGeral = recebimentos.reduce((s, r) => s + Number(r.valor), 0);
+
+      // ── Cards de resumo ──
+      const cardW = (CW - 8) / 3;
+      const cardH = 14;
+      // Card Confirmados
+      doc.setFillColor(...COR_VERDE_LIGHT);
+      doc.roundedRect(ML, cursorY, cardW, cardH, 2, 2, "F");
+      doc.setDrawColor(...COR_VERDE_HEADER);
+      doc.roundedRect(ML, cursorY, cardW, cardH, 2, 2, "S");
+      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text("Confirmados", ML + 3, cursorY + 5);
+      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_VERDE_HEADER);
+      doc.text(fmt(totalConf), ML + 3, cursorY + 11);
+      // Card Pendentes
+      const cx2 = ML + cardW + 4;
+      doc.setFillColor(...COR_AMBER_LIGHT);
+      doc.roundedRect(cx2, cursorY, cardW, cardH, 2, 2, "F");
+      doc.setDrawColor(...COR_AMBER_HEADER);
+      doc.roundedRect(cx2, cursorY, cardW, cardH, 2, 2, "S");
+      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text("Pendentes", cx2 + 3, cursorY + 5);
+      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_AMBER_HEADER);
+      doc.text(fmt(totalPend), cx2 + 3, cursorY + 11);
+      // Card Total Geral
+      const cx3 = ML + (cardW + 4) * 2;
+      doc.setFillColor(...COR_CINZA_HEADER);
+      doc.roundedRect(cx3, cursorY, cardW, cardH, 2, 2, "F");
+      doc.setDrawColor(203, 213, 225);
+      doc.roundedRect(cx3, cursorY, cardW, cardH, 2, 2, "S");
+      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text("Total Geral", cx3 + 3, cursorY + 5);
+      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_TEXTO);
+      doc.text(fmt(totalGeral), cx3 + 3, cursorY + 11);
+      doc.setTextColor(...COR_TEXTO);
+      doc.setDrawColor(0);
+      cursorY += cardH + 6;
+
+      // ── Seção Confirmados ──
+      if (recConf.length > 0) {
+        checkPage(20);
+        cursorY = drawSectionBanner(cursorY, `✓  Pagamentos Confirmados  (${recConf.length} registro(s))`, COR_VERDE_HEADER);
+        const gruposConf = groupByDate(recConf);
+        for (const [data, itens] of gruposConf.entries()) {
+          renderTabelaData(data, itens, "clientes", COR_VERDE_MED);
+        }
+        checkPage(18);
+        cursorY = drawTotalBox(cursorY, "Total Confirmado", fmt(totalConf), COR_VERDE_LIGHT, COR_VERDE_HEADER);
+        cursorY += 4;
+      }
+
+      // ── Seção Pendentes ──
+      if (recPend.length > 0) {
+        checkPage(20);
+        cursorY = drawSectionBanner(cursorY, `⏳  Pagamentos Pendentes  (${recPend.length} registro(s))`, COR_AMBER_HEADER);
+        const gruposPend = groupByDate(recPend);
+        for (const [data, itens] of gruposPend.entries()) {
+          renderTabelaData(data, itens, "clientes", COR_AMBER_MED);
+        }
+        checkPage(18);
+        cursorY = drawTotalBox(cursorY, "Total Pendente", fmt(totalPend), COR_AMBER_LIGHT, COR_AMBER_HEADER);
+        cursorY += 4;
+      }
+
+      // ── Total geral final ──
+      checkPage(20);
+      doc.setFillColor(...COR_CINZA_HEADER);
+      doc.roundedRect(ML, cursorY, CW, 16, 2, 2, "F");
+      doc.setDrawColor(203, 213, 225);
+      doc.roundedRect(ML, cursorY, CW, 16, 2, 2, "S");
+      doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text("Somatória Total do Período", ML + CW - 3, cursorY + 5.5, { align: "right" });
+      doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_TEXTO);
+      doc.text(fmt(totalGeral), ML + CW - 3, cursorY + 13, { align: "right" });
+      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text(`${recebimentos.length} registro(s) — ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML + 3, cursorY + 9);
+      doc.setTextColor(...COR_TEXTO);
+      doc.setDrawColor(0);
+
+    // ════════════════════════════════════════════════════════════
+    // RELATÓRIO FUNCIONÁRIOS
+    // ════════════════════════════════════════════════════════════
     } else {
-      // ── Funcionários: tabela agrupada por profissional → data ──
-      const head = [["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor", "Comissão", "Cliente"]];
-      const body: (string | number)[][] = [];
-      const grupos = groupByProfissional(recebimentos, pacientes);
-      let totalGeralValor = 0;
-      let totalGeralComissao = 0;
-      for (const [profSlug, dateMap] of grupos.entries()) {
-        const profNome = _nomeProfLocal(profSlug);
-        body.push([{ content: `Profissional: ${profNome}`, colSpan: 8, styles: { fontStyle: "bold", fillColor: [219, 234, 254], textColor: [30, 64, 175] } } as unknown as string]);
-        let totalProfValor = 0;
-        let totalProfComissao = 0;
-        for (const [data, itens] of dateMap.entries()) {
-          body.push([{ content: `Data: ${fmtDate(data)}`, colSpan: 8, styles: { fontStyle: "italic", fillColor: [240, 253, 244] } } as unknown as string]);
-          for (const r of itens) {
-            const com = _comissaoRec(r);
-            const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : 0;
-            body.push([
-              r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
-              profNome,
-              _nomeProcLocal(r.procedimento_id),
-              fmtDate(r.data_vencimento),
-              fmtDate(r.data_pagamento),
-              fmt(Number(r.valor)),
-              valorCom > 0 ? fmt(valorCom) : "—",
-              r.paciente_nome,
-            ]);
-            totalProfValor += Number(r.valor);
-            totalProfComissao += valorCom;
-          }
-          const subtotalItens = itens.reduce((s, r) => s + Number(r.valor), 0);
-          const subtotalCom = itens.reduce((s, r) => {
+      const recConf = recebimentos.filter((r) => r.status === "recebido" || r.status === "pago");
+      const recPend = recebimentos.filter((r) => r.status === "pendente" || r.status === "atrasado");
+      const totalConf = recConf.reduce((s, r) => s + Number(r.valor), 0);
+      const totalPend = recPend.reduce((s, r) => s + Number(r.valor), 0);
+      const totalGeralValor = recebimentos.reduce((s, r) => s + Number(r.valor), 0);
+      const totalGeralComissao = recConf.reduce((s, r) => {
+        const c = _comissaoRec(r);
+        return c ? s + (Number(r.valor) * c.percentual) / 100 : s;
+      }, 0);
+
+      // ── Cards de resumo ──
+      const cardW = (CW - 8) / 3;
+      const cardH = 14;
+      // Card Confirmados
+      doc.setFillColor(...COR_VERDE_LIGHT);
+      doc.roundedRect(ML, cursorY, cardW, cardH, 2, 2, "F");
+      doc.setDrawColor(...COR_VERDE_HEADER);
+      doc.roundedRect(ML, cursorY, cardW, cardH, 2, 2, "S");
+      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text("Confirmados", ML + 3, cursorY + 5);
+      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_VERDE_HEADER);
+      doc.text(fmt(totalConf), ML + 3, cursorY + 11);
+      // Card Pendentes
+      const cx2 = ML + cardW + 4;
+      doc.setFillColor(...COR_AMBER_LIGHT);
+      doc.roundedRect(cx2, cursorY, cardW, cardH, 2, 2, "F");
+      doc.setDrawColor(...COR_AMBER_HEADER);
+      doc.roundedRect(cx2, cursorY, cardW, cardH, 2, 2, "S");
+      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text("Pendentes", cx2 + 3, cursorY + 5);
+      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_AMBER_HEADER);
+      doc.text(fmt(totalPend), cx2 + 3, cursorY + 11);
+      // Card Total Comissão
+      const cx3 = ML + (cardW + 4) * 2;
+      doc.setFillColor(236, 253, 245); // emerald-50
+      doc.roundedRect(cx3, cursorY, cardW, cardH, 2, 2, "F");
+      doc.setDrawColor(...COR_EMERALD_TOTAL);
+      doc.roundedRect(cx3, cursorY, cardW, cardH, 2, 2, "S");
+      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text("Total Comissão", cx3 + 3, cursorY + 5);
+      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_EMERALD_TOTAL);
+      doc.text(fmt(totalGeralComissao), cx3 + 3, cursorY + 11);
+      doc.setTextColor(...COR_TEXTO);
+      doc.setDrawColor(0);
+      cursorY += cardH + 6;
+
+      // ── Seção Confirmados por profissional ──
+      if (recConf.length > 0) {
+        checkPage(20);
+        cursorY = drawSectionBanner(cursorY, `✓  Pagamentos Confirmados  (${recConf.length} registro(s))`, COR_VERDE_HEADER);
+        const gruposPorProf = groupByProfissional(recConf, pacientes);
+        let totalConfValor = 0;
+        let totalConfComissao = 0;
+        for (const [profSlug, dateMap] of gruposPorProf.entries()) {
+          const profNome = _nomeProfLocal(profSlug);
+          const todosItensProf = [...dateMap.values()].flat();
+          const totalValorProf = todosItensProf.reduce((s, r) => s + Number(r.valor), 0);
+          const totalComProf = todosItensProf.reduce((s, r) => {
             const c = _comissaoRec(r);
             return c ? s + (Number(r.valor) * c.percentual) / 100 : s;
           }, 0);
-          body.push([{ content: `Subtotal: ${fmt(subtotalItens)} | Comissão: ${fmt(subtotalCom)}`, colSpan: 8, styles: { fontStyle: "bold", halign: "right", fillColor: [220, 252, 231] } } as unknown as string]);
+          checkPage(20);
+          cursorY = drawProfBanner(cursorY, `${profNome}  —  ${todosItensProf.length} registro(s)`);
+          for (const [data, itens] of dateMap.entries()) {
+            renderTabelaData(data, itens, "funcionarios", COR_VERDE_MED);
+          }
+          checkPage(18);
+          cursorY = drawDoubleTotalBox(
+            cursorY,
+            `Total ${profNome}`, fmt(totalValorProf), COR_VERDE_LIGHT, COR_VERDE_HEADER,
+            `Comissão ${profNome}`, fmt(totalComProf), [236, 253, 245], COR_EMERALD_TOTAL
+          );
+          cursorY += 4;
+          totalConfValor += totalValorProf;
+          totalConfComissao += totalComProf;
         }
-        body.push([{ content: `Total ${profNome}: ${fmt(totalProfValor)} | Comissão: ${fmt(totalProfComissao)}`, colSpan: 8, styles: { fontStyle: "bold", halign: "right", fillColor: [187, 247, 208] } } as unknown as string]);
-        totalGeralValor += totalProfValor;
-        totalGeralComissao += totalProfComissao;
+        checkPage(18);
+        cursorY = drawDoubleTotalBox(
+          cursorY,
+          "Total Confirmado", fmt(totalConfValor), COR_VERDE_DARK, COR_VERDE_HEADER,
+          "Total Comissão", fmt(totalConfComissao), COR_VERDE_TOTAL, [20, 83, 45]
+        );
+        cursorY += 6;
       }
-      body.push([{ content: `TOTAL GERAL: ${fmt(totalGeralValor)} | Total Comissão: ${fmt(totalGeralComissao)}`, colSpan: 8, styles: { fontStyle: "bold", halign: "right", fillColor: [134, 239, 172], textColor: [20, 83, 45] } } as unknown as string]);
-      autoTable(doc, {
-        head,
-        body,
-        startY: 27,
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: "bold" },
-        alternateRowStyles: { fillColor: [245, 245, 245] },
-      });
+
+      // ── Seção Pendentes por profissional ──
+      if (recPend.length > 0) {
+        checkPage(20);
+        cursorY = drawSectionBanner(cursorY, `⏳  Pagamentos Pendentes  (${recPend.length} registro(s))`, COR_AMBER_HEADER);
+        const gruposPorProfPend = groupByProfissional(recPend, pacientes);
+        let totalPendValor = 0;
+        for (const [profSlug, dateMap] of gruposPorProfPend.entries()) {
+          const profNome = _nomeProfLocal(profSlug);
+          const todosItensProf = [...dateMap.values()].flat();
+          const totalValorProf = todosItensProf.reduce((s, r) => s + Number(r.valor), 0);
+          checkPage(20);
+          // Banner de profissional em âmbar
+          doc.setFillColor(...COR_AMBER_LIGHT);
+          doc.roundedRect(ML, cursorY, CW, 7, 1, 1, "F");
+          doc.setFontSize(8.5);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...COR_AMBER_HEADER);
+          doc.text(`▸ ${profNome}  —  ${todosItensProf.length} registro(s)`, ML + 3, cursorY + 4.8);
+          doc.setTextColor(...COR_TEXTO);
+          cursorY += 9;
+          for (const [data, itens] of dateMap.entries()) {
+            renderTabelaData(data, itens, "funcionarios", COR_AMBER_MED);
+          }
+          checkPage(18);
+          cursorY = drawTotalBox(
+            cursorY,
+            `Total Pendente ${profNome}`, fmt(totalValorProf), COR_AMBER_LIGHT, COR_AMBER_HEADER
+          );
+          cursorY += 4;
+          totalPendValor += totalValorProf;
+        }
+        checkPage(18);
+        cursorY = drawTotalBox(cursorY, "Total Pendente Geral", fmt(totalPendValor), COR_AMBER_DARK, COR_AMBER_HEADER);
+        cursorY += 6;
+      }
+
+      // ── Total geral final ──
+      checkPage(22);
+      doc.setFillColor(...COR_CINZA_HEADER);
+      doc.roundedRect(ML, cursorY, CW, 20, 2, 2, "F");
+      doc.setDrawColor(203, 213, 225);
+      doc.roundedRect(ML, cursorY, CW, 20, 2, 2, "S");
+      doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text("Somatória Total do Período", ML + CW - 3, cursorY + 5.5, { align: "right" });
+      doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_TEXTO);
+      doc.text(fmt(totalGeralValor), ML + CW - 3, cursorY + 12, { align: "right" });
+      doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text("Total de Comissão", ML + CW - 3, cursorY + 16.5, { align: "right" });
+      doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_EMERALD_TOTAL);
+      doc.text(fmt(totalGeralComissao), ML + CW - 3, cursorY + 20, { align: "right" });
+      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text(`${recebimentos.length} registro(s) — ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML + 3, cursorY + 9);
+      doc.setTextColor(...COR_TEXTO);
+      doc.setDrawColor(0);
     }
 
     doc.save(`relatorio_${tipoRelatorio}_${dataInicial}_${dataFinal}.pdf`);
