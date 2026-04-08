@@ -80,14 +80,14 @@ function groupByDate<T extends { data_vencimento: string; data_pagamento: string
 ): Map<string, T[]> {
   const map = new Map<string, T[]>();
   for (const item of items) {
-    const key = item.status === "recebido" || item.status === "pago"
-      ? (item.data_pagamento ?? item.data_vencimento)
-      : item.data_vencimento;
+    const key =
+      item.status === "recebido" || item.status === "pago"
+        ? (item.data_pagamento ?? item.data_vencimento)
+        : item.data_vencimento;
     const existing = map.get(key) ?? [];
     existing.push(item);
     map.set(key, existing);
   }
-  // Ordena as chaves
   return new Map([...map.entries()].sort((a, b) => a[0].localeCompare(b[0])));
 }
 
@@ -104,7 +104,6 @@ export default function RelatoriosPage() {
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
   const [tipoRelatorio, setTipoRelatorio] = useState<"" | "clientes" | "funcionarios">("");
-  const [tipoSelecionado, setTipoSelecionado] = useState<"" | "cliente" | "funcionario">("");
   const [clienteId, setClienteId] = useState("");
   const [funcionarioId, setFuncionarioId] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "confirmado" | "pendente">("todos");
@@ -121,7 +120,7 @@ export default function RelatoriosPage() {
   const [loadingRel, setLoadingRel] = useState(false);
   const [gerado, setGerado] = useState(false);
 
-  // ── Ref do relatório (deve ficar junto com os outros hooks, antes de useEffect) ──
+  // ── Ref (DEVE ficar antes de qualquer return condicional) ──────────────────
   const relatorioRef = useRef<HTMLDivElement>(null);
 
   // ── Carrega dados auxiliares ───────────────────────────────────────────────
@@ -147,8 +146,6 @@ export default function RelatoriosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const pacientesClientes = pacientes.filter((p) => p.tipo_usuario === "paciente");
-
   // ── Gerar relatório ────────────────────────────────────────────────────────
   const gerarRelatorio = useCallback(async () => {
     if (!tipoRelatorio || !dataInicial || !dataFinal) return;
@@ -158,14 +155,11 @@ export default function RelatoriosPage() {
 
     try {
       let query = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,confirmado_por`;
-
-      // Filtro de data: usa data_vencimento como base
       query += `&data_vencimento=gte.${dataInicial}&data_vencimento=lte.${dataFinal}`;
 
       if (tipoRelatorio === "clientes" && clienteId && clienteId !== "todos") {
         query += `&paciente_id=eq.${clienteId}`;
       } else if (tipoRelatorio === "funcionarios" && funcionarioId && funcionarioId !== "todos") {
-        // Busca pacientes do profissional
         const pacsProfissional = pacientes.filter(
           (p) => p.profissional_responsavel === funcionarioId
         );
@@ -179,7 +173,6 @@ export default function RelatoriosPage() {
         query += `&paciente_id=in.(${ids})`;
       }
 
-      // Filtro de status
       if (filtroStatus === "confirmado") {
         query += `&status=in.(recebido,pago)`;
       } else if (filtroStatus === "pendente") {
@@ -196,6 +189,151 @@ export default function RelatoriosPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tipoRelatorio, dataInicial, dataFinal, clienteId, funcionarioId, filtroStatus, pacientes]);
+
+  // ── Exportar para Excel (DEVE ficar antes de qualquer return condicional) ──
+  const exportarExcel = useCallback(async () => {
+    const XLSX = (await import("xlsx")).default;
+    const linhas: (string | number)[][] = [];
+
+    const titulo =
+      tipoRelatorio === "clientes"
+        ? "Financeiro (Clientes) — Pagamentos Mensais"
+        : "Financeiro (Funcionários) — Pagamentos Mensais";
+    linhas.push([titulo]);
+    linhas.push([`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`]);
+    linhas.push([]);
+
+    const nomeProcedimentoLocal = (id: string | null) => {
+      if (!id) return "—";
+      return procedimentos.find((p) => p.id === id)?.nome ?? "—";
+    };
+    const nomeProfissionalLocal = (slug: string | null) => {
+      if (!slug) return "—";
+      return profissionais.find((p) => p.id === slug)?.name ?? slug;
+    };
+
+    if (tipoRelatorio === "clientes") {
+      linhas.push(["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor (R$)", "Profissional"]);
+      for (const r of recebimentos) {
+        const paciente = pacientes.find((p) => p.id === r.paciente_id);
+        const profSlug = paciente?.profissional_responsavel ?? null;
+        linhas.push([
+          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+          r.paciente_nome,
+          fmtDate(r.data_vencimento),
+          fmtDate(r.data_pagamento),
+          nomeProcedimentoLocal(r.procedimento_id),
+          Number(r.valor),
+          nomeProfissionalLocal(profSlug),
+        ]);
+      }
+    } else {
+      linhas.push(["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor (R$)", "Comissão (R$)", "Cliente"]);
+      const lista = funcionarioId && funcionarioId !== "todos" ? recebimentos : recebimentos;
+      for (const r of lista) {
+        const com = comissoes.find(
+          (c) => c.profissional_id === funcionarioId && c.procedimento_id === r.procedimento_id
+        );
+        const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : 0;
+        const paciente = pacientes.find((p) => p.id === r.paciente_id);
+        const profSlug = paciente?.profissional_responsavel ?? null;
+        linhas.push([
+          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+          nomeProfissionalLocal(profSlug),
+          nomeProcedimentoLocal(r.procedimento_id),
+          fmtDate(r.data_vencimento),
+          fmtDate(r.data_pagamento),
+          Number(r.valor),
+          valorCom,
+          r.paciente_nome,
+        ]);
+      }
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(linhas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Relatório");
+    XLSX.writeFile(wb, `relatorio_${tipoRelatorio}_${dataInicial}_${dataFinal}.xlsx`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoRelatorio, dataInicial, dataFinal, recebimentos, pacientes, profissionais, procedimentos, comissoes, funcionarioId]);
+
+  // ── Exportar para PDF (DEVE ficar antes de qualquer return condicional) ────
+  const exportarPDF = useCallback(async () => {
+    const jsPDF = (await import("jspdf")).default;
+    const autoTable = (await import("jspdf-autotable")).default;
+
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const titulo =
+      tipoRelatorio === "clientes"
+        ? "Financeiro (Clientes) — Pagamentos Mensais"
+        : "Financeiro (Funcionários) — Pagamentos Mensais";
+
+    doc.setFontSize(14);
+    doc.text(titulo, 14, 15);
+    doc.setFontSize(9);
+    doc.text(`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, 14, 22);
+
+    const nomeProcedimentoLocal = (id: string | null) => {
+      if (!id) return "—";
+      return procedimentos.find((p) => p.id === id)?.nome ?? "—";
+    };
+    const nomeProfissionalLocal = (slug: string | null) => {
+      if (!slug) return "—";
+      return profissionais.find((p) => p.id === slug)?.name ?? slug;
+    };
+
+    let head: string[][];
+    let body: (string | number)[][];
+
+    if (tipoRelatorio === "clientes") {
+      head = [["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor", "Profissional"]];
+      body = recebimentos.map((r) => {
+        const paciente = pacientes.find((p) => p.id === r.paciente_id);
+        const profSlug = paciente?.profissional_responsavel ?? null;
+        return [
+          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+          r.paciente_nome,
+          fmtDate(r.data_vencimento),
+          fmtDate(r.data_pagamento),
+          nomeProcedimentoLocal(r.procedimento_id),
+          fmt(Number(r.valor)),
+          nomeProfissionalLocal(profSlug),
+        ];
+      });
+    } else {
+      head = [["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor", "Comissão", "Cliente"]];
+      body = recebimentos.map((r) => {
+        const com = comissoes.find(
+          (c) => c.profissional_id === funcionarioId && c.procedimento_id === r.procedimento_id
+        );
+        const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : 0;
+        const paciente = pacientes.find((p) => p.id === r.paciente_id);
+        const profSlug = paciente?.profissional_responsavel ?? null;
+        return [
+          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+          nomeProfissionalLocal(profSlug),
+          nomeProcedimentoLocal(r.procedimento_id),
+          fmtDate(r.data_vencimento),
+          fmtDate(r.data_pagamento),
+          fmt(Number(r.valor)),
+          valorCom > 0 ? fmt(valorCom) : "—",
+          r.paciente_nome,
+        ];
+      });
+    }
+
+    autoTable(doc, {
+      head,
+      body,
+      startY: 27,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+    });
+
+    doc.save(`relatorio_${tipoRelatorio}_${dataInicial}_${dataFinal}.pdf`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipoRelatorio, dataInicial, dataFinal, recebimentos, pacientes, profissionais, procedimentos, comissoes, funcionarioId]);
 
   // ── Helpers de lookup ──────────────────────────────────────────────────────
   const nomeProcedimento = (id: string | null) => {
@@ -215,7 +353,9 @@ export default function RelatoriosPage() {
     ) ?? null;
   };
 
-  // ── Dados derivados para relatório de clientes ─────────────────────────────
+  // ── Dados derivados ────────────────────────────────────────────────────────
+  const pacientesClientes = pacientes.filter((p) => p.tipo_usuario === "paciente");
+
   const recebimentosConfirmados = recebimentos.filter(
     (r) => r.status === "recebido" || r.status === "pago"
   );
@@ -230,16 +370,18 @@ export default function RelatoriosPage() {
   const gruposConfirmados = groupByDate(recebimentosConfirmados);
   const gruposPendentes = groupByDate(recebimentosPendentes);
 
-  // ── Relatório de funcionários ──────────────────────────────────────────────
   const profSelecionado = profissionais.find((p) => p.id === funcionarioId);
   const pacientesProfissional = pacientes.filter(
     (p) => p.profissional_responsavel === funcionarioId
   );
-  const idsPacientesProfissional = new Set(pacientesProfissional.map((p) => p.id));
 
-  const recFuncionario = recebimentos.filter((r) =>
-    idsPacientesProfissional.has(r.paciente_id)
-  );
+  const recFuncionario =
+    funcionarioId && funcionarioId !== "todos"
+      ? recebimentos.filter((r) =>
+          pacientesProfissional.some((p) => p.id === r.paciente_id)
+        )
+      : recebimentos;
+
   const recFuncConfirmados = recFuncionario.filter(
     (r) => r.status === "recebido" || r.status === "pago"
   );
@@ -247,7 +389,6 @@ export default function RelatoriosPage() {
     (r) => r.status === "pendente" || r.status === "atrasado"
   );
 
-  // Calcula comissão total do profissional
   const totalComissao = recFuncConfirmados.reduce((s, r) => {
     const com = comissaoDoItem(funcionarioId, r.procedimento_id);
     if (!com) return s;
@@ -257,7 +398,9 @@ export default function RelatoriosPage() {
   const gruposFuncConfirmados = groupByDate(recFuncConfirmados);
   const gruposFuncPendentes = groupByDate(recFuncPendentes);
 
-  // ── Renderização de uma linha de recebimento (clientes) ────────────────────
+  const podeGerar = tipoRelatorio !== "" && dataInicial !== "" && dataFinal !== "";
+
+  // ── Renderização de linha (clientes) ──────────────────────────────────────
   const renderLinhaCliente = (r: Recebimento) => {
     const paciente = pacientes.find((p) => p.id === r.paciente_id);
     const profSlug = paciente?.profissional_responsavel ?? null;
@@ -273,13 +416,15 @@ export default function RelatoriosPage() {
     );
   };
 
-  // ── Renderização de uma linha de recebimento (funcionários) ───────────────
+  // ── Renderização de linha (funcionários) ──────────────────────────────────
   const renderLinhaFuncionario = (r: Recebimento) => {
     const com = comissaoDoItem(funcionarioId, r.procedimento_id);
     const valorComissao = com ? (Number(r.valor) * com.percentual) / 100 : null;
+    const paciente = pacientes.find((p) => p.id === r.paciente_id);
+    const profSlug = paciente?.profissional_responsavel ?? null;
     return (
       <tr key={r.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
-        <td className="py-2.5 px-3 text-sm text-foreground">{profSelecionado?.name ?? funcionarioId}</td>
+        <td className="py-2.5 px-3 text-sm text-foreground">{nomeProfissionalBySlug(profSlug)}</td>
         <td className="py-2.5 px-3 text-sm text-foreground">{nomeProcedimento(r.procedimento_id)}</td>
         <td className="py-2.5 px-3 text-sm text-muted-foreground">{fmtDate(r.data_vencimento)}</td>
         <td className="py-2.5 px-3 text-sm text-muted-foreground">{fmtDate(r.data_pagamento)}</td>
@@ -297,8 +442,8 @@ export default function RelatoriosPage() {
     );
   };
 
-  // ── Seção de grupo de data ─────────────────────────────────────────────────
-  function SecaoData({
+  // ── Componente de seção por data ───────────────────────────────────────────
+  const SecaoData = ({
     data,
     itens,
     tipo,
@@ -306,14 +451,15 @@ export default function RelatoriosPage() {
     data: string;
     itens: Recebimento[];
     tipo: "clientes" | "funcionarios";
-  }) {
+  }) => {
     const subtotal = itens.reduce((s, r) => s + Number(r.valor), 0);
-    const subtotalComissao = tipo === "funcionarios"
-      ? itens.reduce((s, r) => {
-          const com = comissaoDoItem(funcionarioId, r.procedimento_id);
-          return com ? s + (Number(r.valor) * com.percentual) / 100 : s;
-        }, 0)
-      : 0;
+    const subtotalComissao =
+      tipo === "funcionarios"
+        ? itens.reduce((s, r) => {
+            const com = comissaoDoItem(funcionarioId, r.procedimento_id);
+            return com ? s + (Number(r.valor) * com.percentual) / 100 : s;
+          }, 0)
+        : 0;
 
     return (
       <div className="mb-4">
@@ -379,10 +525,9 @@ export default function RelatoriosPage() {
         </div>
       </div>
     );
-  }
+  };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
+  // ── Early return de loading (APÓS todos os hooks) ─────────────────────────
   if (loadingAux) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -392,135 +537,11 @@ export default function RelatoriosPage() {
     );
   }
 
-  const podeGerar =
-    tipoRelatorio !== "" &&
-    dataInicial !== "" &&
-    dataFinal !== "";
-
-  // ── Exportar para Excel ────────────────────────────────────────────────────
-  const exportarExcel = useCallback(async () => {
-    const XLSX = (await import("xlsx")).default;
-    const linhas: (string | number)[][] = [];
-
-    const titulo = tipoRelatorio === "clientes"
-      ? "Financeiro (Clientes) — Pagamentos Mensais"
-      : "Financeiro (Funcionários) — Pagamentos Mensais";
-    linhas.push([titulo]);
-    linhas.push([`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`]);
-    linhas.push([]);
-
-    if (tipoRelatorio === "clientes") {
-      linhas.push(["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor (R$)", "Profissional"]);
-      for (const r of recebimentos) {
-        const paciente = pacientes.find((p) => p.id === r.paciente_id);
-        const profSlug = paciente?.profissional_responsavel ?? null;
-        linhas.push([
-          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
-          r.paciente_nome,
-          fmtDate(r.data_vencimento),
-          fmtDate(r.data_pagamento),
-          nomeProcedimento(r.procedimento_id),
-          Number(r.valor),
-          nomeProfissionalBySlug(profSlug),
-        ]);
-      }
-    } else {
-      linhas.push(["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor (R$)", "Comissão (R$)", "Cliente"]);
-      const lista = funcionarioId ? recFuncionario : recebimentos;
-      for (const r of lista) {
-        const com = comissaoDoItem(funcionarioId || "", r.procedimento_id);
-        const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : 0;
-        const paciente = pacientes.find((p) => p.id === r.paciente_id);
-        const profSlug = paciente?.profissional_responsavel ?? null;
-        linhas.push([
-          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
-          nomeProfissionalBySlug(profSlug),
-          nomeProcedimento(r.procedimento_id),
-          fmtDate(r.data_vencimento),
-          fmtDate(r.data_pagamento),
-          Number(r.valor),
-          valorCom,
-          r.paciente_nome,
-        ]);
-      }
-    }
-
-    const ws = XLSX.utils.aoa_to_sheet(linhas);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Relatório");
-    XLSX.writeFile(wb, `relatorio_${tipoRelatorio}_${dataInicial}_${dataFinal}.xlsx`);
-  }, [tipoRelatorio, dataInicial, dataFinal, recebimentos, recFuncionario, pacientes, profissionais, procedimentos, comissoes, funcionarioId]);
-
-  // ── Exportar para PDF ──────────────────────────────────────────────────────
-  const exportarPDF = useCallback(async () => {
-    const jsPDF = (await import("jspdf")).default;
-    const autoTable = (await import("jspdf-autotable")).default;
-
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    const titulo = tipoRelatorio === "clientes"
-      ? "Financeiro (Clientes) — Pagamentos Mensais"
-      : "Financeiro (Funcionários) — Pagamentos Mensais";
-
-    doc.setFontSize(14);
-    doc.text(titulo, 14, 15);
-    doc.setFontSize(9);
-    doc.text(`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, 14, 22);
-
-    let head: string[][];
-    let body: (string | number)[][];
-
-    if (tipoRelatorio === "clientes") {
-      head = [["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor", "Profissional"]];
-      body = recebimentos.map((r) => {
-        const paciente = pacientes.find((p) => p.id === r.paciente_id);
-        const profSlug = paciente?.profissional_responsavel ?? null;
-        return [
-          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
-          r.paciente_nome,
-          fmtDate(r.data_vencimento),
-          fmtDate(r.data_pagamento),
-          nomeProcedimento(r.procedimento_id),
-          fmt(Number(r.valor)),
-          nomeProfissionalBySlug(profSlug),
-        ];
-      });
-    } else {
-      head = [["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor", "Comissão", "Cliente"]];
-      const lista = funcionarioId ? recFuncionario : recebimentos;
-      body = lista.map((r) => {
-        const com = comissaoDoItem(funcionarioId || "", r.procedimento_id);
-        const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : 0;
-        const paciente = pacientes.find((p) => p.id === r.paciente_id);
-        const profSlug = paciente?.profissional_responsavel ?? null;
-        return [
-          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
-          nomeProfissionalBySlug(profSlug),
-          nomeProcedimento(r.procedimento_id),
-          fmtDate(r.data_vencimento),
-          fmtDate(r.data_pagamento),
-          fmt(Number(r.valor)),
-          valorCom > 0 ? fmt(valorCom) : "—",
-          r.paciente_nome,
-        ];
-      });
-    }
-
-    autoTable(doc, {
-      head,
-      body,
-      startY: 27,
-      styles: { fontSize: 8, cellPadding: 2 },
-      headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: "bold" },
-      alternateRowStyles: { fillColor: [245, 245, 245] },
-    });
-
-    doc.save(`relatorio_${tipoRelatorio}_${dataInicial}_${dataFinal}.pdf`);
-  }, [tipoRelatorio, dataInicial, dataFinal, recebimentos, recFuncionario, pacientes, profissionais, procedimentos, comissoes, funcionarioId]);
-
+  // ── Render principal ───────────────────────────────────────────────────────
   return (
-    <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div ref={relatorioRef} className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
-      {/* ── Cabeçalho ─────────────────────────────────────────────────────── */}
+      {/* Cabeçalho */}
       <div className="flex items-center gap-3">
         <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10">
           <FileText className="w-5 h-5 text-primary" />
@@ -531,7 +552,7 @@ export default function RelatoriosPage() {
         </div>
       </div>
 
-      {/* ── Painel de filtros ─────────────────────────────────────────────── */}
+      {/* Painel de filtros */}
       <Card className="p-6 shadow-sm border-border">
         <h2 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
           <Search className="w-4 h-4 text-primary" />
@@ -540,8 +561,6 @@ export default function RelatoriosPage() {
 
         {/* Linha 1: Tipo de Relatório + Datas */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-
-          {/* Tipo de Relatório */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Tipo de Relatório</Label>
             <Select
@@ -573,7 +592,6 @@ export default function RelatoriosPage() {
             </Select>
           </div>
 
-          {/* Data Inicial */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Data Inicial</Label>
             <input
@@ -584,7 +602,6 @@ export default function RelatoriosPage() {
             />
           </div>
 
-          {/* Data Final */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Data Final</Label>
             <input
@@ -629,12 +646,13 @@ export default function RelatoriosPage() {
         {/* Linha 3: Cliente ou Funcionário (opcional) */}
         {tipoRelatorio !== "" && (
           <div className="grid grid-cols-1 gap-4 mb-4">
-
-            {/* Seleção de Cliente (opcional) */}
             {tipoRelatorio === "clientes" && (
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">
-                  Cliente <span className="text-xs text-muted-foreground">(opcional — deixe em branco para todos)</span>
+                  Cliente{" "}
+                  <span className="text-xs text-muted-foreground">
+                    (opcional — deixe em branco para todos)
+                  </span>
                 </Label>
                 <Select
                   value={clienteId}
@@ -655,11 +673,13 @@ export default function RelatoriosPage() {
               </div>
             )}
 
-            {/* Seleção de Funcionário (opcional) */}
             {tipoRelatorio === "funcionarios" && (
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium">
-                  Funcionário / Profissional <span className="text-xs text-muted-foreground">(opcional — deixe em branco para todos)</span>
+                  Funcionário / Profissional{" "}
+                  <span className="text-xs text-muted-foreground">
+                    (opcional — deixe em branco para todos)
+                  </span>
                 </Label>
                 <Select
                   value={funcionarioId}
@@ -682,6 +702,7 @@ export default function RelatoriosPage() {
           </div>
         )}
 
+        {/* Botões */}
         <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex gap-2">
             {gerado && recebimentos.length > 0 && (
@@ -720,7 +741,7 @@ export default function RelatoriosPage() {
         </div>
       </Card>
 
-      {/* ── Resultado ─────────────────────────────────────────────────────── */}
+      {/* Resultado */}
       {gerado && (
         <div className="space-y-6">
 
@@ -732,7 +753,9 @@ export default function RelatoriosPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Confirmados</p>
                   <p className="text-lg font-bold text-green-600">
-                    {tipoRelatorio === "clientes" ? fmt(totalConfirmado) : fmt(recFuncConfirmados.reduce((s, r) => s + Number(r.valor), 0))}
+                    {tipoRelatorio === "clientes"
+                      ? fmt(totalConfirmado)
+                      : fmt(recFuncConfirmados.reduce((s, r) => s + Number(r.valor), 0))}
                   </p>
                 </div>
               </div>
@@ -743,7 +766,9 @@ export default function RelatoriosPage() {
                 <div>
                   <p className="text-xs text-muted-foreground">Pendentes</p>
                   <p className="text-lg font-bold text-amber-600">
-                    {tipoRelatorio === "clientes" ? fmt(totalPendente) : fmt(recFuncPendentes.reduce((s, r) => s + Number(r.valor), 0))}
+                    {tipoRelatorio === "clientes"
+                      ? fmt(totalPendente)
+                      : fmt(recFuncPendentes.reduce((s, r) => s + Number(r.valor), 0))}
                   </p>
                 </div>
               </div>
@@ -771,24 +796,23 @@ export default function RelatoriosPage() {
             )}
           </div>
 
-          {/* ── RELATÓRIO 1: CLIENTES ─────────────────────────────────────── */}
+          {/* RELATÓRIO 1: CLIENTES */}
           {tipoRelatorio === "clientes" && (
             <div className="space-y-6">
-
-              {/* Pagamentos Confirmados */}
               <Card className="p-5 shadow-sm">
                 <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-green-600" />
                   Pagamentos Confirmados ({recebimentosConfirmados.length})
                 </h3>
                 {recebimentosConfirmados.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">Nenhum pagamento confirmado no período.</p>
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    Nenhum pagamento confirmado no período.
+                  </p>
                 ) : (
                   <>
                     {[...gruposConfirmados.entries()].map(([data, itens]) => (
                       <SecaoData key={data} data={data} itens={itens} tipo="clientes" />
                     ))}
-                    {/* Somatória total */}
                     <div className="mt-4 flex justify-end">
                       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-lg px-5 py-3 text-right">
                         <p className="text-xs text-muted-foreground mb-0.5">Total Confirmado</p>
@@ -799,7 +823,6 @@ export default function RelatoriosPage() {
                 )}
               </Card>
 
-              {/* Pagamentos Pendentes */}
               {recebimentosPendentes.length > 0 && (
                 <Card className="p-5 shadow-sm border-amber-200">
                   <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -818,7 +841,6 @@ export default function RelatoriosPage() {
                 </Card>
               )}
 
-              {/* Somatória geral */}
               <div className="flex justify-end">
                 <div className="bg-card border border-border rounded-xl px-6 py-4 text-right shadow-sm min-w-[260px]">
                   <p className="text-xs text-muted-foreground mb-1">Somatória Total do Período</p>
@@ -831,11 +853,9 @@ export default function RelatoriosPage() {
             </div>
           )}
 
-          {/* ── RELATÓRIO 2: FUNCIONÁRIOS ─────────────────────────────────── */}
+          {/* RELATÓRIO 2: FUNCIONÁRIOS */}
           {tipoRelatorio === "funcionarios" && (
             <div className="space-y-6">
-
-              {/* Cabeçalho do profissional */}
               {profSelecionado && (
                 <Card className="p-4 bg-muted/30 border-border">
                   <div className="flex items-center gap-3">
@@ -843,21 +863,23 @@ export default function RelatoriosPage() {
                     <div>
                       <p className="text-base font-semibold text-foreground">{profSelecionado.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {pacientesProfissional.length} paciente(s) vinculado(s) · Período: {fmtDate(dataInicial)} a {fmtDate(dataFinal)}
+                        {pacientesProfissional.length} paciente(s) vinculado(s) · Período:{" "}
+                        {fmtDate(dataInicial)} a {fmtDate(dataFinal)}
                       </p>
                     </div>
                   </div>
                 </Card>
               )}
 
-              {/* Pagamentos Confirmados */}
               <Card className="p-5 shadow-sm">
                 <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-green-600" />
                   Pagamentos Confirmados ({recFuncConfirmados.length})
                 </h3>
                 {recFuncConfirmados.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">Nenhum pagamento confirmado no período.</p>
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    Nenhum pagamento confirmado no período.
+                  </p>
                 ) : (
                   <>
                     {[...gruposFuncConfirmados.entries()].map(([data, itens]) => (
@@ -866,7 +888,9 @@ export default function RelatoriosPage() {
                     <div className="mt-4 flex justify-end gap-4">
                       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-lg px-5 py-3 text-right">
                         <p className="text-xs text-muted-foreground mb-0.5">Total Confirmado</p>
-                        <p className="text-xl font-bold text-green-600">{fmt(recFuncConfirmados.reduce((s, r) => s + Number(r.valor), 0))}</p>
+                        <p className="text-xl font-bold text-green-600">
+                          {fmt(recFuncConfirmados.reduce((s, r) => s + Number(r.valor), 0))}
+                        </p>
                       </div>
                       <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 rounded-lg px-5 py-3 text-right">
                         <p className="text-xs text-muted-foreground mb-0.5">Total Comissão</p>
@@ -877,7 +901,6 @@ export default function RelatoriosPage() {
                 )}
               </Card>
 
-              {/* Pagamentos Pendentes */}
               {recFuncPendentes.length > 0 && (
                 <Card className="p-5 shadow-sm border-amber-200">
                   <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
@@ -890,17 +913,20 @@ export default function RelatoriosPage() {
                   <div className="mt-4 flex justify-end">
                     <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg px-5 py-3 text-right">
                       <p className="text-xs text-muted-foreground mb-0.5">Total Pendente</p>
-                      <p className="text-xl font-bold text-amber-600">{fmt(recFuncPendentes.reduce((s, r) => s + Number(r.valor), 0))}</p>
+                      <p className="text-xl font-bold text-amber-600">
+                        {fmt(recFuncPendentes.reduce((s, r) => s + Number(r.valor), 0))}
+                      </p>
                     </div>
                   </div>
                 </Card>
               )}
 
-              {/* Somatória geral */}
               <div className="flex justify-end">
                 <div className="bg-card border border-border rounded-xl px-6 py-4 text-right shadow-sm min-w-[300px]">
                   <p className="text-xs text-muted-foreground mb-1">Somatória Total do Período</p>
-                  <p className="text-2xl font-bold text-foreground">{fmt(recFuncionario.reduce((s, r) => s + Number(r.valor), 0))}</p>
+                  <p className="text-2xl font-bold text-foreground">
+                    {fmt(recFuncionario.reduce((s, r) => s + Number(r.valor), 0))}
+                  </p>
                   <div className="mt-2 pt-2 border-t border-border">
                     <p className="text-xs text-muted-foreground">Total de Comissão</p>
                     <p className="text-lg font-bold text-emerald-600">{fmt(totalComissao)}</p>
@@ -923,7 +949,6 @@ export default function RelatoriosPage() {
               </p>
             </Card>
           )}
-
         </div>
       )}
     </div>
