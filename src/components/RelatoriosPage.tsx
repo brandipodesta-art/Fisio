@@ -357,8 +357,8 @@ export default function RelatoriosPage() {
 
     const titulo =
       tipoRelatorio === "clientes"
-        ? "Relatório Financeiro — Clientes"
-        : "Relatório Financeiro — Funcionários";
+        ? "Relatorio Financeiro - Clientes"
+        : "Relatorio Financeiro - Funcionarios";
 
     // ── Cabeçalho do documento ──
     doc.setFillColor(...COR_VERDE_HEADER);
@@ -369,7 +369,7 @@ export default function RelatoriosPage() {
     doc.text(titulo, ML, 10);
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML, 17);
+    doc.text(`Periodo: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML, 17);
     doc.setTextColor(...COR_TEXTO);
 
     // ── Linha de geração ──
@@ -405,7 +405,7 @@ export default function RelatoriosPage() {
       doc.setFontSize(8.5);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...COR_AZUL_TEXT);
-      doc.text(`▸ ${label}`, ML + 3, y + 4.8);
+      doc.text(`>> ${label}`, ML + 3, y + 4.8);
       doc.setTextColor(...COR_TEXTO);
       return y + 9;
     };
@@ -417,7 +417,7 @@ export default function RelatoriosPage() {
       doc.setFontSize(7.5);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text(`📅 ${label}`, ML + 3, y + 4.2);
+      doc.text(`Data: ${label}`, ML + 3, y + 4.2);
       doc.text(`${count} registro(s)`, ML + CW - 3, y + 4.2, { align: "right" });
       doc.setTextColor(...COR_TEXTO);
       return y + 7;
@@ -542,7 +542,7 @@ export default function RelatoriosPage() {
           didDrawPage: () => { cursorY = 15; },
         });
       } else {
-        const head = [["Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor", "Comissão", "Cliente"]];
+        const head = [["Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor", "Comissao", "Cliente"]];
         const body = itens.map((r) => {
           const com = _comissaoRec(r);
           const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : null;
@@ -553,7 +553,7 @@ export default function RelatoriosPage() {
             fmtDate(r.data_vencimento),
             fmtDate(r.data_pagamento),
             fmt(Number(r.valor)),
-            valorCom !== null ? `${com!.percentual}% = ${fmt(valorCom)}` : "—",
+            valorCom !== null ? `${com!.percentual}% = ${fmt(valorCom)}` : "-",
             r.paciente_nome,
           ];
         });
@@ -631,7 +631,7 @@ export default function RelatoriosPage() {
       // ── Seção Confirmados ──
       if (recConf.length > 0) {
         checkPage(20);
-        cursorY = drawSectionBanner(cursorY, `✓  Pagamentos Confirmados  (${recConf.length} registro(s))`, COR_VERDE_HEADER);
+        cursorY = drawSectionBanner(cursorY, `Pagamentos Confirmados  (${recConf.length} registro(s))`, COR_VERDE_HEADER);
         const gruposConf = groupByDate(recConf);
         for (const [data, itens] of gruposConf.entries()) {
           renderTabelaData(data, itens, "clientes", COR_VERDE_MED);
@@ -644,7 +644,7 @@ export default function RelatoriosPage() {
       // ── Seção Pendentes ──
       if (recPend.length > 0) {
         checkPage(20);
-        cursorY = drawSectionBanner(cursorY, `⏳  Pagamentos Pendentes  (${recPend.length} registro(s))`, COR_AMBER_HEADER);
+        cursorY = drawSectionBanner(cursorY, `Pagamentos Pendentes  (${recPend.length} registro(s))`, COR_AMBER_HEADER);
         const gruposPend = groupByDate(recPend);
         for (const [data, itens] of gruposPend.entries()) {
           renderTabelaData(data, itens, "clientes", COR_AMBER_MED);
@@ -661,11 +661,11 @@ export default function RelatoriosPage() {
       doc.setDrawColor(203, 213, 225);
       doc.roundedRect(ML, cursorY, CW, 16, 2, 2, "S");
       doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Somatória Total do Período", ML + CW - 3, cursorY + 5.5, { align: "right" });
+      doc.text("Somatoria Total do Periodo", ML + CW - 3, cursorY + 5.5, { align: "right" });
       doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_TEXTO);
       doc.text(fmt(totalGeral), ML + CW - 3, cursorY + 13, { align: "right" });
       doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text(`${recebimentos.length} registro(s) — ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML + 3, cursorY + 9);
+      doc.text(`${recebimentos.length} registro(s) - ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML + 3, cursorY + 9);
       doc.setTextColor(...COR_TEXTO);
       doc.setDrawColor(0);
 
@@ -712,7 +712,7 @@ export default function RelatoriosPage() {
       doc.setDrawColor(...COR_EMERALD_TOTAL);
       doc.roundedRect(cx3, cursorY, cardW, cardH, 2, 2, "S");
       doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Total Comissão", cx3 + 3, cursorY + 5);
+      doc.text("Total Comissao", cx3 + 3, cursorY + 5);
       doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_EMERALD_TOTAL);
       doc.text(fmt(totalGeralComissao), cx3 + 3, cursorY + 11);
       doc.setTextColor(...COR_TEXTO);
@@ -722,7 +722,7 @@ export default function RelatoriosPage() {
       // ── Seção Confirmados por profissional ──
       if (recConf.length > 0) {
         checkPage(20);
-        cursorY = drawSectionBanner(cursorY, `✓  Pagamentos Confirmados  (${recConf.length} registro(s))`, COR_VERDE_HEADER);
+        cursorY = drawSectionBanner(cursorY, `Pagamentos Confirmados  (${recConf.length} registro(s))`, COR_VERDE_HEADER);
         const gruposPorProf = groupByProfissional(recConf, pacientes);
         let totalConfValor = 0;
         let totalConfComissao = 0;
@@ -735,7 +735,7 @@ export default function RelatoriosPage() {
             return c ? s + (Number(r.valor) * c.percentual) / 100 : s;
           }, 0);
           checkPage(20);
-          cursorY = drawProfBanner(cursorY, `${profNome}  —  ${todosItensProf.length} registro(s)`);
+          cursorY = drawProfBanner(cursorY, `${profNome}  -  ${todosItensProf.length} registro(s)`);
           for (const [data, itens] of dateMap.entries()) {
             renderTabelaData(data, itens, "funcionarios", COR_VERDE_MED);
           }
@@ -761,7 +761,7 @@ export default function RelatoriosPage() {
       // ── Seção Pendentes por profissional ──
       if (recPend.length > 0) {
         checkPage(20);
-        cursorY = drawSectionBanner(cursorY, `⏳  Pagamentos Pendentes  (${recPend.length} registro(s))`, COR_AMBER_HEADER);
+        cursorY = drawSectionBanner(cursorY, `Pagamentos Pendentes  (${recPend.length} registro(s))`, COR_AMBER_HEADER);
         const gruposPorProfPend = groupByProfissional(recPend, pacientes);
         let totalPendValor = 0;
         for (const [profSlug, dateMap] of gruposPorProfPend.entries()) {
@@ -775,7 +775,7 @@ export default function RelatoriosPage() {
           doc.setFontSize(8.5);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(...COR_AMBER_HEADER);
-          doc.text(`▸ ${profNome}  —  ${todosItensProf.length} registro(s)`, ML + 3, cursorY + 4.8);
+          doc.text(`>> ${profNome}  -  ${todosItensProf.length} registro(s)`, ML + 3, cursorY + 4.8);
           doc.setTextColor(...COR_TEXTO);
           cursorY += 9;
           for (const [data, itens] of dateMap.entries()) {
@@ -801,15 +801,15 @@ export default function RelatoriosPage() {
       doc.setDrawColor(203, 213, 225);
       doc.roundedRect(ML, cursorY, CW, 20, 2, 2, "S");
       doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Somatória Total do Período", ML + CW - 3, cursorY + 5.5, { align: "right" });
+      doc.text("Somatoria Total do Periodo", ML + CW - 3, cursorY + 5.5, { align: "right" });
       doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_TEXTO);
       doc.text(fmt(totalGeralValor), ML + CW - 3, cursorY + 12, { align: "right" });
       doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Total de Comissão", ML + CW - 3, cursorY + 16.5, { align: "right" });
+      doc.text("Total de Comissao", ML + CW - 3, cursorY + 16.5, { align: "right" });
       doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_EMERALD_TOTAL);
       doc.text(fmt(totalGeralComissao), ML + CW - 3, cursorY + 20, { align: "right" });
       doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text(`${recebimentos.length} registro(s) — ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML + 3, cursorY + 9);
+      doc.text(`${recebimentos.length} registro(s) - ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML + 3, cursorY + 9);
       doc.setTextColor(...COR_TEXTO);
       doc.setDrawColor(0);
     }
