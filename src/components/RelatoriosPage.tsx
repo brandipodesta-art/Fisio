@@ -91,6 +91,38 @@ function groupByDate<T extends { data_vencimento: string; data_pagamento: string
   return new Map([...map.entries()].sort((a, b) => a[0].localeCompare(b[0])));
 }
 
+// Agrupa recebimentos por profissional (slug) e dentro de cada profissional por data
+function groupByProfissional(
+  items: Recebimento[],
+  pacientes: Paciente[]
+): Map<string, Map<string, Recebimento[]>> {
+  const map = new Map<string, Map<string, Recebimento[]>>();
+  for (const item of items) {
+    const pac = pacientes.find((p) => p.id === item.paciente_id);
+    const profSlug = pac?.profissional_responsavel ?? "sem-profissional";
+    const dateKey =
+      item.status === "recebido" || item.status === "pago"
+        ? (item.data_pagamento ?? item.data_vencimento)
+        : item.data_vencimento;
+    if (!map.has(profSlug)) map.set(profSlug, new Map());
+    const dateMap = map.get(profSlug)!;
+    const existing = dateMap.get(dateKey) ?? [];
+    existing.push(item);
+    dateMap.set(dateKey, existing);
+  }
+  // Ordena profissionais e datas
+  const sorted = new Map(
+    [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  );
+  for (const [prof, dateMap] of sorted.entries()) {
+    sorted.set(
+      prof,
+      new Map([...dateMap.entries()].sort((a, b) => a[0].localeCompare(b[0])))
+    );
+  }
+  return sorted;
+}
+
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function RelatoriosPage() {
@@ -346,6 +378,18 @@ export default function RelatoriosPage() {
     return profissionais.find((p) => p.id === slug)?.name ?? slug;
   };
 
+  // Retorna a comissão para um recebimento, usando o profissional do paciente
+  const comissaoDoItemRec = (r: Recebimento) => {
+    if (!r.procedimento_id) return null;
+    const pac = pacientes.find((p) => p.id === r.paciente_id);
+    const profSlug = pac?.profissional_responsavel ?? null;
+    if (!profSlug) return null;
+    return comissoes.find(
+      (c) => c.profissional_id === profSlug && c.procedimento_id === r.procedimento_id
+    ) ?? null;
+  };
+
+  // Mantido para compatibilidade com filtro de profissional específico
   const comissaoDoItem = (profId: string, procId: string | null) => {
     if (!procId) return null;
     return comissoes.find(
@@ -390,13 +434,22 @@ export default function RelatoriosPage() {
   );
 
   const totalComissao = recFuncConfirmados.reduce((s, r) => {
-    const com = comissaoDoItem(funcionarioId, r.procedimento_id);
+    const com = comissaoDoItemRec(r);
     if (!com) return s;
     return s + (Number(r.valor) * com.percentual) / 100;
   }, 0);
 
   const gruposFuncConfirmados = groupByDate(recFuncConfirmados);
   const gruposFuncPendentes = groupByDate(recFuncPendentes);
+
+  // Agrupamento por profissional (usado quando "todos" estão selecionados)
+  const todosProfissionais = !funcionarioId || funcionarioId === "todos";
+  const gruposPorProfConfirmados = todosProfissionais
+    ? groupByProfissional(recFuncConfirmados, pacientes)
+    : null;
+  const gruposPorProfPendentes = todosProfissionais
+    ? groupByProfissional(recFuncPendentes, pacientes)
+    : null;
 
   const podeGerar = tipoRelatorio !== "" && dataInicial !== "" && dataFinal !== "";
 
@@ -418,7 +471,7 @@ export default function RelatoriosPage() {
 
   // ── Renderização de linha (funcionários) ──────────────────────────────────
   const renderLinhaFuncionario = (r: Recebimento) => {
-    const com = comissaoDoItem(funcionarioId, r.procedimento_id);
+    const com = comissaoDoItemRec(r);
     const valorComissao = com ? (Number(r.valor) * com.percentual) / 100 : null;
     const paciente = pacientes.find((p) => p.id === r.paciente_id);
     const profSlug = paciente?.profissional_responsavel ?? null;
@@ -456,7 +509,7 @@ export default function RelatoriosPage() {
     const subtotalComissao =
       tipo === "funcionarios"
         ? itens.reduce((s, r) => {
-            const com = comissaoDoItem(funcionarioId, r.procedimento_id);
+            const com = comissaoDoItemRec(r);
             return com ? s + (Number(r.valor) * com.percentual) / 100 : s;
           }, 0)
         : 0;
@@ -856,6 +909,7 @@ export default function RelatoriosPage() {
           {/* RELATÓRIO 2: FUNCIONÁRIOS */}
           {tipoRelatorio === "funcionarios" && (
             <div className="space-y-6">
+              {/* Cabeçalho do profissional selecionado (quando não é "todos") */}
               {profSelecionado && (
                 <Card className="p-4 bg-muted/30 border-border">
                   <div className="flex items-center gap-3">
@@ -871,56 +925,165 @@ export default function RelatoriosPage() {
                 </Card>
               )}
 
-              <Card className="p-5 shadow-sm">
-                <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  Pagamentos Confirmados ({recFuncConfirmados.length})
-                </h3>
-                {recFuncConfirmados.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    Nenhum pagamento confirmado no período.
-                  </p>
-                ) : (
-                  <>
-                    {[...gruposFuncConfirmados.entries()].map(([data, itens]) => (
-                      <SecaoData key={data} data={data} itens={itens} tipo="funcionarios" />
-                    ))}
-                    <div className="mt-4 flex justify-end gap-4">
-                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-lg px-5 py-3 text-right">
-                        <p className="text-xs text-muted-foreground mb-0.5">Total Confirmado</p>
-                        <p className="text-xl font-bold text-green-600">
-                          {fmt(recFuncConfirmados.reduce((s, r) => s + Number(r.valor), 0))}
-                        </p>
-                      </div>
-                      <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 rounded-lg px-5 py-3 text-right">
-                        <p className="text-xs text-muted-foreground mb-0.5">Total Comissão</p>
-                        <p className="text-xl font-bold text-emerald-600">{fmt(totalComissao)}</p>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </Card>
-
-              {recFuncPendentes.length > 0 && (
-                <Card className="p-5 shadow-sm border-amber-200">
-                  <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
-                    <Clock className="w-5 h-5 text-amber-600" />
-                    Pagamentos Pendentes ({recFuncPendentes.length})
-                  </h3>
-                  {[...gruposFuncPendentes.entries()].map(([data, itens]) => (
-                    <SecaoData key={data} data={data} itens={itens} tipo="funcionarios" />
-                  ))}
-                  <div className="mt-4 flex justify-end">
-                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg px-5 py-3 text-right">
-                      <p className="text-xs text-muted-foreground mb-0.5">Total Pendente</p>
-                      <p className="text-xl font-bold text-amber-600">
-                        {fmt(recFuncPendentes.reduce((s, r) => s + Number(r.valor), 0))}
+              {/* ── MODO: TODOS OS PROFISSIONAIS (agrupado por profissional) ── */}
+              {todosProfissionais ? (
+                <>
+                  {/* Confirmados por profissional */}
+                  <Card className="p-5 shadow-sm">
+                    <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                      Pagamentos Confirmados ({recFuncConfirmados.length})
+                    </h3>
+                    {recFuncConfirmados.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center">
+                        Nenhum pagamento confirmado no período.
                       </p>
-                    </div>
-                  </div>
-                </Card>
+                    ) : (
+                      <>
+                        {[...(gruposPorProfConfirmados ?? new Map()).entries()].map(([profSlug, dateMap]) => {
+                          const profNome = nomeProfissionalBySlug(profSlug);
+                          const todosItensProf = [...dateMap.values()].flat();
+                          const totalValorProf = todosItensProf.reduce((s, r) => s + Number(r.valor), 0);
+                          const totalComProf = todosItensProf.reduce((s, r) => {
+                            const com = comissaoDoItemRec(r);
+                            return com ? s + (Number(r.valor) * com.percentual) / 100 : s;
+                          }, 0);
+                          return (
+                            <div key={profSlug} className="mb-6">
+                              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-primary/20">
+                                <UserCheck className="w-4 h-4 text-primary" />
+                                <span className="text-sm font-bold text-primary">{profNome}</span>
+                                <span className="ml-auto text-xs text-muted-foreground">{todosItensProf.length} registro(s)</span>
+                              </div>
+                              {[...dateMap.entries()].map(([data, itens]) => (
+                                <SecaoData key={data} data={data} itens={itens} tipo="funcionarios" />
+                              ))}
+                              <div className="mt-2 flex justify-end gap-3">
+                                <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-2 text-right">
+                                  <p className="text-xs text-muted-foreground">Total {profNome}</p>
+                                  <p className="text-base font-bold text-green-600">{fmt(totalValorProf)}</p>
+                                </div>
+                                <div className="bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-2 text-right">
+                                  <p className="text-xs text-muted-foreground">Comissão {profNome}</p>
+                                  <p className="text-base font-bold text-emerald-600">{fmt(totalComProf)}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                        <div className="mt-4 flex justify-end gap-4">
+                          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-lg px-5 py-3 text-right">
+                            <p className="text-xs text-muted-foreground mb-0.5">Total Confirmado</p>
+                            <p className="text-xl font-bold text-green-600">
+                              {fmt(recFuncConfirmados.reduce((s, r) => s + Number(r.valor), 0))}
+                            </p>
+                          </div>
+                          <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 rounded-lg px-5 py-3 text-right">
+                            <p className="text-xs text-muted-foreground mb-0.5">Total Comissão</p>
+                            <p className="text-xl font-bold text-emerald-600">{fmt(totalComissao)}</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </Card>
+
+                  {/* Pendentes por profissional */}
+                  {recFuncPendentes.length > 0 && (
+                    <Card className="p-5 shadow-sm border-amber-200">
+                      <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-amber-600" />
+                        Pagamentos Pendentes ({recFuncPendentes.length})
+                      </h3>
+                      {[...(gruposPorProfPendentes ?? new Map()).entries()].map(([profSlug, dateMap]) => {
+                        const profNome = nomeProfissionalBySlug(profSlug);
+                        const todosItensProf = [...dateMap.values()].flat();
+                        const totalValorProf = todosItensProf.reduce((s, r) => s + Number(r.valor), 0);
+                        return (
+                          <div key={profSlug} className="mb-6">
+                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-amber-200">
+                              <UserCheck className="w-4 h-4 text-amber-600" />
+                              <span className="text-sm font-bold text-amber-700">{profNome}</span>
+                              <span className="ml-auto text-xs text-muted-foreground">{todosItensProf.length} registro(s)</span>
+                            </div>
+                            {[...dateMap.entries()].map(([data, itens]) => (
+                              <SecaoData key={data} data={data} itens={itens} tipo="funcionarios" />
+                            ))}
+                            <div className="mt-2 flex justify-end">
+                              <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-2 text-right">
+                                <p className="text-xs text-muted-foreground">Total Pendente {profNome}</p>
+                                <p className="text-base font-bold text-amber-600">{fmt(totalValorProf)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      <div className="mt-4 flex justify-end">
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg px-5 py-3 text-right">
+                          <p className="text-xs text-muted-foreground mb-0.5">Total Pendente Geral</p>
+                          <p className="text-xl font-bold text-amber-600">
+                            {fmt(recFuncPendentes.reduce((s, r) => s + Number(r.valor), 0))}
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+                </>
+              ) : (
+                /* ── MODO: PROFISSIONAL ESPECÍFICO (agrupado por data) ── */
+                <>
+                  <Card className="p-5 shadow-sm">
+                    <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+                      <CheckCircle2 className="w-5 h-5 text-green-600" />
+                      Pagamentos Confirmados ({recFuncConfirmados.length})
+                    </h3>
+                    {recFuncConfirmados.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center">
+                        Nenhum pagamento confirmado no período.
+                      </p>
+                    ) : (
+                      <>
+                        {[...gruposFuncConfirmados.entries()].map(([data, itens]) => (
+                          <SecaoData key={data} data={data} itens={itens} tipo="funcionarios" />
+                        ))}
+                        <div className="mt-4 flex justify-end gap-4">
+                          <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 rounded-lg px-5 py-3 text-right">
+                            <p className="text-xs text-muted-foreground mb-0.5">Total Confirmado</p>
+                            <p className="text-xl font-bold text-green-600">
+                              {fmt(recFuncConfirmados.reduce((s, r) => s + Number(r.valor), 0))}
+                            </p>
+                          </div>
+                          <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 rounded-lg px-5 py-3 text-right">
+                            <p className="text-xs text-muted-foreground mb-0.5">Total Comissão</p>
+                            <p className="text-xl font-bold text-emerald-600">{fmt(totalComissao)}</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </Card>
+
+                  {recFuncPendentes.length > 0 && (
+                    <Card className="p-5 shadow-sm border-amber-200">
+                      <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+                        <Clock className="w-5 h-5 text-amber-600" />
+                        Pagamentos Pendentes ({recFuncPendentes.length})
+                      </h3>
+                      {[...gruposFuncPendentes.entries()].map(([data, itens]) => (
+                        <SecaoData key={data} data={data} itens={itens} tipo="funcionarios" />
+                      ))}
+                      <div className="mt-4 flex justify-end">
+                        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 rounded-lg px-5 py-3 text-right">
+                          <p className="text-xs text-muted-foreground mb-0.5">Total Pendente</p>
+                          <p className="text-xl font-bold text-amber-600">
+                            {fmt(recFuncPendentes.reduce((s, r) => s + Number(r.valor), 0))}
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  )}
+                </>
               )}
 
+              {/* Somatória total */}
               <div className="flex justify-end">
                 <div className="bg-card border border-border rounded-xl px-6 py-4 text-right shadow-sm min-w-[300px]">
                   <p className="text-xs text-muted-foreground mb-1">Somatória Total do Período</p>
