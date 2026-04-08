@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -22,6 +22,7 @@ import {
   DollarSign,
   CheckCircle2,
   Clock,
+  Download,
 } from "lucide-react";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -158,9 +159,9 @@ export default function RelatoriosPage() {
       // Filtro de data: usa data_vencimento como base
       query += `&data_vencimento=gte.${dataInicial}&data_vencimento=lte.${dataFinal}`;
 
-      if (tipoRelatorio === "clientes" && clienteId) {
+      if (tipoRelatorio === "clientes" && clienteId && clienteId !== "todos") {
         query += `&paciente_id=eq.${clienteId}`;
-      } else if (tipoRelatorio === "funcionarios" && funcionarioId) {
+      } else if (tipoRelatorio === "funcionarios" && funcionarioId && funcionarioId !== "todos") {
         // Busca pacientes do profissional
         const pacsProfissional = pacientes.filter(
           (p) => p.profissional_responsavel === funcionarioId
@@ -391,8 +392,129 @@ export default function RelatoriosPage() {
   const podeGerar =
     tipoRelatorio !== "" &&
     dataInicial !== "" &&
-    dataFinal !== "" &&
-    (tipoRelatorio === "clientes" ? clienteId !== "" : funcionarioId !== "");
+    dataFinal !== "";
+
+  const relatorioRef = useRef<HTMLDivElement>(null);
+
+  // ── Exportar para Excel ────────────────────────────────────────────────────
+  const exportarExcel = useCallback(async () => {
+    const XLSX = (await import("xlsx")).default;
+    const linhas: (string | number)[][] = [];
+
+    const titulo = tipoRelatorio === "clientes"
+      ? "Financeiro (Clientes) — Pagamentos Mensais"
+      : "Financeiro (Funcionários) — Pagamentos Mensais";
+    linhas.push([titulo]);
+    linhas.push([`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`]);
+    linhas.push([]);
+
+    if (tipoRelatorio === "clientes") {
+      linhas.push(["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor (R$)", "Profissional"]);
+      for (const r of recebimentos) {
+        const paciente = pacientes.find((p) => p.id === r.paciente_id);
+        const profSlug = paciente?.profissional_responsavel ?? null;
+        linhas.push([
+          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+          r.paciente_nome,
+          fmtDate(r.data_vencimento),
+          fmtDate(r.data_pagamento),
+          nomeProcedimento(r.procedimento_id),
+          Number(r.valor),
+          nomeProfissionalBySlug(profSlug),
+        ]);
+      }
+    } else {
+      linhas.push(["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor (R$)", "Comissão (R$)", "Cliente"]);
+      const lista = funcionarioId ? recFuncionario : recebimentos;
+      for (const r of lista) {
+        const com = comissaoDoItem(funcionarioId || "", r.procedimento_id);
+        const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : 0;
+        const paciente = pacientes.find((p) => p.id === r.paciente_id);
+        const profSlug = paciente?.profissional_responsavel ?? null;
+        linhas.push([
+          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+          nomeProfissionalBySlug(profSlug),
+          nomeProcedimento(r.procedimento_id),
+          fmtDate(r.data_vencimento),
+          fmtDate(r.data_pagamento),
+          Number(r.valor),
+          valorCom,
+          r.paciente_nome,
+        ]);
+      }
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(linhas);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Relatório");
+    XLSX.writeFile(wb, `relatorio_${tipoRelatorio}_${dataInicial}_${dataFinal}.xlsx`);
+  }, [tipoRelatorio, dataInicial, dataFinal, recebimentos, recFuncionario, pacientes, profissionais, procedimentos, comissoes, funcionarioId]);
+
+  // ── Exportar para PDF ──────────────────────────────────────────────────────
+  const exportarPDF = useCallback(async () => {
+    const jsPDF = (await import("jspdf")).default;
+    const autoTable = (await import("jspdf-autotable")).default;
+
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const titulo = tipoRelatorio === "clientes"
+      ? "Financeiro (Clientes) — Pagamentos Mensais"
+      : "Financeiro (Funcionários) — Pagamentos Mensais";
+
+    doc.setFontSize(14);
+    doc.text(titulo, 14, 15);
+    doc.setFontSize(9);
+    doc.text(`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, 14, 22);
+
+    let head: string[][];
+    let body: (string | number)[][];
+
+    if (tipoRelatorio === "clientes") {
+      head = [["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor", "Profissional"]];
+      body = recebimentos.map((r) => {
+        const paciente = pacientes.find((p) => p.id === r.paciente_id);
+        const profSlug = paciente?.profissional_responsavel ?? null;
+        return [
+          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+          r.paciente_nome,
+          fmtDate(r.data_vencimento),
+          fmtDate(r.data_pagamento),
+          nomeProcedimento(r.procedimento_id),
+          fmt(Number(r.valor)),
+          nomeProfissionalBySlug(profSlug),
+        ];
+      });
+    } else {
+      head = [["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor", "Comissão", "Cliente"]];
+      const lista = funcionarioId ? recFuncionario : recebimentos;
+      body = lista.map((r) => {
+        const com = comissaoDoItem(funcionarioId || "", r.procedimento_id);
+        const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : 0;
+        const paciente = pacientes.find((p) => p.id === r.paciente_id);
+        const profSlug = paciente?.profissional_responsavel ?? null;
+        return [
+          r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
+          nomeProfissionalBySlug(profSlug),
+          nomeProcedimento(r.procedimento_id),
+          fmtDate(r.data_vencimento),
+          fmtDate(r.data_pagamento),
+          fmt(Number(r.valor)),
+          valorCom > 0 ? fmt(valorCom) : "—",
+          r.paciente_nome,
+        ];
+      });
+    }
+
+    autoTable(doc, {
+      head,
+      body,
+      startY: 27,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [22, 163, 74], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 245, 245] },
+    });
+
+    doc.save(`relatorio_${tipoRelatorio}_${dataInicial}_${dataFinal}.pdf`);
+  }, [tipoRelatorio, dataInicial, dataFinal, recebimentos, recFuncionario, pacientes, profissionais, procedimentos, comissoes, funcionarioId]);
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -415,7 +537,8 @@ export default function RelatoriosPage() {
           Filtros do Relatório
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Linha 1: Tipo de Relatório + Datas */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
 
           {/* Tipo de Relatório */}
           <div className="space-y-1.5">
@@ -470,8 +593,10 @@ export default function RelatoriosPage() {
               className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
           </div>
+        </div>
 
-          {/* Filtro de Status */}
+        {/* Linha 2: Status do Pagamento */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Status do Pagamento</Label>
             <Select
@@ -498,54 +623,87 @@ export default function RelatoriosPage() {
               </SelectContent>
             </Select>
           </div>
-
-          {/* Seleção de Cliente */}
-          {tipoRelatorio === "clientes" && (
-            <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-              <Label className="text-sm font-medium">Cliente</Label>
-              <Select
-                value={clienteId}
-                onValueChange={(v) => { setClienteId(v); setGerado(false); }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o cliente..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {pacientesClientes.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.nome_completo}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          {/* Seleção de Funcionário */}
-          {tipoRelatorio === "funcionarios" && (
-            <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
-              <Label className="text-sm font-medium">Funcionário / Profissional</Label>
-              <Select
-                value={funcionarioId}
-                onValueChange={(v) => { setFuncionarioId(v); setGerado(false); }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o profissional..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {profissionais.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      {p.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
         </div>
 
-        <div className="mt-5 flex justify-end">
+        {/* Linha 3: Cliente ou Funcionário (opcional) */}
+        {tipoRelatorio !== "" && (
+          <div className="grid grid-cols-1 gap-4 mb-4">
+
+            {/* Seleção de Cliente (opcional) */}
+            {tipoRelatorio === "clientes" && (
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">
+                  Cliente <span className="text-xs text-muted-foreground">(opcional — deixe em branco para todos)</span>
+                </Label>
+                <Select
+                  value={clienteId}
+                  onValueChange={(v) => { setClienteId(v); setGerado(false); }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os clientes..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os clientes</SelectItem>
+                    {pacientesClientes.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.nome_completo}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Seleção de Funcionário (opcional) */}
+            {tipoRelatorio === "funcionarios" && (
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">
+                  Funcionário / Profissional <span className="text-xs text-muted-foreground">(opcional — deixe em branco para todos)</span>
+                </Label>
+                <Select
+                  value={funcionarioId}
+                  onValueChange={(v) => { setFuncionarioId(v); setGerado(false); }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos os profissionais..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os profissionais</SelectItem>
+                    {profissionais.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex gap-2">
+            {gerado && recebimentos.length > 0 && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={exportarPDF}
+                  className="gap-2 border-red-300 text-red-700 hover:bg-red-50"
+                >
+                  <Download className="w-4 h-4" />
+                  Exportar PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={exportarExcel}
+                  className="gap-2 border-green-300 text-green-700 hover:bg-green-50"
+                >
+                  <Download className="w-4 h-4" />
+                  Exportar Excel
+                </Button>
+              </>
+            )}
+          </div>
           <Button
             onClick={gerarRelatorio}
             disabled={!podeGerar || loadingRel}
