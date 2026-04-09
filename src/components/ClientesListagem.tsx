@@ -117,7 +117,7 @@ export default function ClientesListagem({
   // ── Filtros ──────────────────────────────────────────────────────
   const [filtroNome, setFiltroNome] = useState("");
   const [filtroCpf, setFiltroCpf] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState("paciente");
+  const [filtroTipo, setFiltroTipo] = useState<string>("paciente");
   const [filtroProfissional, setFiltroProfissional] = useState("todos");
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [profissionaisList, setProfissionaisList] = useState<{ id: string; name: string }[]>([]);
@@ -454,13 +454,13 @@ export default function ClientesListagem({
           </div>
           <p className="text-foreground font-medium">
             {filtrosAtivos
-              ? "Nenhum cliente encontrado com esses filtros"
-              : "Nenhum cliente cadastrado ainda"}
+              ? `Nenhum ${filtroTipo === "funcionario" ? "funcionário" : filtroTipo === "admin" ? "administrador" : filtroTipo === "financeiro" ? "usuário do financeiro" : "cliente"} encontrado com esses filtros`
+              : `Nenhum ${filtroTipo === "funcionario" ? "funcionário" : filtroTipo === "admin" ? "administrador" : filtroTipo === "financeiro" ? "usuário do financeiro" : "cliente"} cadastrado ainda`}
           </p>
           <p className="text-muted-foreground text-sm mt-1.5">
             {filtrosAtivos
               ? "Tente ajustar os filtros de busca."
-              : "Clique em \"Novo Cadastro\" para adicionar o primeiro cliente."}
+              : `Clique em "Novo Cadastro" para adicionar o primeiro ${filtroTipo === "funcionario" ? "funcionário" : "cliente"}.`}
           </p>
           {filtrosAtivos && (
             <Button
