@@ -67,6 +67,7 @@ export default function AgendaNewEventDialog({
   const [duration, setDuration] = useState("50");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<AppointmentStatus>("agendado");
+  const [gerarCobranca, setGerarCobranca] = useState(true);
   const [isForceEdit, setIsForceEdit] = useState(false);
   const [repete, setRepete] = useState(false);
   const [semanas, setSemanas] = useState(4);
@@ -110,6 +111,7 @@ export default function AgendaNewEventDialog({
       setDuration(String(appointmentToEdit.duration));
       setNotes(appointmentToEdit.notes || "");
       setStatus(appointmentToEdit.status);
+      setGerarCobranca(appointmentToEdit.gerarCobranca ?? true);
     }
   }, [appointmentToEdit, open]);
 
@@ -173,6 +175,7 @@ export default function AgendaNewEventDialog({
     setDuration("50");
     setNotes("");
     setStatus("agendado");
+    setGerarCobranca(true);
     setIsForceEdit(false);
     setRepete(false);
     setSemanas(4);
@@ -209,6 +212,7 @@ export default function AgendaNewEventDialog({
       duration: durationNum,
       status: isEditing ? status : "agendado",
       notes: notes.trim() || undefined,
+      gerarCobranca,
     };
 
     if (isEditing && onUpdate) {
@@ -490,6 +494,25 @@ export default function AgendaNewEventDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Gerar Cobrança Americana */}
+          {!isLocked && (
+            <div>
+              <label className={`flex items-center gap-2 text-sm font-medium select-none cursor-pointer text-foreground/80`}>
+                <input
+                  type="checkbox"
+                  checked={gerarCobranca}
+                  onChange={(e) => setGerarCobranca(e.target.checked)}
+                  disabled={isLocked}
+                  className="w-4 h-4 accent-primary disabled:opacity-40"
+                />
+                Gerar cobrança financeira
+              </label>
+              <p className="text-[11px] text-muted-foreground/70 mt-1 pl-6">
+                Desmarque para sessões de pacotes (Pilates/Mensalidades) para não duplicar valores.
+              </p>
+            </div>
+          )}
 
           {/* Notes */}
           <div>

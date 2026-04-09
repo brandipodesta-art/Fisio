@@ -26,6 +26,7 @@ export interface Appointment {
   duration: number;
   status: AppointmentStatus;
   notes?: string;
+  gerarCobranca?: boolean;
 }
 
 export type AppointmentStatus =

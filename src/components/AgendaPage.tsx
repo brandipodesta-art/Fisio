@@ -73,20 +73,29 @@ export default function AgendaPage() {
       }
 
       if (data) {
-        const mapped: Appointment[] = data.map((d: any) => ({
-          id: d.id,
-          patientName: d.patient_name,
-          pacienteId: d.paciente_id || undefined,
-          professionalId: d.professional_id,
-          procedimentoId: d.procedimento_id || undefined,
-          procedimentoNome: d.procedimentos?.nome || undefined,
-          date: d.date,
-          startTime: d.start_time,
-          endTime: d.end_time,
-          duration: d.duration,
-          status: d.status,
-          notes: d.notes,
-        }));
+        const mapped: Appointment[] = data.map((d: any) => {
+          let rawNotes = d.notes || "";
+          let gerarCobranca = true;
+          if (rawNotes.includes("[NO_BILLING]")) {
+            gerarCobranca = false;
+            rawNotes = rawNotes.replace("[NO_BILLING]", "").trim();
+          }
+          return {
+            id: d.id,
+            patientName: d.patient_name,
+            pacienteId: d.paciente_id || undefined,
+            professionalId: d.professional_id,
+            procedimentoId: d.procedimento_id || undefined,
+            procedimentoNome: d.procedimentos?.nome || undefined,
+            date: d.date,
+            startTime: d.start_time,
+            endTime: d.end_time,
+            duration: d.duration,
+            status: d.status,
+            notes: rawNotes || undefined,
+            gerarCobranca,
+          };
+        });
         setAppointments(mapped);
       }
       setIsLoading(false);
@@ -188,7 +197,7 @@ export default function AgendaPage() {
       end_time: rest.endTime,
       duration: rest.duration,
       status: rest.status,
-      notes: rest.notes,
+      notes: apt.gerarCobranca === false ? (rest.notes ? `${rest.notes} [NO_BILLING]` : "[NO_BILLING]") : (rest.notes || null),
     }).select("id").single();
 
     if (error) {
@@ -220,7 +229,7 @@ export default function AgendaPage() {
       end_time: apt.endTime,
       duration: apt.duration,
       status: apt.status,
-      notes: apt.notes,
+      notes: apt.gerarCobranca === false ? (apt.notes ? `${apt.notes} [NO_BILLING]` : "[NO_BILLING]") : (apt.notes || null),
     }));
 
     const { data, error } = await supabase
@@ -305,7 +314,7 @@ export default function AgendaPage() {
     }
 
     // ── Recebimento ao confirmar ──
-    if (newStatus === "confirmado" && appointment.pacienteId) {
+    if (newStatus === "confirmado" && appointment.pacienteId && appointment.gerarCobranca !== false) {
       const { data: existingConf } = await supabase
         .from("recebimentos")
         .select("id")
@@ -344,7 +353,8 @@ export default function AgendaPage() {
     if (
       newStatus === "concluido" &&
       appointment.pacienteId &&
-      statusNaoTerminal.includes(prevStatus)
+      statusNaoTerminal.includes(prevStatus) &&
+      appointment.gerarCobranca !== false
     ) {
       const { data: existing } = await supabase
         .from("recebimentos")
@@ -387,7 +397,8 @@ export default function AgendaPage() {
     if (
       newStatus === "faltou" &&
       appointment.pacienteId &&
-      statusNaoTerminal.includes(prevStatus)
+      statusNaoTerminal.includes(prevStatus) &&
+      appointment.gerarCobranca !== false
     ) {
       const { data: existingFalta } = await supabase
         .from("recebimentos")
@@ -446,7 +457,7 @@ export default function AgendaPage() {
         end_time: apt.endTime,
         duration: apt.duration,
         status: apt.status,
-        notes: apt.notes,
+        notes: apt.gerarCobranca === false ? (apt.notes ? `${apt.notes} [NO_BILLING]` : "[NO_BILLING]") : (apt.notes || null),
       })
       .eq("id", apt.id);
 

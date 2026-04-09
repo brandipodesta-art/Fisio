@@ -53,6 +53,7 @@ Sistema de agendamento estilo Google Calendar para a clinica de fisioterapia. Pe
 | `duration` | `number` | Duracao em minutos |
 | `status` | `AppointmentStatus` | agendado, confirmado, em_atendimento, concluido, cancelado, faltou |
 | `notes` | `string?` | Observacao opcional |
+| `gerarCobranca` | `boolean?` | Flag indicando se este agendamento está autorizado a gerar boleto recebimento |
 
 ### `AppointmentStatus`
 
@@ -105,6 +106,7 @@ Só ocorre se o agendamento estiver saindo de um **status não-terminal**:
 ```
 statusNaoTerminal = ["agendado", "confirmado", "em_atendimento"]
 ```
+**Importante (08/04/2026):** Side-effects no setor de recebimentos só ocorrem se `appointment.gerarCobranca !== false` para respeitar pacientes de pacotes/Pilates.
 
 ### Ao concluir (`concluido`) — requer `pacienteId`
 
@@ -286,6 +288,17 @@ Implementado em 27/03/2026. Permite criar múltiplos agendamentos semanais de um
 
 ### Exemplo
 Data base: 27/03 (sexta), semanas=4 → cria: 27/03, 03/04, 10/04, 17/04, 24/04 (5 agendamentos no total)
+
+---
+
+## AgendaNewEventDialog — Controle de Geração Financeira (08/04/2026)
+
+Adicionada uma trava no agendamento para evitar a criação automática de Contas a Receber em pacientes que já pagam por **pacotes ou mensalidades** (ex: Pilates).
+
+### Comportamento e Implementação:
+- Novo checkbox disponível durante a criação ou edição do agendamento: **"Gerar cobrança financeira"** (padrão marcado).
+- Ao ser desmarcada, o agendamento é salvo sem disparar eventos que lançariam pendências na aba "Financeiro" do usuário quando o status vai para Confirmado/Concluído/Faltou.
+- **Implementação (_no-schema change_):** O sistema não criou novas colunas de banco de dados. A diretiva é embutida salvando uma flag oculta `[NO_BILLING]` no banco dentro do texto de observação (`notas`). Ao carregar a página da Agenda, ele lê e extirpa a informação de lá, transformando-a novamente em um controle visual na tela, sem poluir os dados.
 
 ---
 
