@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface Procedimento {
@@ -144,26 +145,20 @@ function ItemLinha({
             {sublabel}
           </span>
         )}
-        {confirmando ? (
-          <>
-            <span className="text-xs text-red-600 mr-2">{msgConfirm}</span>
-            <button onClick={() => { onExcluir(); setConfirmando(false); }} className="p-1.5 rounded text-red-600 hover:bg-red-50">
-              <Check className="w-4 h-4" />
-            </button>
-            <button onClick={() => setConfirmando(false)} className="p-1.5 rounded text-muted-foreground hover:bg-muted">
-              <X className="w-4 h-4" />
-            </button>
-          </>
-        ) : (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button onClick={onEditar} className="p-1.5 rounded text-muted-foreground/60 hover:text-foreground/80 hover:bg-muted">
-              <Pencil className="w-4 h-4" />
-            </button>
-            <button onClick={() => setConfirmando(true)} className="p-1.5 rounded text-muted-foreground/60 hover:text-red-600 hover:bg-red-50">
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button onClick={onEditar} className="p-1.5 rounded text-muted-foreground/60 hover:text-foreground/80 hover:bg-muted">
+            <Pencil className="w-4 h-4" />
+          </button>
+          <button onClick={() => setConfirmando(true)} className="p-1.5 rounded text-muted-foreground/60 hover:text-red-600 hover:bg-red-50">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+        <ConfirmDeleteDialog
+          open={confirmando}
+          onOpenChange={setConfirmando}
+          onConfirm={onExcluir}
+          mensagem={msgConfirm}
+        />
       </div>
     </div>
   );
@@ -232,25 +227,19 @@ function ConfirmarExclusao({
   const btnClass = tamanho === "sm"
     ? "p-1 rounded text-muted-foreground/60 hover:text-red-600 hover:bg-red-50"
     : "p-1.5 rounded text-muted-foreground/60 hover:text-red-600 hover:bg-red-50";
-  if (confirmando) {
-    return (
-      <div className="flex items-center gap-1">
-        <span className="text-xs text-red-600 whitespace-nowrap">{mensagem}</span>
-        <button onClick={() => { onConfirmar(); setConfirmando(false); }}
-          className="p-1 rounded text-red-600 hover:bg-red-50">
-          <Check className={iconSize} />
-        </button>
-        <button onClick={() => setConfirmando(false)}
-          className="p-1 rounded text-muted-foreground hover:bg-muted">
-          <X className={iconSize} />
-        </button>
-      </div>
-    );
-  }
+
   return (
-    <button onClick={() => setConfirmando(true)} className={btnClass}>
-      <Trash2 className={iconSize} />
-    </button>
+    <>
+      <button onClick={() => setConfirmando(true)} className={btnClass}>
+        <Trash2 className={iconSize} />
+      </button>
+      <ConfirmDeleteDialog
+        open={confirmando}
+        onOpenChange={setConfirmando}
+        onConfirm={onConfirmar}
+        mensagem={mensagem}
+      />
+    </>
   );
 }
 
@@ -288,24 +277,18 @@ function ProcedimentoLinha({
           {valorFormatado}
         </button>
         {/* Excluir */}
-        {confirmando ? (
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-red-600">Excluir?</span>
-            <button onClick={() => { onExcluir(); setConfirmando(false); }} className="p-1.5 rounded text-red-600 hover:bg-red-50">
-              <Check className="w-4 h-4" />
-            </button>
-            <button onClick={() => setConfirmando(false)} className="p-1.5 rounded text-muted-foreground hover:bg-muted">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => setConfirmando(true)}
-            className="p-1.5 rounded text-muted-foreground/40 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        )}
+        <button
+          onClick={() => setConfirmando(true)}
+          className="p-1.5 rounded text-muted-foreground/40 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
+        <ConfirmDeleteDialog
+          open={confirmando}
+          onOpenChange={setConfirmando}
+          onConfirm={onExcluir}
+          mensagem={`Tem certeza que deseja excluir o procedimento "${item.nome}"?`}
+        />
       </div>
     </div>
   );
