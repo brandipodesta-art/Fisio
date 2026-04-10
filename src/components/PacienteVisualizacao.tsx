@@ -300,11 +300,6 @@ export default function PacienteVisualizacao({
       {/* ── Tipo de Usuário ───────────────────────────── */}
       <Secao titulo="Tipo de Usuário" icone={Users}>
         <Campo label="Tipo de Usuário" valor={tipoLabel} destaque />
-        <Campo
-          label="Profissional Responsável"
-          valor={capitalizar(paciente.profissional_responsavel)}
-          destaque
-        />
       </Secao>
 
       {/* ── Dados Pessoais ────────────────────────────── */}

@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     const id = identificador.trim().toLowerCase();
 
-    // Buscar por nome_acesso OU email
+    // Buscar por nome_acesso OU email — join com pacientes é OPCIONAL (left join)
     const { data: usuario, error: dbError } = await supabase
       .from("usuarios_acesso")
       .select(`
@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
         email,
         senha_hash,
         ativo,
-        pacientes!inner(nome_completo, tipo_usuario)
+        tipo_usuario,
+        pacientes(nome_completo, tipo_usuario)
       `)
       .or(`nome_acesso.eq.${identificador.trim()},email.eq.${id}`)
       .eq("ativo", true)
@@ -60,13 +61,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extrair dados do paciente (join)
+    // tipo_usuario: usa o campo próprio de usuarios_acesso
+    // Se não existir (registros antigos), tenta buscar do join com pacientes
     const paciente = Array.isArray(usuario.pacientes)
       ? usuario.pacientes[0]
       : usuario.pacientes;
 
     const nomeCompleto: string = paciente?.nome_completo ?? usuario.nome_acesso;
-    const tipoUsuario: string  = paciente?.tipo_usuario  ?? "funcionario";
+    // Prioridade: campo próprio > join com pacientes > fallback
+    const tipoUsuario: string = (usuario as any).tipo_usuario ?? paciente?.tipo_usuario ?? "funcionario";
 
     // Montar payload da sessão (sem dados sensíveis)
     const sessao = {

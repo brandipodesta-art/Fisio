@@ -248,7 +248,6 @@ export default function RelatoriosPage() {
       for (const [data, itens] of grupos.entries()) {
         linhas.push([`Data: ${fmtDate(data)}`]);
         for (const r of itens) {
-          const pac = pacientes.find((p) => p.id === r.paciente_id);
           linhas.push([
             r.status === "recebido" || r.status === "pago" ? "Confirmado" : "Pendente",
             r.paciente_nome,
@@ -256,7 +255,7 @@ export default function RelatoriosPage() {
             fmtDate(r.data_pagamento),
             _nomeProcLocal(r.procedimento_id),
             Number(r.valor),
-            _nomeProfLocal(pac?.profissional_responsavel ?? null),
+            _nomeProfLocal(r.profissional_id ?? null),
           ]);
         }
         const subtotal = itens.reduce((s, r) => s + Number(r.valor), 0);
@@ -504,14 +503,13 @@ export default function RelatoriosPage() {
       if (tipo === "clientes") {
         const head = [["Cliente", "Vencimento", "Pagamento", "Procedimento", "Valor", "Profissional"]];
         const body = itens.map((r) => {
-          const pac = pacientes.find((p) => p.id === r.paciente_id);
           return [
             r.paciente_nome,
             fmtDate(r.data_vencimento),
             fmtDate(r.data_pagamento),
             _nomeProcLocal(r.procedimento_id),
             fmt(Number(r.valor)),
-            _nomeProfLocal(pac?.profissional_responsavel ?? null),
+            _nomeProfLocal(r.profissional_id ?? null),
           ];
         });
         body.push([
@@ -537,9 +535,8 @@ export default function RelatoriosPage() {
         const body = itens.map((r) => {
           const com = _comissaoRec(r);
           const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : null;
-          const pac = pacientes.find((p) => p.id === r.paciente_id);
           return [
-            _nomeProfLocal(pac?.profissional_responsavel ?? null),
+            _nomeProfLocal(r.profissional_id ?? null),
             _nomeProcLocal(r.procedimento_id),
             fmtDate(r.data_vencimento),
             fmtDate(r.data_pagamento),
@@ -820,11 +817,10 @@ export default function RelatoriosPage() {
     return profissionais.find((p) => p.id === slug)?.name ?? slug;
   };
 
-  // Retorna a comissão para um recebimento, usando o profissional do paciente
+  // Retorna a comissão para um recebimento, usando o profissional que realizou o atendimento
   const comissaoDoItemRec = (r: Recebimento) => {
     if (!r.procedimento_id) return null;
-    const pac = pacientes.find((p) => p.id === r.paciente_id);
-    const profSlug = pac?.profissional_responsavel ?? null;
+    const profSlug = r.profissional_id ?? null;
     if (!profSlug) return null;
     return comissoes.find(
       (c) => c.profissional_id === profSlug && c.procedimento_id === r.procedimento_id
@@ -857,16 +853,7 @@ export default function RelatoriosPage() {
   const gruposPendentes = groupByDate(recebimentosPendentes);
 
   const profSelecionado = profissionais.find((p) => p.id === funcionarioId);
-  const pacientesProfissional = pacientes.filter(
-    (p) => p.profissional_responsavel === funcionarioId
-  );
-
-  const recFuncionario =
-    funcionarioId && funcionarioId !== "todos"
-      ? recebimentos.filter((r) =>
-          pacientesProfissional.some((p) => p.id === r.paciente_id)
-        )
-      : recebimentos;
+  const recFuncionario = recebimentos;
 
   const recFuncConfirmados = recFuncionario.filter(
     (r) => r.status === "recebido" || r.status === "pago"
@@ -897,8 +884,7 @@ export default function RelatoriosPage() {
 
   // ── Renderização de linha (clientes) ──────────────────────────────────────
   const renderLinhaCliente = (r: Recebimento) => {
-    const paciente = pacientes.find((p) => p.id === r.paciente_id);
-    const profSlug = paciente?.profissional_responsavel ?? null;
+    const profSlug = r.profissional_id ?? null;
     return (
       <tr key={r.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
         <td className="py-2.5 px-3 text-sm text-foreground">{r.paciente_nome}</td>
@@ -915,8 +901,7 @@ export default function RelatoriosPage() {
   const renderLinhaFuncionario = (r: Recebimento) => {
     const com = comissaoDoItemRec(r);
     const valorComissao = com ? (Number(r.valor) * com.percentual) / 100 : null;
-    const paciente = pacientes.find((p) => p.id === r.paciente_id);
-    const profSlug = paciente?.profissional_responsavel ?? null;
+    const profSlug = r.profissional_id ?? null;
     return (
       <tr key={r.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
         <td className="py-2.5 px-3 text-sm text-foreground">{nomeProfissionalBySlug(profSlug)}</td>
@@ -1348,7 +1333,7 @@ export default function RelatoriosPage() {
                     <div>
                       <p className="text-base font-semibold text-foreground">{profSelecionado.name}</p>
                       <p className="text-sm text-muted-foreground">
-                        {pacientesProfissional.length} paciente(s) vinculado(s) · Período:{" "}
+                        {new Set(recFuncionario.map((r) => r.paciente_id)).size} paciente(s) atendido(s) · Período:{" "}
                         {fmtDate(dataInicial)} a {fmtDate(dataFinal)}
                       </p>
                     </div>

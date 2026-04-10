@@ -118,46 +118,8 @@ export default function ClientesListagem({
   const [filtroNome, setFiltroNome] = useState("");
   const [filtroCpf, setFiltroCpf] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<string>("paciente");
-  const [filtroProfissional, setFiltroProfissional] = useState("todos");
   const [filtroStatus, setFiltroStatus] = useState("todos");
-  const [profissionaisList, setProfissionaisList] = useState<{ id: string; name: string }[]>([]);
-  // Profissionais exibidos na tabela quando filtroTipo === "funcionario"
-  const [profissionaisExibidos, setProfissionaisExibidos] = useState<PacienteResumo[] | null>(null);
 
-  // Carrega profissionais dinamicamente (para o filtro de responsavel)
-  useEffect(() => {
-    const sb = createClient();
-    sb.from("profissionais").select("id, name").order("name").then(({ data }) => {
-      if (data) setProfissionaisList(data as { id: string; name: string }[]);
-    });
-  }, []);
-
-  // Quando tipo = funcionario, busca da tabela profissionais
-  useEffect(() => {
-    if (filtroTipo !== "funcionario") {
-      setProfissionaisExibidos(null);
-      return;
-    }
-    const sb = createClient();
-    let q = sb.from("profissionais").select("id, name, created_at, ativo").order("name");
-    if (filtroNome.trim()) q = q.ilike("name", `%${filtroNome.trim()}%`);
-    q.then(({ data }) => {
-      const mapped: PacienteResumo[] = (data ?? []).map(p => ({
-        id: p.id,
-        nome_completo: p.name,
-        cpf: "",
-        telefone_cel: null,
-        data_nascimento: null,
-        cidade: null,
-        tipo_usuario: "funcionario" as const,
-        profissional_responsavel: null,
-        ativo: p.ativo ?? true,
-        created_at: p.created_at ?? "",
-      }));
-      setProfissionaisExibidos(mapped);
-      setPaginaAtual(1);
-    });
-  }, [filtroTipo, filtroNome]);
 
   // Refs para debounce dos filtros de texto
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -182,31 +144,54 @@ export default function ClientesListagem({
   };
 
   const buscarClientes = useCallback(
-    async (nome: string, cpf: string, tipo: string, profissional: string, status: string = "todos") => {
+    async (nome: string, cpf: string, tipo: string, status: string = "todos") => {
       setLoading(true);
       setErro(null);
       try {
-        const params = new URLSearchParams();
-        if (nome.trim()) params.set("nome", nome.trim());
-        if (cpf.trim()) params.set("cpf", cpf.replace(/\D/g, ""));
-        if (tipo && tipo !== "todos") params.set("tipo", tipo);
-        if (profissional && profissional !== "todos") params.set("profissional", profissional);
-        if (status && status !== "todos") params.set("status", status);
+        let data: PacienteResumo[] = [];
 
-        const res = await fetch(`/api/pacientes?${params.toString()}`);
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error ?? "Erro ao buscar dados");
+        if (tipo === "funcionario") {
+          // Funcionários vêm da tabela profissionais, não de pacientes
+          const sb = createClient();
+          let q = sb.from("profissionais").select("id, name").order("name");
+          if (nome.trim()) q = q.ilike("name", `%${nome.trim()}%`);
+          const { data: profs, error } = await q;
+          if (error) throw new Error(error.message);
+          data = (profs ?? []).map(p => ({
+            id: p.id,
+            nome_completo: p.name,
+            cpf: "",
+            telefone_cel: null,
+            data_nascimento: null,
+            cidade: null,
+            tipo_usuario: "funcionario" as const,
+            profissional_responsavel: null,
+            ativo: true,
+            created_at: "",
+          }));
+        } else {
+          const params = new URLSearchParams();
+          if (nome.trim()) params.set("nome", nome.trim());
+          if (cpf.trim()) params.set("cpf", cpf.replace(/\D/g, ""));
+          if (tipo && tipo !== "todos") params.set("tipo", tipo);
+          if (status && status !== "todos") params.set("status", status);
+
+          const res = await fetch(`/api/pacientes?${params.toString()}`);
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error ?? "Erro ao buscar dados");
+          }
+          data = await res.json();
+          // Funcionário não vê registros do tipo funcionario, admin ou financeiro
+          if (isFuncionario) {
+            data = data.filter(c => !['funcionario','admin','financeiro'].includes(c.tipo_usuario));
+          }
         }
-        let data: PacienteResumo[] = await res.json();
-        // Funcionário não vê registros do tipo funcionario, admin ou financeiro
-        if (isFuncionario) {
-          data = data.filter(c => !['funcionario','admin','financeiro'].includes(c.tipo_usuario));
-        }
+
         setClientes(data);
-        setPaginaAtual(1); // Reseta a página sempre que realizar uma nova busca
+        setPaginaAtual(1);
 
-        if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos" || tipo === "paciente") && (!profissional || profissional === "todos") && (!status || status === "todos")) {
+        if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos" || tipo === "paciente") && (!status || status === "todos")) {
           setTotalGeral(data.length);
         }
       } catch (e: unknown) {
@@ -220,30 +205,28 @@ export default function ClientesListagem({
 
   // Busca inicial
   useEffect(() => {
-    buscarClientes("", "", "paciente", "", "todos");
+    buscarClientes("", "", "paciente", "todos");
   }, [buscarClientes]);
 
   // Debounce ao alterar filtros
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroProfissional, filtroStatus);
+      buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroStatus);
     }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [filtroNome, filtroCpf, filtroTipo, filtroProfissional, filtroStatus, buscarClientes]);
+  }, [filtroNome, filtroCpf, filtroTipo, filtroStatus, buscarClientes]);
 
-  // Lista final a exibir — profissionais ou pacientes
-  const listaFinal = filtroTipo === "funcionario" ? (profissionaisExibidos ?? []) : clientes;
-  const loadingFinal = filtroTipo === "funcionario" ? profissionaisExibidos === null : loading;
+  const listaFinal = clientes;
+  const loadingFinal = loading;
 
   // ── Handlers ──────────────────────────────────────────
   const limparFiltros = () => {
     setFiltroNome("");
     setFiltroCpf("");
     setFiltroTipo("paciente");
-    setFiltroProfissional("todos");
     setFiltroStatus("todos");
     setPaginaAtual(1);
   };
@@ -258,7 +241,7 @@ export default function ClientesListagem({
   };
 
   const filtrosAtivos =
-    filtroNome !== "" || filtroCpf !== "" || (filtroTipo !== "todos" && filtroTipo !== "paciente") || filtroProfissional !== "todos" || filtroStatus !== "todos";
+    filtroNome !== "" || filtroCpf !== "" || (filtroTipo !== "todos" && filtroTipo !== "paciente") || filtroStatus !== "todos";
 
   // ── Render ────────────────────────────────────────────
   return (
@@ -294,7 +277,7 @@ export default function ClientesListagem({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroProfissional)}
+            onClick={() => buscarClientes(filtroNome, filtroCpf, filtroTipo)}
             className="gap-1.5 text-muted-foreground"
             disabled={loading}
           >
@@ -402,24 +385,6 @@ export default function ClientesListagem({
             </Select>
           </div>
 
-          {/* Filtro: Profissional Responsavel */}
-          <div>
-            <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-              Profissional Responsavel
-            </Label>
-            <Select value={filtroProfissional} onValueChange={setFiltroProfissional}>
-              <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Todos os profissionais" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os profissionais</SelectItem>
-                  {profissionaisList.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Filtro: Status */}
           <div>
             <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
@@ -453,7 +418,7 @@ export default function ClientesListagem({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroProfissional)}
+              onClick={() => buscarClientes(filtroNome, filtroCpf, filtroTipo)}
               className="ml-auto border-destructive/30 text-destructive hover:bg-destructive/10"
             >
               Tentar novamente
@@ -581,11 +546,6 @@ export default function ClientesListagem({
                           <span className="flex items-center gap-1.5 truncate max-w-[200px]">
                             <Calendar className="w-3.5 h-3.5 shrink-0" />
                             Nasc.: {formatarData(cliente.data_nascimento)}
-                          </span>
-                        )}
-                        {cliente.profissional_responsavel && (
-                          <span className="truncate max-w-[200px]" title={cliente.profissional_responsavel}>
-                            Resp: <span className="font-medium text-foreground/80">{cliente.profissional_responsavel.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</span>
                           </span>
                         )}
                         <span className="text-[11px] text-muted-foreground/60">
