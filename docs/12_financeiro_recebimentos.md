@@ -17,8 +17,8 @@ Gerencia os recebimentos (receitas) da clínica, permitindo o registro de pagame
 - **Filtros básicos:** Busca por nome do paciente e filtro por status.
 - **Filtros avançados:**
   - **Procedimento:** Dropdown com procedimentos disponíveis.
-  - **Vencimento:** Intervalo de datas (de/até).
-  - **Data do Pagamento:** Intervalo de datas (de/até).
+  - **Vencimento:** [`DateRangePicker`](#daterangepicker) com calendário visual e atalhos rápidos (**atualizado em 09/04/2026**).
+  - **Data do Pagamento:** [`DateRangePicker`](#daterangepicker) (**atualizado em 09/04/2026**).
 - Totalizador dinâmico no topo da lista com base nos itens filtrados.
 
 ### 2. Criação e Edição (FormModal)
@@ -69,6 +69,7 @@ Os dados são consumidos da API local `/api/recebimentos` → tabela `recebiment
 | `paciente_id` | `string \| null` | FK para tabela `pacientes` |
 | `paciente_nome` | `string \| null` | Nome desnormalizado para busca rápida |
 | `procedimento_id` | `string \| null` | FK para tabela `procedimentos` |
+| `profissional_id` | `string \| null` | ID do profissional que realizou o atendimento (**adicionado em 09/04/2026**) |
 | `descricao` | `string` | Procedimento realizado (ex: "Acupuntura", "Pilates (2/4)") |
 | `valor` | `number` | Valor em reais (CHECK: valor > 0) |
 | `data_vencimento` | `string` | Formato YYYY-MM-DD |

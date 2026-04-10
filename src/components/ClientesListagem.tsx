@@ -454,13 +454,13 @@ export default function ClientesListagem({
           </div>
           <p className="text-foreground font-medium">
             {filtrosAtivos
-              ? `Nenhum ${filtroTipo === "funcionario" ? "funcionário" : filtroTipo === "admin" ? "administrador" : filtroTipo === "financeiro" ? "usuário do financeiro" : "cliente"} encontrado com esses filtros`
-              : `Nenhum ${filtroTipo === "funcionario" ? "funcionário" : filtroTipo === "admin" ? "administrador" : filtroTipo === "financeiro" ? "usuário do financeiro" : "cliente"} cadastrado ainda`}
+              ? `Nenhum ${String(filtroTipo) === "funcionario" ? "funcionário" : String(filtroTipo) === "admin" ? "administrador" : String(filtroTipo) === "financeiro" ? "usuário do financeiro" : "cliente"} encontrado com esses filtros`
+              : `Nenhum ${String(filtroTipo) === "funcionario" ? "funcionário" : String(filtroTipo) === "admin" ? "administrador" : String(filtroTipo) === "financeiro" ? "usuário do financeiro" : "cliente"} cadastrado ainda`}
           </p>
           <p className="text-muted-foreground text-sm mt-1.5">
             {filtrosAtivos
               ? "Tente ajustar os filtros de busca."
-              : `Clique em "Novo Cadastro" para adicionar o primeiro ${filtroTipo === "funcionario" ? "funcionário" : "cliente"}.`}
+              : `Clique em "Novo Cadastro" para adicionar o primeiro ${String(filtroTipo) === "funcionario" ? "funcionário" : "cliente"}.`}
           </p>
           {filtrosAtivos && (
             <Button

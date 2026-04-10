@@ -208,28 +208,32 @@ export default function HistoricoCliente({
 
       try {
         if (isFuncionario && nomeCompleto) {
-          // ── Modo Funcionário ───────────────────────────────────────────────────────────────────
+          // ── Modo Funcionário ─────────────────────────────────────────────────────
+          // Busca recebimentos onde profissional_id == slug do profissional.
+          // NÃO depende mais de paciente.profissional_responsavel (causava cruzamento).
           const slug = slugFromNome(nomeCompleto);
 
-          // 1. Buscar pacientes vinculados ao profissional
-          const pacientes: { id: string; nome_completo: string }[] = await get(
-            `pacientes?profissional_responsavel=eq.${encodeURIComponent(slug)}&ativo=eq.true&select=id,nome_completo`
-          );
-
-          const listaPacientes: PacienteVinculado[] = Array.isArray(pacientes)
-            ? pacientes.map(p => ({ id: p.id, nome_completo: p.nome_completo }))
-            : [];
-          setPacientesVinculados(listaPacientes);
-
-          if (listaPacientes.length === 0) { setIsLoading(false); return; }
-
-          const ids = listaPacientes.map(p => p.id).join(",");
-
-          // 2. Buscar recebimentos dos pacientes vinculados
+          // 1. Buscar recebimentos diretamente por profissional_id
           const recebimentos: RecebimentoRaw[] = await get(
-            `recebimentos?paciente_id=in.(${ids})&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status`
+            `recebimentos?profissional_id=eq.${encodeURIComponent(slug)}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status`
           );
-          setRecebimentosRaw(Array.isArray(recebimentos) ? recebimentos : []);
+          const recArray = Array.isArray(recebimentos) ? recebimentos : [];
+          setRecebimentosRaw(recArray);
+
+          // 2. Montar lista de pacientes únicos a partir dos próprios recebimentos
+          const pacIds = [...new Set(recArray.map(r => r.paciente_id).filter(Boolean))];
+          if (pacIds.length > 0) {
+            const pacientesData: { id: string; nome_completo: string }[] = await get(
+              `pacientes?id=in.(${pacIds.join(',')})&select=id,nome_completo`
+            );
+            setPacientesVinculados(
+              Array.isArray(pacientesData)
+                ? pacientesData.map(p => ({ id: p.id, nome_completo: p.nome_completo }))
+                : []
+            );
+          } else {
+            setPacientesVinculados([]);
+          }
 
           // 3. Buscar comissões do profissional
           const comissoesData: { procedimento_id: string; percentual: number }[] = await get(
@@ -240,6 +244,7 @@ export default function HistoricoCliente({
             comissoesData.forEach(c => { mapa[c.procedimento_id] = c.percentual; });
           }
           setComissoes(mapa);
+
 
         } else if (pacienteId) {
           // ── Modo Paciente ────────────────────────────────────────────────────────────────────

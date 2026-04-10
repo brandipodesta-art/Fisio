@@ -15,6 +15,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateRangePicker, type DateRange } from "@/components/ui/DateRangePicker";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -432,10 +433,8 @@ export default function FinanceiroRecebimentos() {
   const [filtroStatus,        setFiltroStatus]        = useState("todos");
   const [filtroPaciente,      setFiltroPaciente]      = useState("");
   const [filtroProcedimento,  setFiltroProcedimento]  = useState("todos");
-  const [filtroVencDe,        setFiltroVencDe]        = useState("");
-  const [filtroVencAte,       setFiltroVencAte]       = useState("");
-  const [filtroPagDe,         setFiltroPagDe]         = useState("");
-  const [filtroPagAte,        setFiltroPagAte]        = useState("");
+  const [rangeVenc,           setRangeVenc]           = useState<DateRange>({ from: "", to: "" });
+  const [rangePag,            setRangePag]            = useState<DateRange>({ from: "", to: "" });
 
   const buscar = useCallback(async () => {
     setCarregando(true);
@@ -553,28 +552,25 @@ export default function FinanceiroRecebimentos() {
   // Filtragem local por procedimento, vencimento e data de pagamento
   const itensFiltrados = itens.filter(r => {
     if (filtroProcedimento !== "todos") {
-      // Compara ignorando numeração de parcelas: "Acupuntura (2/4)" → base "Acupuntura"
       const base = r.descricao.replace(/\s*\(\d+\/\d+\)$/, "").trim();
       if (base !== filtroProcedimento && r.descricao !== filtroProcedimento) return false;
     }
-    if (filtroVencDe  && r.data_vencimento < filtroVencDe)  return false;
-    if (filtroVencAte && r.data_vencimento > filtroVencAte) return false;
-    if (filtroPagDe  && (!r.data_pagamento || r.data_pagamento < filtroPagDe))  return false;
-    if (filtroPagAte && (!r.data_pagamento || r.data_pagamento > filtroPagAte)) return false;
+    if (rangeVenc.from  && r.data_vencimento < rangeVenc.from)  return false;
+    if (rangeVenc.to    && r.data_vencimento > rangeVenc.to)    return false;
+    if (rangePag.from  && (!r.data_pagamento || r.data_pagamento < rangePag.from))  return false;
+    if (rangePag.to    && (!r.data_pagamento || r.data_pagamento > rangePag.to))    return false;
     return true;
   });
 
   const totalFiltrado = itensFiltrados.reduce((s, r) => s + Number(r.valor), 0);
 
   // Verifica se algum filtro extra está ativo
-  const filtrosExtrasAtivos = filtroProcedimento !== "todos" || filtroVencDe || filtroVencAte || filtroPagDe || filtroPagAte;
+  const filtrosExtrasAtivos = filtroProcedimento !== "todos" || rangeVenc.from || rangeVenc.to || rangePag.from || rangePag.to;
 
   function limparFiltrosExtras() {
     setFiltroProcedimento("todos");
-    setFiltroVencDe("");
-    setFiltroVencAte("");
-    setFiltroPagDe("");
-    setFiltroPagAte("");
+    setRangeVenc({ from: "", to: "" });
+    setRangePag({ from: "", to: "" });
   }
 
   return (
@@ -624,7 +620,7 @@ export default function FinanceiroRecebimentos() {
           </Select>
         </div>
 
-        {/* Linha 2: procedimento */}
+        {/* Linha 2: procedimento + filtros de data com DateRangePicker */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1">Procedimento</label>
@@ -639,49 +635,19 @@ export default function FinanceiroRecebimentos() {
             </Select>
           </div>
 
-          {/* Vencimento de/até */}
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Vencimento — de / até</label>
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="date"
-                value={filtroVencDe}
-                onChange={e => setFiltroVencDe(e.target.value)}
-                className="text-xs"
-                title="Vencimento a partir de"
-              />
-              <span className="text-muted-foreground/60 text-xs shrink-0">até</span>
-              <Input
-                type="date"
-                value={filtroVencAte}
-                onChange={e => setFiltroVencAte(e.target.value)}
-                className="text-xs"
-                title="Vencimento até"
-              />
-            </div>
-          </div>
+          <DateRangePicker
+            label="Vencimento"
+            value={rangeVenc}
+            onChange={setRangeVenc}
+            placeholder="Qualquer vencimento"
+          />
 
-          {/* Data de Pagamento de/até */}
-          <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1">Data Pagamento — de / até</label>
-            <div className="flex items-center gap-1.5">
-              <Input
-                type="date"
-                value={filtroPagDe}
-                onChange={e => setFiltroPagDe(e.target.value)}
-                className="text-xs"
-                title="Pagamento a partir de"
-              />
-              <span className="text-muted-foreground/60 text-xs shrink-0">até</span>
-              <Input
-                type="date"
-                value={filtroPagAte}
-                onChange={e => setFiltroPagAte(e.target.value)}
-                className="text-xs"
-                title="Pagamento até"
-              />
-            </div>
-          </div>
+          <DateRangePicker
+            label="Data Pagamento"
+            value={rangePag}
+            onChange={setRangePag}
+            placeholder="Qualquer data de pagto."
+          />
         </div>
 
         {/* Botão limpar filtros extras */}

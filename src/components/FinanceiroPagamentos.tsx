@@ -11,6 +11,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DateRangePicker, type DateRange } from "@/components/ui/DateRangePicker";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -486,10 +487,8 @@ export default function FinanceiroPagamentos() {
   const [filtroStatus,    setFiltroStatus]    = useState("todos");
   const [filtroCategoria, setFiltroCategoria] = useState("todas");
   const [filtroBusca,     setFiltroBusca]     = useState("");
-  const [filtroVencDe,    setFiltroVencDe]    = useState("");
-  const [filtroVencAte,   setFiltroVencAte]   = useState("");
-  const [filtroPagDe,     setFiltroPagDe]     = useState("");
-  const [filtroPagAte,    setFiltroPagAte]    = useState("");
+  const [rangeVenc,       setRangeVenc]       = useState<DateRange>({ from: "", to: "" });
+  const [rangePag,        setRangePag]        = useState<DateRange>({ from: "", to: "" });
 
   const buscar = useCallback(async () => {
     setCarregando(true);
@@ -511,10 +510,10 @@ export default function FinanceiroPagamentos() {
           const q = filtroBusca.toLowerCase();
           if (!p.descricao.toLowerCase().includes(q) && !(p.fornecedor ?? "").toLowerCase().includes(q)) return false;
         }
-        if (filtroVencDe  && p.data_vencimento < filtroVencDe)  return false;
-        if (filtroVencAte && p.data_vencimento > filtroVencAte) return false;
-        if (filtroPagDe  && (!p.data_pagamento || p.data_pagamento < filtroPagDe))  return false;
-        if (filtroPagAte && (!p.data_pagamento || p.data_pagamento > filtroPagAte)) return false;
+        if (rangeVenc.from && p.data_vencimento < rangeVenc.from) return false;
+        if (rangeVenc.to   && p.data_vencimento > rangeVenc.to)   return false;
+        if (rangePag.from  && (!p.data_pagamento || p.data_pagamento < rangePag.from)) return false;
+        if (rangePag.to    && (!p.data_pagamento || p.data_pagamento > rangePag.to))   return false;
         return true;
       });
       setItens(filtrado);
@@ -523,7 +522,7 @@ export default function FinanceiroPagamentos() {
     } finally {
       setCarregando(false);
     }
-  }, [filtroStatus, filtroCategoria, filtroBusca, filtroVencDe, filtroVencAte, filtroPagDe, filtroPagAte, categorias]);
+  }, [filtroStatus, filtroCategoria, filtroBusca, rangeVenc, rangePag, categorias]);
 
   useEffect(() => { buscar(); }, [buscar]);
 
@@ -722,69 +721,20 @@ export default function FinanceiroPagamentos() {
           </Select>
         </div>
 
-        {/* Filtros de data */}
+        {/* Filtros de data com DateRangePicker */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 pt-3 border-t border-border/60">
-          {/* Vencimento */}
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Vencimento</p>
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                value={filtroVencDe}
-                onChange={e => setFiltroVencDe(e.target.value)}
-                className="text-sm"
-                title="De"
-              />
-              <span className="text-xs text-muted-foreground/60 shrink-0">até</span>
-              <Input
-                type="date"
-                value={filtroVencAte}
-                onChange={e => setFiltroVencAte(e.target.value)}
-                className="text-sm"
-                title="Até"
-              />
-              {(filtroVencDe || filtroVencAte) && (
-                <button
-                  onClick={() => { setFiltroVencDe(""); setFiltroVencAte(""); }}
-                  className="shrink-0 text-muted-foreground/60 hover:text-muted-foreground"
-                  title="Limpar"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Data do Pagamento */}
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1.5">Data do Pagamento</p>
-            <div className="flex items-center gap-2">
-              <Input
-                type="date"
-                value={filtroPagDe}
-                onChange={e => setFiltroPagDe(e.target.value)}
-                className="text-sm"
-                title="De"
-              />
-              <span className="text-xs text-muted-foreground/60 shrink-0">até</span>
-              <Input
-                type="date"
-                value={filtroPagAte}
-                onChange={e => setFiltroPagAte(e.target.value)}
-                className="text-sm"
-                title="Até"
-              />
-              {(filtroPagDe || filtroPagAte) && (
-                <button
-                  onClick={() => { setFiltroPagDe(""); setFiltroPagAte(""); }}
-                  className="shrink-0 text-muted-foreground/60 hover:text-muted-foreground"
-                  title="Limpar"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
+          <DateRangePicker
+            label="Vencimento"
+            value={rangeVenc}
+            onChange={setRangeVenc}
+            placeholder="Qualquer vencimento"
+          />
+          <DateRangePicker
+            label="Data do Pagamento"
+            value={rangePag}
+            onChange={setRangePag}
+            placeholder="Qualquer data de pagto."
+          />
         </div>
       </Card>
 

@@ -60,6 +60,7 @@ Aba de histórico do cliente com sub-abas internas. Opera em **dois modos**:
 | `paciente_id` | `string \| null` | FK para pacientes |
 | `paciente_nome` | `string \| null` | Nome do paciente |
 | `procedimento_id` | `string \| null` | FK para procedimentos |
+| `profissional_id` | `string \| null` | ID do profissional que realizou o atendimento (**adicionado em 09/04/2026**) |
 | `descricao` | `string \| null` | Descrição do recebimento |
 | `valor` | `number` | Valor em R$ |
 | `data_vencimento` | `string` | Data ISO |
@@ -160,6 +161,8 @@ Ver detalhes completos em `docs/32_frequencia_redesign_28032026.md`.
 
 ## Modo Funcionário/Financeiro
 
+> **⚠️ Corrigido em 09/04/2026** — veja `docs/33_correcoes_atribuicao_profissional_09042026.md`
+
 ### Sub-aba: Procedimentos
 - Agrupa recebimentos por procedimento (via `extrairProcedimentoBase()`)
 - Mostra: total de sessões, pagas, pendentes, canceladas, valor total
@@ -167,7 +170,13 @@ Ver detalhes completos em `docs/32_frequencia_redesign_28032026.md`.
 - Exibe totais de comissão por procedimento e geral
 
 ### Sub-aba: Financeiro
-- Mesma estrutura do modo paciente, mas filtra por pacientes vinculados ao profissional
+- Busca recebimentos **diretamente pelo `profissional_id`** (campo na tabela `recebimentos`)
+- **Não depende mais** do campo `profissional_responsavel` do cadastro do paciente
+- Query:
+  ```typescript
+  get(`recebimentos?profissional_id=eq.${profissionalId}&order=data_vencimento.desc`)
+  ```
+- Cada profissional vê **apenas os atendimentos que efetivamente realizou**
 
 ---
 

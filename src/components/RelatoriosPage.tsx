@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { DateRangePicker, type DateRange } from "@/components/ui/DateRangePicker";
 import {
   Select,
   SelectContent,
@@ -61,6 +62,7 @@ interface Recebimento {
   status: string;
   forma_pagamento: string | null;
   procedimento_id: string | null;
+  profissional_id: string | null;
   confirmado_por: string | null;
 }
 
@@ -91,15 +93,13 @@ function groupByDate<T extends { data_vencimento: string; data_pagamento: string
   return new Map([...map.entries()].sort((a, b) => a[0].localeCompare(b[0])));
 }
 
-// Agrupa recebimentos por profissional (slug) e dentro de cada profissional por data
+// Agrupa recebimentos por profissional (profissional_id) e dentro de cada profissional por data
 function groupByProfissional(
-  items: Recebimento[],
-  pacientes: Paciente[]
+  items: Recebimento[]
 ): Map<string, Map<string, Recebimento[]>> {
   const map = new Map<string, Map<string, Recebimento[]>>();
   for (const item of items) {
-    const pac = pacientes.find((p) => p.id === item.paciente_id);
-    const profSlug = pac?.profissional_responsavel ?? "sem-profissional";
+    const profSlug = item.profissional_id ?? "sem-profissional";
     const dateKey =
       item.status === "recebido" || item.status === "pago"
         ? (item.data_pagamento ?? item.data_vencimento)
@@ -133,8 +133,9 @@ export default function RelatoriosPage() {
     fetch(`${SUPA_URL}/rest/v1/${path}`, { headers }).then((r) => r.json());
 
   // ── Estados de filtro ──────────────────────────────────────────────────────
-  const [dataInicial, setDataInicial] = useState("");
-  const [dataFinal, setDataFinal] = useState("");
+  const [datePeriod, setDatePeriod] = useState<DateRange>({ from: "", to: "" });
+  const dataInicial = datePeriod.from;
+  const dataFinal   = datePeriod.to;
   const [tipoRelatorio, setTipoRelatorio] = useState<"" | "clientes" | "funcionarios">("");
   const [clienteId, setClienteId] = useState("");
   const [funcionarioId, setFuncionarioId] = useState("");
@@ -186,23 +187,14 @@ export default function RelatoriosPage() {
     setGerado(false);
 
     try {
-      let query = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,confirmado_por`;
+      let query = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,profissional_id,confirmado_por`;
       query += `&data_vencimento=gte.${dataInicial}&data_vencimento=lte.${dataFinal}`;
 
       if (tipoRelatorio === "clientes" && clienteId && clienteId !== "todos") {
         query += `&paciente_id=eq.${clienteId}`;
       } else if (tipoRelatorio === "funcionarios" && funcionarioId && funcionarioId !== "todos") {
-        const pacsProfissional = pacientes.filter(
-          (p) => p.profissional_responsavel === funcionarioId
-        );
-        if (pacsProfissional.length === 0) {
-          setRecebimentos([]);
-          setGerado(true);
-          setLoadingRel(false);
-          return;
-        }
-        const ids = pacsProfissional.map((p) => p.id).join(",");
-        query += `&paciente_id=in.(${ids})`;
+        // Filtra diretamente por profissional_id — sem depender do cadastro de paciente
+        query += `&profissional_id=eq.${funcionarioId}`;
       }
 
       if (filtroStatus === "confirmado") {
@@ -229,8 +221,7 @@ export default function RelatoriosPage() {
     slug ? (profissionais.find((p) => p.id === slug)?.name ?? slug) : "—";
   const _comissaoRec = (r: Recebimento) => {
     if (!r.procedimento_id) return null;
-    const pac = pacientes.find((p) => p.id === r.paciente_id);
-    const profSlug = pac?.profissional_responsavel ?? null;
+    const profSlug = r.profissional_id ?? null;
     if (!profSlug) return null;
     return comissoes.find(
       (c) => c.profissional_id === profSlug && c.procedimento_id === r.procedimento_id
@@ -277,7 +268,7 @@ export default function RelatoriosPage() {
     } else {
       // ── Funcionários: agrupado por profissional → data ──
       linhas.push(["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor (R$)", "Comissão (R$)", "Cliente"]);
-      const grupos = groupByProfissional(recebimentos, pacientes);
+      const grupos = groupByProfissional(recebimentos);
       let totalGeralValor = 0;
       let totalGeralComissao = 0;
       for (const [profSlug, dateMap] of grupos.entries()) {
@@ -723,7 +714,7 @@ export default function RelatoriosPage() {
       if (recConf.length > 0) {
         checkPage(20);
         cursorY = drawSectionBanner(cursorY, `Pagamentos Confirmados  (${recConf.length} registro(s))`, COR_VERDE_HEADER);
-        const gruposPorProf = groupByProfissional(recConf, pacientes);
+        const gruposPorProf = groupByProfissional(recConf);
         let totalConfValor = 0;
         let totalConfComissao = 0;
         for (const [profSlug, dateMap] of gruposPorProf.entries()) {
@@ -762,7 +753,7 @@ export default function RelatoriosPage() {
       if (recPend.length > 0) {
         checkPage(20);
         cursorY = drawSectionBanner(cursorY, `Pagamentos Pendentes  (${recPend.length} registro(s))`, COR_AMBER_HEADER);
-        const gruposPorProfPend = groupByProfissional(recPend, pacientes);
+        const gruposPorProfPend = groupByProfissional(recPend);
         let totalPendValor = 0;
         for (const [profSlug, dateMap] of gruposPorProfPend.entries()) {
           const profNome = _nomeProfLocal(profSlug);
@@ -896,10 +887,10 @@ export default function RelatoriosPage() {
   // Agrupamento por profissional (usado quando "todos" estão selecionados)
   const todosProfissionais = !funcionarioId || funcionarioId === "todos";
   const gruposPorProfConfirmados = todosProfissionais
-    ? groupByProfissional(recFuncConfirmados, pacientes)
+    ? groupByProfissional(recFuncConfirmados)
     : null;
   const gruposPorProfPendentes = todosProfissionais
-    ? groupByProfissional(recFuncPendentes, pacientes)
+    ? groupByProfissional(recFuncPendentes)
     : null;
 
   const podeGerar = tipoRelatorio !== "" && dataInicial !== "" && dataFinal !== "";
@@ -1096,23 +1087,12 @@ export default function RelatoriosPage() {
             </Select>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Data Inicial</Label>
-            <input
-              type="date"
-              value={dataInicial}
-              onChange={(e) => { setDataInicial(e.target.value); setGerado(false); }}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium">Data Final</Label>
-            <input
-              type="date"
-              value={dataFinal}
-              onChange={(e) => { setDataFinal(e.target.value); setGerado(false); }}
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          <div className="space-y-1.5 sm:col-span-2">
+            <DateRangePicker
+              label="Período"
+              value={datePeriod}
+              onChange={(range) => { setDatePeriod(range); setGerado(false); }}
+              placeholder="Selecionar período do relatório"
             />
           </div>
         </div>

@@ -35,13 +35,16 @@ Todos os campos do formulário:
 | Campo | Tipo | Descrição |
 |---|---|---|
 | `tipoUsuario` | `string` | Tipo: paciente, funcionário, admin, financeiro |
-| `profissionalResponsavel` | `string` | Profissional responsável pelo paciente |
 | `nomeCompleto` | `string` | Nome completo do paciente * (obrigatório) |
 | `cpf` | `string` | CPF com máscara * (obrigatório, validado) |
 | `rg` | `string` | RG do paciente |
 | `dataNascimento` | `string` | Data no formato DD/MM/AAAA |
 | `estadoCivil` | `string` | Solteiro, casado, divorciado, viúvo |
 | `profissao` | `string` | Profissão do paciente |
+
+> **⚠️ Removido em 09/04/2026:** O campo `profissionalResponsavel` foi retirado do formulário.
+> A responsabilidade agora é definida exclusivamente pelo agendamento.
+> Consulte `docs/33_correcoes_atribuicao_profissional_09042026.md`.
 
 ### Contato
 
@@ -361,11 +364,15 @@ Todos os cards usam o mesmo padrão:
 
 ## Notas para Edição Futura
 
-- **Backend:** O `handleSubmit` apenas loga no console — precisa integrar com API/banco
 - **Campos obrigatórios:** Apenas `nomeCompleto` e `cpf` são validados no submit
 - **Ícone não usado:** `AlertCircle` é importado mas nunca utilizado — pode remover ou usar para indicar erros
-- **Profissionais:** Lista hardcoded (Ana Carolina, Amanda Augusta, Aline Pereira) — precisa ser dinâmica
 - **Opções do Select:** Todas hardcoded — considerar carregar de uma API
 - **CEP da NF:** A função `buscarCEP` atualiza os campos do endereço **principal**, não os da NF — possível bug
 - **Validação de data:** Não há validação se a data é válida (ex: 31/02/2026) — só formata
 - **maxLength dos inputs:** CPF=14, telefone fixo=14, celular=15, CEP=9, NF CPF/CNPJ=18
+
+### Histórico de alterações
+
+| Data | Alteração |
+|---|---|
+| 09/04/2026 | Campo `profissionalResponsavel` **removido** do formulário. Atribuição migrada para o agendamento. |
