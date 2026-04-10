@@ -121,14 +121,43 @@ export default function ClientesListagem({
   const [filtroProfissional, setFiltroProfissional] = useState("todos");
   const [filtroStatus, setFiltroStatus] = useState("todos");
   const [profissionaisList, setProfissionaisList] = useState<{ id: string; name: string }[]>([]);
+  // Profissionais exibidos na tabela quando filtroTipo === "funcionario"
+  const [profissionaisExibidos, setProfissionaisExibidos] = useState<PacienteResumo[] | null>(null);
 
-  // Carrega profissionais dinamicamente
+  // Carrega profissionais dinamicamente (para o filtro de responsavel)
   useEffect(() => {
     const sb = createClient();
     sb.from("profissionais").select("id, name").order("name").then(({ data }) => {
       if (data) setProfissionaisList(data as { id: string; name: string }[]);
     });
   }, []);
+
+  // Quando tipo = funcionario, busca da tabela profissionais
+  useEffect(() => {
+    if (filtroTipo !== "funcionario") {
+      setProfissionaisExibidos(null);
+      return;
+    }
+    const sb = createClient();
+    let q = sb.from("profissionais").select("id, name, created_at, ativo").order("name");
+    if (filtroNome.trim()) q = q.ilike("name", `%${filtroNome.trim()}%`);
+    q.then(({ data }) => {
+      const mapped: PacienteResumo[] = (data ?? []).map(p => ({
+        id: p.id,
+        nome_completo: p.name,
+        cpf: "",
+        telefone_cel: null,
+        data_nascimento: null,
+        cidade: null,
+        tipo_usuario: "funcionario" as const,
+        profissional_responsavel: null,
+        ativo: p.ativo ?? true,
+        created_at: p.created_at ?? "",
+      }));
+      setProfissionaisExibidos(mapped);
+      setPaginaAtual(1);
+    });
+  }, [filtroTipo, filtroNome]);
 
   // Refs para debounce dos filtros de texto
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -204,6 +233,10 @@ export default function ClientesListagem({
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
   }, [filtroNome, filtroCpf, filtroTipo, filtroProfissional, filtroStatus, buscarClientes]);
+
+  // Lista final a exibir — profissionais ou pacientes
+  const listaFinal = filtroTipo === "funcionario" ? (profissionaisExibidos ?? []) : clientes;
+  const loadingFinal = filtroTipo === "funcionario" ? profissionaisExibidos === null : loading;
 
   // ── Handlers ──────────────────────────────────────────
   const limparFiltros = () => {
@@ -430,7 +463,7 @@ export default function ClientesListagem({
       )}
 
       {/* Estado de carregamento */}
-      {loading && !erro && (
+      {loadingFinal && !erro && (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="p-4 border-border animate-pulse">
@@ -447,7 +480,7 @@ export default function ClientesListagem({
       )}
 
       {/* Lista vazia */}
-      {!loading && !erro && clientes.length === 0 && (
+      {!loadingFinal && !erro && listaFinal.length === 0 && (
         <Card className="p-12 border-border shadow-sm text-center">
           <div className="flex items-center justify-center w-14 h-14 rounded-full bg-muted mx-auto mb-4">
             <Users className="w-7 h-7 text-muted-foreground/40" />
@@ -476,7 +509,7 @@ export default function ClientesListagem({
       )}
 
       {/* Lista de clientes (Tabela com Paginação) */}
-      {!loading && !erro && clientes.length > 0 && (
+      {!loadingFinal && !erro && listaFinal.length > 0 && (
         <Card className="overflow-hidden border-border shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -489,7 +522,7 @@ export default function ClientesListagem({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-foreground">
-                {clientes.slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina).map((cliente) => (
+                {listaFinal.slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina).map((cliente) => (
                   <tr
                     key={cliente.id}
                     className={`hover:bg-muted/30 transition-colors ${!cliente.ativo ? "opacity-70 bg-muted/10" : "bg-card"}`}
