@@ -150,14 +150,15 @@ export default function ClientesListagem({
       try {
         let data: PacienteResumo[] = [];
 
-        if (tipo === "funcionario") {
-          // Funcionários vêm da tabela profissionais, não de pacientes
-          const sb = createClient();
+        const sb = createClient();
+
+        if (tipo === "funcionario" || tipo === "todos") {
+          // Funcionários vêm da tabela profissionais
           let q = sb.from("profissionais").select("id, name").order("name");
           if (nome.trim()) q = q.ilike("name", `%${nome.trim()}%`);
           const { data: profs, error } = await q;
           if (error) throw new Error(error.message);
-          data = (profs ?? []).map(p => ({
+          const profsMapped: PacienteResumo[] = (profs ?? []).map(p => ({
             id: p.id,
             nome_completo: p.name,
             cpf: "",
@@ -169,7 +170,16 @@ export default function ClientesListagem({
             ativo: true,
             created_at: "",
           }));
-        } else {
+          if (tipo === "funcionario") {
+            data = profsMapped;
+          } else {
+            // "todos": combina profissionais com todos os pacientes
+            data = profsMapped;
+          }
+        }
+
+        if (tipo !== "funcionario") {
+          // Busca da tabela pacientes (paciente, admin, financeiro, ou todos)
           const params = new URLSearchParams();
           if (nome.trim()) params.set("nome", nome.trim());
           if (cpf.trim()) params.set("cpf", cpf.replace(/\D/g, ""));
@@ -181,11 +191,12 @@ export default function ClientesListagem({
             const err = await res.json();
             throw new Error(err.error ?? "Erro ao buscar dados");
           }
-          data = await res.json();
+          let pacs: PacienteResumo[] = await res.json();
           // Funcionário não vê registros do tipo funcionario, admin ou financeiro
           if (isFuncionario) {
-            data = data.filter(c => !['funcionario','admin','financeiro'].includes(c.tipo_usuario));
+            pacs = pacs.filter(c => !['funcionario','admin','financeiro'].includes(c.tipo_usuario));
           }
+          data = [...data, ...pacs];
         }
 
         setClientes(data);
