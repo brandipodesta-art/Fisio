@@ -438,6 +438,38 @@ export default function AgendaPage() {
         }
       }
     }
+
+    // ── Recebimento: cancelar quando agendamento é cancelado ──
+    if (newStatus === "cancelado") {
+      const { data: recCancelado } = await supabase
+        .from("recebimentos")
+        .select("id, status")
+        .ilike("observacoes", `%agendamento:${appointment.id}%`)
+        .maybeSingle();
+
+      if (recCancelado && (recCancelado.status === "pendente" || recCancelado.status === "atrasado")) {
+        await supabase
+          .from("recebimentos")
+          .update({ status: "cancelado" })
+          .eq("id", recCancelado.id);
+      }
+    }
+
+    // ── Recebimento: reabrir quando agendamento é reagendado (cancelado/faltou → agendado) ──
+    if (newStatus === "agendado" && (prevStatus === "cancelado" || prevStatus === "faltou")) {
+      const { data: recReabrir } = await supabase
+        .from("recebimentos")
+        .select("id, status")
+        .ilike("observacoes", `%agendamento:${appointment.id}%`)
+        .maybeSingle();
+
+      if (recReabrir && recReabrir.status === "cancelado") {
+        await supabase
+          .from("recebimentos")
+          .update({ status: "pendente", data_vencimento: appointment.date })
+          .eq("id", recReabrir.id);
+      }
+    }
   };
 
   // Update existing appointment

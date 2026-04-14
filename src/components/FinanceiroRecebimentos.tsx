@@ -2,6 +2,10 @@
 
 import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 import ConfirmActionDialog from "@/components/ui/ConfirmActionDialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import ModalPortal from "@/components/ui/ModalPortal";
 import { AutocompletePaciente } from "@/components/ui/AutocompletePaciente";
 import { useAuth } from "@/lib/auth/AuthContext";
@@ -428,6 +432,8 @@ export default function FinanceiroRecebimentos() {
   const [excluindo, setExcluindo] = useState<string | null>(null);
   const [excluirDialogId, setExcluirDialogId] = useState<string | null>(null);
   const [editarDialogId, setEditarDialogId]   = useState<Recebimento | null>(null);
+  const [marcarRecebidoItem, setMarcarRecebidoItem] = useState<Recebimento | null>(null);
+  const [marcarRecebidoForma, setMarcarRecebidoForma] = useState<string>("");
 
   // Filtros
   const [filtroStatus,        setFiltroStatus]        = useState("todos");
@@ -534,7 +540,7 @@ export default function FinanceiroRecebimentos() {
     buscar();
   }
 
-  async function marcarRecebido(item: Recebimento) {
+  async function marcarRecebido(item: Recebimento, formaPagamentoId: string) {
     await fetch(`/api/recebimentos/${item.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -542,6 +548,7 @@ export default function FinanceiroRecebimentos() {
         ...item,
         status: "recebido",
         data_pagamento: new Date().toISOString().slice(0, 10),
+        forma_pagamento_id: formaPagamentoId || null,
         confirmado_por: usuario?.nome_completo ?? usuario?.nome_acesso ?? null,
         confirmado_por_id: usuario?.id ?? null,
       }),
@@ -734,7 +741,7 @@ export default function FinanceiroRecebimentos() {
                         {item.status === "pendente" && (
                           <>
                             <DropdownMenuItem
-                              onClick={() => marcarRecebido(item)}
+                              onClick={() => { setMarcarRecebidoItem(item); setMarcarRecebidoForma(""); }}
                               className="text-primary cursor-pointer"
                             >
                               <Check className="w-4 h-4 mr-2" />
@@ -933,6 +940,63 @@ export default function FinanceiroRecebimentos() {
         mensagem="Tem certeza que deseja excluir este recebimento? Esta ação não pode ser desfeita."
         loading={!!excluindo}
       />
+
+      {/* Dialog: Confirmar Recebimento com Forma de Pagamento */}
+      <Dialog
+        open={!!marcarRecebidoItem}
+        onOpenChange={(open) => { if (!open) { setMarcarRecebidoItem(null); setMarcarRecebidoForma(""); } }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="w-4 h-4 text-primary" />
+              Confirmar Recebimento
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{marcarRecebidoItem?.paciente_nome}</span>
+              {marcarRecebidoItem?.descricao ? ` · ${marcarRecebidoItem.descricao}` : ""}
+              {" · "}
+              <span className="font-semibold text-foreground">
+                {marcarRecebidoItem ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(marcarRecebidoItem.valor)) : ""}
+              </span>
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Forma de Pagamento</Label>
+              <Select value={marcarRecebidoForma} onValueChange={setMarcarRecebidoForma}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {formas.map(f => (
+                    <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => { setMarcarRecebidoItem(null); setMarcarRecebidoForma(""); }}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={!marcarRecebidoForma}
+              onClick={async () => {
+                if (marcarRecebidoItem) {
+                  await marcarRecebido(marcarRecebidoItem, marcarRecebidoForma);
+                  setMarcarRecebidoItem(null);
+                  setMarcarRecebidoForma("");
+                }
+              }}
+            >
+              <Check className="w-4 h-4 mr-1.5" />
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

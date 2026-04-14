@@ -905,7 +905,7 @@ export default function CadastroForm({
         err?.details ||
         (typeof err === "string" ? err : null) ||
         "Erro ao salvar cadastro. Tente novamente.";
-      console.error("[CadastroForm] handleSubmit error:", msg, err);
+      console.warn("[CadastroForm] handleSubmit error:", msg, err);
       toast.error(msg);
     } finally {
       setIsSubmitting(false);
