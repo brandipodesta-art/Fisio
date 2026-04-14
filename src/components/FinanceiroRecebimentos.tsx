@@ -9,12 +9,13 @@ import { Label } from "@/components/ui/label";
 import ModalPortal from "@/components/ui/ModalPortal";
 import { AutocompletePaciente } from "@/components/ui/AutocompletePaciente";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { usePermissoes } from "@/lib/auth/usePermissoes";
 import { toast } from "sonner";
 
 import { useEffect, useState, useCallback } from "react";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
-  AlertCircle, XCircle, Pencil, Trash2, Check, Eye, Repeat2, CalendarDays, MoreHorizontal,
+  AlertCircle, XCircle, Pencil, Trash2, Check, Eye, Repeat2, CalendarDays, MoreHorizontal, Undo2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -408,6 +409,7 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
 
 export default function FinanceiroRecebimentos() {
   const { usuario } = useAuth();
+  const { podeAlterarRecebimento } = usePermissoes();
   const { procedimentos } = useProcedimentos();
   const { formas } = useFormasPagamento();
 
@@ -434,6 +436,7 @@ export default function FinanceiroRecebimentos() {
   const [editarDialogId, setEditarDialogId]   = useState<Recebimento | null>(null);
   const [marcarRecebidoItem, setMarcarRecebidoItem] = useState<Recebimento | null>(null);
   const [marcarRecebidoForma, setMarcarRecebidoForma] = useState<string>("");
+  const [reverterDialogId, setReverterDialogId] = useState<Recebimento | null>(null);
 
   // Filtros
   const [filtroStatus,        setFiltroStatus]        = useState("todos");
@@ -537,6 +540,23 @@ export default function FinanceiroRecebimentos() {
     await fetch(`/api/recebimentos/${id}`, { method: "DELETE" });
     setExcluindo(null);
     setExcluirDialogId(null);
+    buscar();
+  }
+
+  async function reverterParaPendente(item: Recebimento) {
+    await fetch(`/api/recebimentos/${item.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        ...item,
+        status: "pendente",
+        data_pagamento: null,
+        forma_pagamento_id: null,
+        forma_pagamento: null,
+        confirmado_por: null,
+        confirmado_por_id: null,
+      }),
+    });
     buscar();
   }
 
@@ -746,6 +766,18 @@ export default function FinanceiroRecebimentos() {
                             >
                               <Check className="w-4 h-4 mr-2" />
                               Marcar Recebido
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
+                        {item.status === "recebido" && podeAlterarRecebimento && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => setReverterDialogId(item)}
+                              className="text-amber-600 cursor-pointer focus:text-amber-600"
+                            >
+                              <Undo2 className="w-4 h-4 mr-2" />
+                              Reverter para Pendente
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                           </>
@@ -997,6 +1029,22 @@ export default function FinanceiroRecebimentos() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: Reverter para Pendente */}
+      <ConfirmActionDialog
+        open={!!reverterDialogId}
+        onOpenChange={(open) => { if (!open) setReverterDialogId(null); }}
+        onConfirm={async () => {
+          if (reverterDialogId) {
+            await reverterParaPendente(reverterDialogId);
+            setReverterDialogId(null);
+          }
+        }}
+        titulo="Reverter para Pendente"
+        mensagem={`Deseja reverter o recebimento de "${reverterDialogId?.descricao ?? ""}" para pendente? O pagamento registrado será desfeito.`}
+        labelConfirmar="Reverter"
+        variante="warning"
+      />
     </div>
   );
 }

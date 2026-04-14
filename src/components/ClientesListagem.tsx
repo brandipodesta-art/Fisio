@@ -158,22 +158,37 @@ export default function ClientesListagem({
           if (nome.trim()) q = q.ilike("name", `%${nome.trim()}%`);
           const { data: profs, error } = await q;
           if (error) throw new Error(error.message);
-          const profsMapped: PacienteResumo[] = (profs ?? []).map(p => ({
-            id: p.id,
-            nome_completo: p.name,
-            cpf: "",
-            telefone_cel: null,
-            data_nascimento: null,
-            cidade: null,
-            tipo_usuario: "funcionario" as const,
-            profissional_responsavel: null,
-            ativo: true,
-            created_at: "",
-          }));
+
+          // Busca pacientes com tipo_usuario=funcionario para obter o UUID
+          // (necessário para o PacienteVisualizacao que carrega por UUID)
+          let pacsFunc: PacienteResumo[] = [];
+          try {
+            const pacsRes = await fetch("/api/pacientes?tipo=funcionario");
+            if (pacsRes.ok) pacsFunc = await pacsRes.json();
+          } catch { /* ignora falha — usa slug como fallback */ }
+
+          const profsMapped: PacienteResumo[] = (profs ?? []).map(p => {
+            // Tenta encontrar o cadastro na tabela pacientes pelo nome
+            const pac = pacsFunc.find(
+              pa => pa.nome_completo?.toLowerCase() === p.name?.toLowerCase()
+            );
+            return {
+              id: pac?.id ?? p.id, // UUID se disponível, slug como fallback
+              nome_completo: p.name,
+              cpf: pac?.cpf ?? "",
+              telefone_cel: pac?.telefone_cel ?? null,
+              data_nascimento: pac?.data_nascimento ?? null,
+              cidade: pac?.cidade ?? null,
+              tipo_usuario: "funcionario" as const,
+              profissional_responsavel: null,
+              ativo: pac?.ativo ?? true,
+              created_at: pac?.created_at ?? "",
+            };
+          });
+
           if (tipo === "funcionario") {
             data = profsMapped;
           } else {
-            // "todos": combina profissionais com todos os pacientes
             data = profsMapped;
           }
         }

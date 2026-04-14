@@ -654,7 +654,8 @@ export default function FinanceiroPagamentos() {
     const grupos = new Map<string, string[]>();
     itens.forEach(p => {
       const catKey = p.categoria_id ?? p.categoria ?? "";
-      const chave = `${catKey}||${p.data_vencimento}`;
+      const fornKey = p.fornecedor?.trim().toLowerCase() ?? "";
+      const chave = `${catKey}||${p.data_vencimento}||${fornKey}||${p.valor}`;
       const grupo = grupos.get(chave) ?? [];
       grupo.push(p.id);
       grupos.set(chave, grupo);
