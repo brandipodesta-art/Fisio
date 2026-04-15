@@ -33,6 +33,7 @@ interface RecebimentoRaw {
   data_vencimento: string;
   data_pagamento: string | null;
   status: string;
+  observacoes: string | null;
 }
 
 interface ProcedimentoResumo {
@@ -71,6 +72,7 @@ interface FinanceiroItem {
   data: string;
   data_vencimento: string;
   status: "pago" | "pendente" | "atrasado" | "cancelado";
+  observacoes: string | null;
 }
 
 interface Evolucao {
@@ -192,6 +194,7 @@ export default function HistoricoCliente({
 
   // Estados para ações nos itens financeiros
   const [visualizandoItem, setVisualizandoItem] = useState<FinanceiroItem | null>(null);
+  const [profissionalModal, setProfissionalModal] = useState<string | null>(null);
   const [confirmandoItem, setConfirmandoItem]   = useState<FinanceiroItem | null>(null);
   const [alterandoItem, setAlterandoItem]       = useState<FinanceiroItem | null>(null);
   const [salvandoAcao, setSalvandoAcao]         = useState(false);
@@ -227,7 +230,7 @@ export default function HistoricoCliente({
 
           // 2. Buscar recebimentos dos pacientes vinculados
           const recebimentos: RecebimentoRaw[] = await get(
-            `recebimentos?paciente_id=in.(${ids})&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status`
+            `recebimentos?paciente_id=in.(${ids})&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status,observacoes`
           );
           setRecebimentosRaw(Array.isArray(recebimentos) ? recebimentos : []);
 
@@ -244,7 +247,7 @@ export default function HistoricoCliente({
         } else if (pacienteId) {
           // ── Modo Paciente ────────────────────────────────────────────────────────────────────
           const [recebimentos, agendamentosFreq, evols] = await Promise.all([
-            get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status`),
+            get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status,observacoes`),
             // Frequências calculadas direto dos agendamentos — nunca desatualizado
             get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou,cancelado)&select=date,status,procedimentos(nome)&order=date.desc`),
             get(`evolucoes?paciente_id=eq.${pacienteId}&order=created_at.desc&select=*`),
@@ -344,6 +347,7 @@ export default function HistoricoCliente({
       data: r.data_pagamento ?? r.data_vencimento,
       data_vencimento: r.data_vencimento,
       status: (r.status === "recebido" ? "pago" : r.status) as FinanceiroItem["status"],
+      observacoes: r.observacoes ?? null,
     }));
   }, [recebimentosRaw]);
 
@@ -854,7 +858,25 @@ export default function HistoricoCliente({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-52">
                               <DropdownMenuItem
-                                onClick={() => setVisualizandoItem(item)}
+                                onClick={async () => {
+                                  setVisualizandoItem(item);
+                                  setProfissionalModal(null);
+                                  const match = item.observacoes?.match(/agendamento:([a-f0-9-]+)/i);
+                                  if (match?.[1]) {
+                                    try {
+                                      const _url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+                                      const _key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+                                      const res = await fetch(
+                                        `${_url}/rest/v1/agendamentos?id=eq.${match[1]}&select=professional_id,profissionais(name)`,
+                                        { headers: { apikey: _key, Authorization: `Bearer ${_key}` } }
+                                      );
+                                      const data = await res.json();
+                                      if (Array.isArray(data) && data[0]?.profissionais?.name) {
+                                        setProfissionalModal(data[0].profissionais.name);
+                                      }
+                                    } catch (_) {}
+                                  }
+                                }}
                                 className="cursor-pointer"
                               >
                                 <Eye className="w-4 h-4 mr-2" />
@@ -924,7 +946,25 @@ export default function HistoricoCliente({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-52">
                             <DropdownMenuItem
-                              onClick={() => setVisualizandoItem(item)}
+                              onClick={async () => {
+                                setVisualizandoItem(item);
+                                setProfissionalModal(null);
+                                const match = item.observacoes?.match(/agendamento:([a-f0-9-]+)/i);
+                                if (match?.[1]) {
+                                  try {
+                                    const _url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+                                    const _key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+                                    const res = await fetch(
+                                      `${_url}/rest/v1/agendamentos?id=eq.${match[1]}&select=professional_id,profissionais(name)`,
+                                      { headers: { apikey: _key, Authorization: `Bearer ${_key}` } }
+                                    );
+                                    const data = await res.json();
+                                    if (Array.isArray(data) && data[0]?.profissionais?.name) {
+                                      setProfissionalModal(data[0].profissionais.name);
+                                    }
+                                  } catch (_) {}
+                                }
+                              }}
                               className="cursor-pointer"
                             >
                               <Eye className="w-4 h-4 mr-2" />
@@ -998,7 +1038,7 @@ export default function HistoricoCliente({
                 <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
                   <Eye className="w-4 h-4 text-blue-500" /> Detalhes do Recebimento
                 </h2>
-                <button onClick={() => setVisualizandoItem(null)} className="text-muted-foreground/60 hover:text-muted-foreground">
+                <button onClick={() => { setVisualizandoItem(null); setProfissionalModal(null); }} className="text-muted-foreground/60 hover:text-muted-foreground">
                   <X className="w-5 h-5" />
                 </button>
               </div>
@@ -1014,6 +1054,12 @@ export default function HistoricoCliente({
                       <p className="text-sm text-foreground">{visualizandoItem.paciente_nome}</p>
                     </div>
                   )}
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Profissional</p>
+                    <p className="text-sm text-foreground">
+                      {profissionalModal ?? <span className="italic text-muted-foreground/60">—</span>}
+                    </p>
+                  </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">Valor</p>
                     <p className="text-sm font-semibold text-primary">{fmt(visualizandoItem.valor)}</p>
@@ -1040,14 +1086,14 @@ export default function HistoricoCliente({
               </div>
               <div className="flex justify-end gap-3 p-5 border-t border-border/60">
                 <button
-                  onClick={() => setVisualizandoItem(null)}
+                  onClick={() => { setVisualizandoItem(null); setProfissionalModal(null); }}
                   className="px-4 py-2 text-sm rounded-lg border border-border hover:bg-muted"
                 >
                   Fechar
                 </button>
                 {(visualizandoItem.status === "pendente" || visualizandoItem.status === "atrasado") && (
                   <button
-                    onClick={() => { setConfirmandoItem(visualizandoItem); setVisualizandoItem(null); }}
+                    onClick={() => { setConfirmandoItem(visualizandoItem); setVisualizandoItem(null); setProfissionalModal(null); }}
                     className="px-4 py-2 text-sm rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white"
                   >
                     Confirmar Pagamento
