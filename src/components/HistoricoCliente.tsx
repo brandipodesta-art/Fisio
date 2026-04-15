@@ -7,10 +7,34 @@ import { Activity, Ban, DollarSign, Calendar, Stethoscope, Users, AlertTriangle,
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import ConfirmActionDialog from "@/components/ui/ConfirmActionDialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import ModalPortal from "@/components/ui/ModalPortal";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
 import { useAuth } from "@/lib/auth/AuthContext";
+
+interface FormaPagamentoItem { id: string; nome: string; }
+
+function useFormasPagamento() {
+  const [formas, setFormas] = useState<FormaPagamentoItem[]>([]);
+  useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    fetch(`${url}/rest/v1/formas_pagamento?tipo=in.(recebimento,ambos)&ativo=eq.true&order=nome`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setFormas(data); })
+      .catch(() => {});
+  }, []);
+  return formas;
+}
 
 /**
  * HistoricoCliente — Aba de Histórico do cliente
@@ -184,6 +208,7 @@ export default function HistoricoCliente({
   const isFuncionario = tipoUsuario === "funcionario" || tipoUsuario === "financeiro";
   const { podeConfirmarPagamento, podeAlterarRecebimento } = usePermissoes();
   const { usuario } = useAuth();
+  const formas = useFormasPagamento();
 
   const [recebimentosRaw, setRecebimentosRaw] = useState<RecebimentoRaw[]>([]);
   const [frequencia, setFrequencia]           = useState<Frequencia[]>([]);
@@ -196,6 +221,7 @@ export default function HistoricoCliente({
   const [visualizandoItem, setVisualizandoItem] = useState<FinanceiroItem | null>(null);
   const [profissionalModal, setProfissionalModal] = useState<string | null>(null);
   const [confirmandoItem, setConfirmandoItem]   = useState<FinanceiroItem | null>(null);
+  const [confirmarForma, setConfirmarForma]     = useState<string>("");
   const [alterandoItem, setAlterandoItem]       = useState<FinanceiroItem | null>(null);
   const [salvandoAcao, setSalvandoAcao]         = useState(false);
 
@@ -382,7 +408,7 @@ export default function HistoricoCliente({
 
   // ─── Funções de ação nos itens financeiros ──────────────────────────────
 
-  async function confirmarPagamento(item: FinanceiroItem) {
+  async function confirmarPagamento(item: FinanceiroItem, formaId?: string) {
     setSalvandoAcao(true);
     try {
       // Busca o recebimento completo para não perder campos ao fazer PUT
@@ -395,6 +421,7 @@ export default function HistoricoCliente({
           ...recAtual,
           status: "recebido",
           data_pagamento: new Date().toISOString().slice(0, 10),
+          forma_pagamento_id: formaId ?? null,
           confirmado_por: usuario?.nome_completo ?? usuario?.nome_acesso ?? null,
           confirmado_por_id: usuario?.id ?? null,
         }),
@@ -414,6 +441,7 @@ export default function HistoricoCliente({
     } finally {
       setSalvandoAcao(false);
       setConfirmandoItem(null);
+      setConfirmarForma("");
     }
   }
 
@@ -1163,17 +1191,56 @@ export default function HistoricoCliente({
         </ModalPortal>
       )}
 
-      {/* ── Dialog: Confirmar Pagamento ─────────────────────────────────── */}
-      <ConfirmActionDialog
+      {/* ── Dialog: Confirmar Pagamento com Forma de Pagamento ──────────── */}
+      <Dialog
         open={!!confirmandoItem}
-        onOpenChange={(open) => { if (!open) setConfirmandoItem(null); }}
-        onConfirm={() => { if (confirmandoItem) confirmarPagamento(confirmandoItem); }}
-        titulo="Confirmar Pagamento"
-        mensagem={`Confirmar o recebimento de ${confirmandoItem ? fmt(confirmandoItem.valor) : ""} referente a "${confirmandoItem?.descricao ?? ""}"? A data de pagamento será registrada como hoje.`}
-        labelConfirmar="Confirmar Pagamento"
-        loading={salvandoAcao}
-        variante="warning"
-      />
+        onOpenChange={(open) => { if (!open) { setConfirmandoItem(null); setConfirmarForma(""); } }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Check className="w-4 h-4 text-emerald-600" />
+              Confirmar Pagamento
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium text-foreground">{confirmandoItem?.descricao}</span>
+              {" · "}
+              <span className="font-semibold text-foreground">
+                {confirmandoItem ? fmt(confirmandoItem.valor) : ""}
+              </span>
+            </p>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-muted-foreground">Forma de Pagamento</Label>
+              <Select value={confirmarForma} onValueChange={setConfirmarForma}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Selecione a forma de pagamento" />
+                </SelectTrigger>
+                <SelectContent>
+                  {formas.map(f => (
+                    <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => { setConfirmandoItem(null); setConfirmarForma(""); }}>
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              disabled={!confirmarForma || salvandoAcao}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => { if (confirmandoItem) confirmarPagamento(confirmandoItem, confirmarForma); }}
+            >
+              <Check className="w-4 h-4 mr-1.5" />
+              Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
