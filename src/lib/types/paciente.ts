@@ -47,12 +47,12 @@ export type PacienteUpdate = Partial<PacienteInsert>;
 export interface PacienteResumo {
   id: string;
   nome_completo: string;
-  cpf: string;
+  cpf: string | null;
   tipo_usuario: string;
-  profissional_responsavel: string;
-  telefone_cel: string;
-  data_nascimento: string;
-  cidade: string;
+  profissional_responsavel: string | null;
+  telefone_cel: string | null;
+  data_nascimento: string | null;
+  cidade: string | null;
   created_at: string;
   ativo: boolean;
 }

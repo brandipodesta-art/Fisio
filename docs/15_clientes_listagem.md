@@ -13,9 +13,10 @@ Exibir a lista de pacientes cadastrados no sistema com busca, filtros avançados
 ## Funcionalidades Principais
 
 ### 1. Listagem Dinâmica
-- Cards com avatar (iniciais + cor por hash do nome), nome, CPF, telefone, data de nascimento, cidade e data de cadastro.
+- Apresentação em formato de Tabela (Avatar/Nome, Contato, Detalhes, Ações) e não mais cards soltos.
+- Textos de estado vazio ("empty state") inteligentes que variam dinamicamente conforme o filtro de **Tipo de Usuário** selecionado (ex: "Nenhum funcionário encontrado").
 - Dados carregados via `GET /api/pacientes` com debounce de 400ms nos filtros de texto.
-- Contador `X de Y clientes` no topo — `X` = resultado atual, `Y` = total geral (sem filtros extras).
+- Contador `X de Y clientes` no topo — `X` = resultado atual a depender da paginação, `Y` = total geral.
 
 ### 2. Filtros
 | Filtro | Tipo | Padrão |
@@ -82,5 +83,6 @@ Consumido de `GET /api/pacientes` → tabela `pacientes` no Supabase.
 
 - Para adicionar novos campos na listagem, incluir no `select` da query em `/api/pacientes/route.ts` e no card do componente
 - O filtro padrão `tipo_usuario = "paciente"` é aplicado tanto no estado inicial quanto no `limparFiltros` — manter sincronizados
+- O estado `filtroTipo` possui tipagem explícita `<string>` para evitar restrições de narrowing do TypeScript.
 - `totalGeral` é atualizado apenas quando nome, cpf e profissional estão vazios e tipo é "paciente" ou "todos" e status é "todos"
-- Cards inativos recebem `opacity-70` e avatar cinza
+- Linhas Inativas recebem `opacity-70`, avatar cinza e badge "Inativo".

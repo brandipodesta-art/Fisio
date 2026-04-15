@@ -73,20 +73,29 @@ export default function AgendaPage() {
       }
 
       if (data) {
-        const mapped: Appointment[] = data.map((d: any) => ({
-          id: d.id,
-          patientName: d.patient_name,
-          pacienteId: d.paciente_id || undefined,
-          professionalId: d.professional_id,
-          procedimentoId: d.procedimento_id || undefined,
-          procedimentoNome: d.procedimentos?.nome || undefined,
-          date: d.date,
-          startTime: d.start_time,
-          endTime: d.end_time,
-          duration: d.duration,
-          status: d.status,
-          notes: d.notes,
-        }));
+        const mapped: Appointment[] = data.map((d: any) => {
+          let rawNotes = d.notes || "";
+          let gerarCobranca = true;
+          if (rawNotes.includes("[NO_BILLING]")) {
+            gerarCobranca = false;
+            rawNotes = rawNotes.replace("[NO_BILLING]", "").trim();
+          }
+          return {
+            id: d.id,
+            patientName: d.patient_name,
+            pacienteId: d.paciente_id || undefined,
+            professionalId: d.professional_id,
+            procedimentoId: d.procedimento_id || undefined,
+            procedimentoNome: d.procedimentos?.nome || undefined,
+            date: d.date,
+            startTime: d.start_time,
+            endTime: d.end_time,
+            duration: d.duration,
+            status: d.status,
+            notes: rawNotes || undefined,
+            gerarCobranca,
+          };
+        });
         setAppointments(mapped);
       }
       setIsLoading(false);
@@ -188,7 +197,7 @@ export default function AgendaPage() {
       end_time: rest.endTime,
       duration: rest.duration,
       status: rest.status,
-      notes: rest.notes,
+      notes: apt.gerarCobranca === false ? (rest.notes ? `${rest.notes} [NO_BILLING]` : "[NO_BILLING]") : (rest.notes || null),
     }).select("id").single();
 
     if (error) {
@@ -220,7 +229,7 @@ export default function AgendaPage() {
       end_time: apt.endTime,
       duration: apt.duration,
       status: apt.status,
-      notes: apt.notes,
+      notes: apt.gerarCobranca === false ? (apt.notes ? `${apt.notes} [NO_BILLING]` : "[NO_BILLING]") : (apt.notes || null),
     }));
 
     const { data, error } = await supabase
@@ -305,7 +314,7 @@ export default function AgendaPage() {
     }
 
     // ── Recebimento ao confirmar ──
-    if (newStatus === "confirmado" && appointment.pacienteId) {
+    if (newStatus === "confirmado" && appointment.pacienteId && appointment.gerarCobranca !== false) {
       const { data: existingConf } = await supabase
         .from("recebimentos")
         .select("id")
@@ -328,6 +337,7 @@ export default function AgendaPage() {
             paciente_id: appointment.pacienteId,
             paciente_nome: appointment.patientName,
             procedimento_id: appointment.procedimentoId ?? null,
+            profissional_id: appointment.professionalId ?? null,
             descricao: descricaoConf,
             valor: valorConf,
             data_vencimento: appointment.date,
@@ -344,7 +354,8 @@ export default function AgendaPage() {
     if (
       newStatus === "concluido" &&
       appointment.pacienteId &&
-      statusNaoTerminal.includes(prevStatus)
+      statusNaoTerminal.includes(prevStatus) &&
+      appointment.gerarCobranca !== false
     ) {
       const { data: existing } = await supabase
         .from("recebimentos")
@@ -370,6 +381,7 @@ export default function AgendaPage() {
             paciente_id: appointment.pacienteId,
             paciente_nome: appointment.patientName,
             procedimento_id: appointment.procedimentoId ?? null,
+            profissional_id: appointment.professionalId ?? null,
             descricao,
             valor,
             data_vencimento: appointment.date,
@@ -382,46 +394,51 @@ export default function AgendaPage() {
       }
     }
 
-    // ── Recebimentos: falta registrada (idempotente) ──
-    // Quando o paciente falta, o valor continua sendo devido — gera recebimento pendente
-    if (
-      newStatus === "faltou" &&
-      appointment.pacienteId &&
-      statusNaoTerminal.includes(prevStatus)
-    ) {
-      const { data: existingFalta } = await supabase
+    // ── Recebimento: cancelar quando paciente faltou ──
+    if (newStatus === "faltou") {
+      const { data: recFaltou } = await supabase
         .from("recebimentos")
-        .select("id")
+        .select("id, status")
         .ilike("observacoes", `%agendamento:${appointment.id}%`)
         .maybeSingle();
 
-      if (!existingFalta) {
-        let valorFalta = 0;
-        if (appointment.procedimentoId) {
-          const { data: proc } = await supabase
-            .from("procedimentos")
-            .select("valor_padrao")
-            .eq("id", appointment.procedimentoId)
-            .maybeSingle();
-          valorFalta = proc?.valor_padrao ?? 0;
-        }
+      if (recFaltou && (recFaltou.status === "pendente" || recFaltou.status === "atrasado")) {
+        await supabase
+          .from("recebimentos")
+          .update({ status: "cancelado" })
+          .eq("id", recFaltou.id);
+      }
+    }
 
-        const descricaoFalta = appointment.procedimentoNome ?? appointment.notes ?? "Atendimento";
+    // ── Recebimento: cancelar quando agendamento é cancelado ──
+    if (newStatus === "cancelado") {
+      const { data: recCancelado } = await supabase
+        .from("recebimentos")
+        .select("id, status")
+        .ilike("observacoes", `%agendamento:${appointment.id}%`)
+        .maybeSingle();
 
-        if (valorFalta > 0) {
-          await supabase.from("recebimentos").insert({
-            paciente_id: appointment.pacienteId,
-            paciente_nome: appointment.patientName,
-            procedimento_id: appointment.procedimentoId ?? null,
-            descricao: descricaoFalta,
-            valor: valorFalta,
-            data_vencimento: appointment.date,
-            status: "pendente",
-            observacoes: `agendamento:${appointment.id}`,
-          });
-        } else {
-          toast.error("Procedimento sem valor cadastrado — recebimento não criado. Cadastre o valor em Configurações.");
-        }
+      if (recCancelado && (recCancelado.status === "pendente" || recCancelado.status === "atrasado")) {
+        await supabase
+          .from("recebimentos")
+          .update({ status: "cancelado" })
+          .eq("id", recCancelado.id);
+      }
+    }
+
+    // ── Recebimento: reabrir quando agendamento é reagendado (cancelado/faltou → agendado) ──
+    if (newStatus === "agendado" && (prevStatus === "cancelado" || prevStatus === "faltou")) {
+      const { data: recReabrir } = await supabase
+        .from("recebimentos")
+        .select("id, status")
+        .ilike("observacoes", `%agendamento:${appointment.id}%`)
+        .maybeSingle();
+
+      if (recReabrir && recReabrir.status === "cancelado") {
+        await supabase
+          .from("recebimentos")
+          .update({ status: "pendente", data_vencimento: appointment.date })
+          .eq("id", recReabrir.id);
       }
     }
   };
@@ -446,7 +463,7 @@ export default function AgendaPage() {
         end_time: apt.endTime,
         duration: apt.duration,
         status: apt.status,
-        notes: apt.notes,
+        notes: apt.gerarCobranca === false ? (apt.notes ? `${apt.notes} [NO_BILLING]` : "[NO_BILLING]") : (apt.notes || null),
       })
       .eq("id", apt.id);
 

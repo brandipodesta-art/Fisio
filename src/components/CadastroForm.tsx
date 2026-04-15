@@ -39,7 +39,6 @@ import { usePermissoes } from "@/lib/auth/usePermissoes";
 
 interface FormData {
   tipoUsuario: string;
-  profissionalResponsavel: string;
   nomeCompleto: string;
   cpf: string;
   rg: string;
@@ -101,7 +100,6 @@ export default function CadastroForm({
 
   const [formData, setFormData] = useState<FormData>({
     tipoUsuario: tipoInicial,
-    profissionalResponsavel: "",
     nomeCompleto: "",
     cpf: "",
     rg: "",
@@ -165,7 +163,6 @@ export default function CadastroForm({
 
         setFormData({
           tipoUsuario: p.tipo_usuario ?? "",
-          profissionalResponsavel: p.profissional_responsavel ?? "",
           nomeCompleto: p.nome_completo ?? "",
           cpf: p.cpf ?? "",
           rg: p.rg ?? "",
@@ -704,8 +701,6 @@ export default function CadastroForm({
 
     const payload = {
       tipo_usuario: formData.tipoUsuario,
-      // Converte string vazia para null — FK exige valor válido ou NULL
-      profissional_responsavel: formData.profissionalResponsavel || null,
       nome_completo: formData.nomeCompleto,
       cpf: formData.cpf,
       rg: formData.rg,
@@ -807,8 +802,6 @@ export default function CadastroForm({
       // ── Modo criação: INSERT via Supabase client ──
       const { error } = await supabase.from('pacientes').insert({
         tipo_usuario: formData.tipoUsuario,
-        // Converte string vazia para null — FK exige valor válido ou NULL
-        profissional_responsavel: formData.profissionalResponsavel || null,
         nome_completo: formData.nomeCompleto,
         cpf: formData.cpf,
         rg: formData.rg,
@@ -912,7 +905,7 @@ export default function CadastroForm({
         err?.details ||
         (typeof err === "string" ? err : null) ||
         "Erro ao salvar cadastro. Tente novamente.";
-      console.error("[CadastroForm] handleSubmit error:", msg, err);
+      console.warn("[CadastroForm] handleSubmit error:", msg, err);
       toast.error(msg);
     } finally {
       setIsSubmitting(false);
@@ -943,7 +936,7 @@ export default function CadastroForm({
           <span>Você está <strong>editando</strong> um cadastro existente. As alterações serão salvas no banco de dados.</span>
         </div>
       )}
-      {/* Seção 1: Tipo de Usuário e Profissional */}
+      {/* Seção 1: Tipo de Usuário */}
       <Card className="p-6 border-border shadow-sm">
         <h2 className="text-lg font-semibold text-foreground mb-4">
           Tipo de Usuário
@@ -983,38 +976,6 @@ export default function CadastroForm({
               </p>
             )}
           </div>
-          {formData.tipoUsuario === "paciente" && (
-            <div>
-              <Label
-                htmlFor="profissionalResponsavel"
-                className="text-sm font-medium text-foreground/80"
-              >
-                Profissional Responsável *
-              </Label>
-              <Select
-                value={formData.profissionalResponsavel}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    profissionalResponsavel: value,
-                  }))
-                }
-              >
-                <SelectTrigger id="profissionalResponsavel" className="mt-2">
-                  <SelectValue placeholder="Selecione o profissional responsável por este cliente" />
-                </SelectTrigger>
-                <SelectContent>
-                  {profissionaisList.length === 0 ? (
-                    <SelectItem value="_loading" disabled>Carregando...</SelectItem>
-                  ) : (
-                    profissionaisList.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
         </div>
       </Card>
 

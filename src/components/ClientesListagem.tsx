@@ -117,18 +117,9 @@ export default function ClientesListagem({
   // ── Filtros ──────────────────────────────────────────────────────
   const [filtroNome, setFiltroNome] = useState("");
   const [filtroCpf, setFiltroCpf] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState("paciente");
-  const [filtroProfissional, setFiltroProfissional] = useState("todos");
+  const [filtroTipo, setFiltroTipo] = useState<string>("paciente");
   const [filtroStatus, setFiltroStatus] = useState("todos");
-  const [profissionaisList, setProfissionaisList] = useState<{ id: string; name: string }[]>([]);
 
-  // Carrega profissionais dinamicamente
-  useEffect(() => {
-    const sb = createClient();
-    sb.from("profissionais").select("id, name").order("name").then(({ data }) => {
-      if (data) setProfissionaisList(data as { id: string; name: string }[]);
-    });
-  }, []);
 
   // Refs para debounce dos filtros de texto
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -153,31 +144,80 @@ export default function ClientesListagem({
   };
 
   const buscarClientes = useCallback(
-    async (nome: string, cpf: string, tipo: string, profissional: string, status: string = "todos") => {
+    async (nome: string, cpf: string, tipo: string, status: string = "todos") => {
       setLoading(true);
       setErro(null);
       try {
-        const params = new URLSearchParams();
-        if (nome.trim()) params.set("nome", nome.trim());
-        if (cpf.trim()) params.set("cpf", cpf.replace(/\D/g, ""));
-        if (tipo && tipo !== "todos") params.set("tipo", tipo);
-        if (profissional && profissional !== "todos") params.set("profissional", profissional);
-        if (status && status !== "todos") params.set("status", status);
+        let data: PacienteResumo[] = [];
 
-        const res = await fetch(`/api/pacientes?${params.toString()}`);
-        if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error ?? "Erro ao buscar dados");
+        const sb = createClient();
+
+        if (tipo === "funcionario" || tipo === "todos") {
+          // Funcionários vêm da tabela profissionais
+          let q = sb.from("profissionais").select("id, name").order("name");
+          if (nome.trim()) q = q.ilike("name", `%${nome.trim()}%`);
+          const { data: profs, error } = await q;
+          if (error) throw new Error(error.message);
+
+          // Busca pacientes com tipo_usuario=funcionario para obter o UUID
+          // (necessário para o PacienteVisualizacao que carrega por UUID)
+          let pacsFunc: PacienteResumo[] = [];
+          try {
+            const pacsRes = await fetch("/api/pacientes?tipo=funcionario");
+            if (pacsRes.ok) pacsFunc = await pacsRes.json();
+          } catch { /* ignora falha — usa slug como fallback */ }
+
+          const profsMapped: PacienteResumo[] = (profs ?? []).map(p => {
+            // Tenta encontrar o cadastro na tabela pacientes pelo nome
+            const pac = pacsFunc.find(
+              pa => pa.nome_completo?.toLowerCase() === p.name?.toLowerCase()
+            );
+            return {
+              id: pac?.id ?? p.id, // UUID se disponível, slug como fallback
+              nome_completo: p.name,
+              cpf: pac?.cpf ?? "",
+              telefone_cel: pac?.telefone_cel ?? null,
+              data_nascimento: pac?.data_nascimento ?? null,
+              cidade: pac?.cidade ?? null,
+              tipo_usuario: "funcionario" as const,
+              profissional_responsavel: null,
+              ativo: pac?.ativo ?? true,
+              created_at: pac?.created_at ?? "",
+            };
+          });
+
+          if (tipo === "funcionario") {
+            data = profsMapped;
+          } else {
+            data = profsMapped;
+          }
         }
-        let data: PacienteResumo[] = await res.json();
-        // Funcionário não vê registros do tipo funcionario, admin ou financeiro
-        if (isFuncionario) {
-          data = data.filter(c => !['funcionario','admin','financeiro'].includes(c.tipo_usuario));
+
+        if (tipo !== "funcionario") {
+          // Busca da tabela pacientes (paciente, admin, financeiro, ou todos)
+          const params = new URLSearchParams();
+          if (nome.trim()) params.set("nome", nome.trim());
+          if (cpf.trim()) params.set("cpf", cpf.replace(/\D/g, ""));
+          if (tipo && tipo !== "todos") params.set("tipo", tipo);
+          if (status && status !== "todos") params.set("status", status);
+
+          const res = await fetch(`/api/pacientes?${params.toString()}`);
+          if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.error ?? "Erro ao buscar dados");
+          }
+          let pacs: PacienteResumo[] = await res.json();
+          // Funcionário não vê registros do tipo funcionario, admin ou financeiro
+          if (isFuncionario) {
+            pacs = pacs.filter(c => !['funcionario','admin','financeiro'].includes(c.tipo_usuario));
+          }
+          data = [...data, ...pacs];
         }
+
         setClientes(data);
-        setPaginaAtual(1); // Reseta a página sempre que realizar uma nova busca
+        setPaginaAtual(1);
 
-        if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos" || tipo === "paciente") && (!profissional || profissional === "todos") && (!status || status === "todos")) {
+        if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos" || tipo === "paciente") && (!status || status === "todos")) {
           setTotalGeral(data.length);
         }
       } catch (e: unknown) {
@@ -191,26 +231,28 @@ export default function ClientesListagem({
 
   // Busca inicial
   useEffect(() => {
-    buscarClientes("", "", "paciente", "", "todos");
+    buscarClientes("", "", "paciente", "todos");
   }, [buscarClientes]);
 
   // Debounce ao alterar filtros
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroProfissional, filtroStatus);
+      buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroStatus);
     }, 400);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [filtroNome, filtroCpf, filtroTipo, filtroProfissional, filtroStatus, buscarClientes]);
+  }, [filtroNome, filtroCpf, filtroTipo, filtroStatus, buscarClientes]);
+
+  const listaFinal = clientes;
+  const loadingFinal = loading;
 
   // ── Handlers ──────────────────────────────────────────
   const limparFiltros = () => {
     setFiltroNome("");
     setFiltroCpf("");
     setFiltroTipo("paciente");
-    setFiltroProfissional("todos");
     setFiltroStatus("todos");
     setPaginaAtual(1);
   };
@@ -225,7 +267,7 @@ export default function ClientesListagem({
   };
 
   const filtrosAtivos =
-    filtroNome !== "" || filtroCpf !== "" || (filtroTipo !== "todos" && filtroTipo !== "paciente") || filtroProfissional !== "todos" || filtroStatus !== "todos";
+    filtroNome !== "" || filtroCpf !== "" || (filtroTipo !== "todos" && filtroTipo !== "paciente") || filtroStatus !== "todos";
 
   // ── Render ────────────────────────────────────────────
   return (
@@ -261,7 +303,7 @@ export default function ClientesListagem({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroProfissional)}
+            onClick={() => buscarClientes(filtroNome, filtroCpf, filtroTipo)}
             className="gap-1.5 text-muted-foreground"
             disabled={loading}
           >
@@ -369,24 +411,6 @@ export default function ClientesListagem({
             </Select>
           </div>
 
-          {/* Filtro: Profissional Responsavel */}
-          <div>
-            <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
-              Profissional Responsavel
-            </Label>
-            <Select value={filtroProfissional} onValueChange={setFiltroProfissional}>
-              <SelectTrigger className="text-sm">
-                <SelectValue placeholder="Todos os profissionais" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os profissionais</SelectItem>
-                  {profissionaisList.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Filtro: Status */}
           <div>
             <Label className="text-xs font-medium text-muted-foreground mb-1.5 block">
@@ -420,7 +444,7 @@ export default function ClientesListagem({
             <Button
               variant="outline"
               size="sm"
-              onClick={() => buscarClientes(filtroNome, filtroCpf, filtroTipo, filtroProfissional)}
+              onClick={() => buscarClientes(filtroNome, filtroCpf, filtroTipo)}
               className="ml-auto border-destructive/30 text-destructive hover:bg-destructive/10"
             >
               Tentar novamente
@@ -430,7 +454,7 @@ export default function ClientesListagem({
       )}
 
       {/* Estado de carregamento */}
-      {loading && !erro && (
+      {loadingFinal && !erro && (
         <div className="space-y-2">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="p-4 border-border animate-pulse">
@@ -447,20 +471,20 @@ export default function ClientesListagem({
       )}
 
       {/* Lista vazia */}
-      {!loading && !erro && clientes.length === 0 && (
+      {!loadingFinal && !erro && listaFinal.length === 0 && (
         <Card className="p-12 border-border shadow-sm text-center">
           <div className="flex items-center justify-center w-14 h-14 rounded-full bg-muted mx-auto mb-4">
             <Users className="w-7 h-7 text-muted-foreground/40" />
           </div>
           <p className="text-foreground font-medium">
             {filtrosAtivos
-              ? "Nenhum cliente encontrado com esses filtros"
-              : "Nenhum cliente cadastrado ainda"}
+              ? `Nenhum ${String(filtroTipo) === "funcionario" ? "funcionário" : String(filtroTipo) === "admin" ? "administrador" : String(filtroTipo) === "financeiro" ? "usuário do financeiro" : "cliente"} encontrado com esses filtros`
+              : `Nenhum ${String(filtroTipo) === "funcionario" ? "funcionário" : String(filtroTipo) === "admin" ? "administrador" : String(filtroTipo) === "financeiro" ? "usuário do financeiro" : "cliente"} cadastrado ainda`}
           </p>
           <p className="text-muted-foreground text-sm mt-1.5">
             {filtrosAtivos
               ? "Tente ajustar os filtros de busca."
-              : "Clique em \"Novo Cadastro\" para adicionar o primeiro cliente."}
+              : `Clique em "Novo Cadastro" para adicionar o primeiro ${String(filtroTipo) === "funcionario" ? "funcionário" : "cliente"}.`}
           </p>
           {filtrosAtivos && (
             <Button
@@ -476,7 +500,7 @@ export default function ClientesListagem({
       )}
 
       {/* Lista de clientes (Tabela com Paginação) */}
-      {!loading && !erro && clientes.length > 0 && (
+      {!loadingFinal && !erro && listaFinal.length > 0 && (
         <Card className="overflow-hidden border-border shadow-sm">
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
@@ -489,7 +513,7 @@ export default function ClientesListagem({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-foreground">
-                {clientes.slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina).map((cliente) => (
+                {listaFinal.slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina).map((cliente) => (
                   <tr
                     key={cliente.id}
                     className={`hover:bg-muted/30 transition-colors ${!cliente.ativo ? "opacity-70 bg-muted/10" : "bg-card"}`}
@@ -548,11 +572,6 @@ export default function ClientesListagem({
                           <span className="flex items-center gap-1.5 truncate max-w-[200px]">
                             <Calendar className="w-3.5 h-3.5 shrink-0" />
                             Nasc.: {formatarData(cliente.data_nascimento)}
-                          </span>
-                        )}
-                        {cliente.profissional_responsavel && (
-                          <span className="truncate max-w-[200px]" title={cliente.profissional_responsavel}>
-                            Resp: <span className="font-medium text-foreground/80">{cliente.profissional_responsavel.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</span>
                           </span>
                         )}
                         <span className="text-[11px] text-muted-foreground/60">
