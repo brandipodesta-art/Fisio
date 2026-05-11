@@ -38,12 +38,12 @@ export default function CadastroLayout() {
 
   const handleEditarCliente = (cliente: PacienteResumo) => {
     setModo({ tipo: "editar", id: cliente.id, nome: cliente.nome_completo, tipoUsuario: cliente.tipo_usuario });
-    setAbaCliente("dados");
+    setAbaCliente(cliente.tipo_usuario === "funcionario" ? "historico" : "dados");
   };
 
   const handleVisualizarCliente = (cliente: PacienteResumo) => {
     setModo({ tipo: "ver", id: cliente.id, nome: cliente.nome_completo, tipoUsuario: cliente.tipo_usuario });
-    setAbaCliente("dados");
+    setAbaCliente(cliente.tipo_usuario === "funcionario" ? "historico" : "dados");
   };
 
   const handleSalvoComSucesso = () => setModo({ tipo: "listagem" });
@@ -94,6 +94,7 @@ export default function CadastroLayout() {
   const idCliente = modo.tipo === "editar" || modo.tipo === "ver" ? modo.id : "";
 
   const tipoUsuarioCliente = modo.tipo === "editar" || modo.tipo === "ver" ? (modo.tipoUsuario ?? "paciente") : "paciente";
+  const isFuncionarioCliente = tipoUsuarioCliente === "funcionario";
 
   return (
     <div className="py-8">
@@ -119,7 +120,7 @@ export default function CadastroLayout() {
           onValueChange={setAbaCliente}
           className="w-full"
         >
-          <TabsList className="grid w-full grid-cols-3 mb-6 bg-muted/60 border border-border rounded-xl p-1 h-auto">
+          <TabsList className={`grid w-full ${isFuncionarioCliente ? "grid-cols-2" : "grid-cols-3"} mb-6 bg-muted/60 border border-border rounded-xl p-1 h-auto`}>
             <TabsTrigger
               value="dados"
               className="flex items-center gap-2 py-2.5 rounded-lg data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm transition-premium"
@@ -130,13 +131,15 @@ export default function CadastroLayout() {
               </span>
             </TabsTrigger>
 
-            <TabsTrigger
-              value="evolucao"
-              className="flex items-center gap-2 py-2.5 rounded-lg data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm transition-premium"
-            >
-              <FileText className="w-4 h-4" />
-              <span className="hidden sm:inline">Evolucao</span>
-            </TabsTrigger>
+            {!isFuncionarioCliente && (
+              <TabsTrigger
+                value="evolucao"
+                className="flex items-center gap-2 py-2.5 rounded-lg data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm transition-premium"
+              >
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">Evolucao</span>
+              </TabsTrigger>
+            )}
 
             <TabsTrigger
               value="historico"

@@ -16,10 +16,11 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarDays, CalendarPlus, Lock, Pencil, Repeat2, Search } from "lucide-react";
+import { CalendarDays, CalendarPlus, Check, Lock, Pencil, Repeat2, Search } from "lucide-react";
 import { toast } from "sonner";
 import type { Appointment, AppointmentStatus, Professional } from "./agendaTypes";
 import { DURATION_OPTIONS, APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS } from "./agendaTypes";
@@ -72,6 +73,12 @@ export default function AgendaNewEventDialog({
   const [repete, setRepete] = useState(false);
   const [semanas, setSemanas] = useState(4);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const [recebimentoPendente, setRecebimentoPendente] = useState<{ id: string; descricao: string; valor: number } | null>(null);
+  const [confirmandoPagamento, setConfirmandoPagamento] = useState(false);
+  const [confirmarForma, setConfirmarForma] = useState("");
+  const [formasPagamento, setFormasPagamento] = useState<{ id: string; nome: string }[]>([]);
+  const [salvandoPagamento, setSalvandoPagamento] = useState(false);
 
   const supabase = createClient();
 
@@ -149,6 +156,41 @@ export default function AgendaNewEventDialog({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Buscar formas de pagamento
+  useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    fetch(`${url}/rest/v1/formas_pagamento?tipo=in.(recebimento,ambos)&ativo=eq.true&order=nome`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setFormasPagamento(data); })
+      .catch(() => {});
+  }, []);
+
+  // Verificar se há recebimento pendente vinculado ao agendamento
+  useEffect(() => {
+    if (!appointmentToEdit?.id || !open) {
+      setRecebimentoPendente(null);
+      return;
+    }
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    fetch(
+      `${url}/rest/v1/recebimentos?status=eq.pendente&observacoes=ilike.*agendamento:${appointmentToEdit.id}*&select=id,descricao,valor`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } }
+    )
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setRecebimentoPendente({ id: data[0].id, descricao: data[0].descricao, valor: Number(data[0].valor) });
+        } else {
+          setRecebimentoPendente(null);
+        }
+      })
+      .catch(() => setRecebimentoPendente(null));
+  }, [appointmentToEdit?.id, open]);
+
   // Preview das datas semanais adicionais
   function datesPreview(): string[] {
     if (!date || !repete) return [];
@@ -162,6 +204,36 @@ export default function AgendaNewEventDialog({
     }
     return dates;
   }
+
+  const handleConfirmarPagamento = async () => {
+    if (!recebimentoPendente || !confirmarForma) return;
+    setSalvandoPagamento(true);
+    try {
+      const recAtual = await fetch(`/api/recebimentos/${recebimentoPendente.id}`).then(r => r.json());
+      const res = await fetch(`/api/recebimentos/${recebimentoPendente.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...recAtual,
+          status: "recebido",
+          data_pagamento: new Date().toISOString().slice(0, 10),
+          forma_pagamento_id: confirmarForma,
+        }),
+      });
+      if (res.ok) {
+        toast.success("Pagamento confirmado com sucesso!");
+        setRecebimentoPendente(null);
+        setConfirmandoPagamento(false);
+        setConfirmarForma("");
+      } else {
+        toast.error("Erro ao confirmar pagamento");
+      }
+    } catch {
+      toast.error("Erro ao confirmar pagamento");
+    } finally {
+      setSalvandoPagamento(false);
+    }
+  };
 
   const resetForm = () => {
     setPatientSearch("");
@@ -179,6 +251,9 @@ export default function AgendaNewEventDialog({
     setIsForceEdit(false);
     setRepete(false);
     setSemanas(4);
+    setRecebimentoPendente(null);
+    setConfirmandoPagamento(false);
+    setConfirmarForma("");
   };
 
   const handleSave = () => {
@@ -247,6 +322,7 @@ export default function AgendaNewEventDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
@@ -572,6 +648,15 @@ export default function AgendaNewEventDialog({
               Editar
             </Button>
           )}
+          {recebimentoPendente && (
+            <Button
+              onClick={() => setConfirmandoPagamento(true)}
+              className={`gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white ${!isLocked ? "mr-auto" : ""}`}
+            >
+              <Check className="w-4 h-4" />
+              Confirmar Pagamento
+            </Button>
+          )}
           <Button variant="outline" onClick={() => handleOpenChange(false)}>
             {isLocked ? "Fechar" : "Cancelar"}
           </Button>
@@ -584,5 +669,56 @@ export default function AgendaNewEventDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <Dialog
+      open={confirmandoPagamento}
+      onOpenChange={(o) => { if (!o) { setConfirmandoPagamento(false); setConfirmarForma(""); } }}
+    >
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600" />
+            Confirmar Pagamento
+          </DialogTitle>
+        </DialogHeader>
+        <div className="py-2 space-y-4">
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{recebimentoPendente?.descricao}</span>
+            {" · "}
+            <span className="font-semibold text-foreground">
+              {recebimentoPendente ? recebimentoPendente.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : ""}
+            </span>
+          </p>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Forma de Pagamento</Label>
+            <Select value={confirmarForma} onValueChange={setConfirmarForma}>
+              <SelectTrigger className="text-sm">
+                <SelectValue placeholder="Selecione a forma de pagamento" />
+              </SelectTrigger>
+              <SelectContent>
+                {formasPagamento.map(f => (
+                  <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" size="sm" onClick={() => { setConfirmandoPagamento(false); setConfirmarForma(""); }}>
+            Cancelar
+          </Button>
+          <Button
+            size="sm"
+            disabled={!confirmarForma || salvandoPagamento}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={handleConfirmarPagamento}
+          >
+            <Check className="w-4 h-4 mr-1.5" />
+            {salvandoPagamento ? "Confirmando..." : "Confirmar"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

@@ -217,7 +217,7 @@ export default function ClientesListagem({
         setClientes(data);
         setPaginaAtual(1);
 
-        if (!nome.trim() && !cpf.trim() && (!tipo || tipo === "todos" || tipo === "paciente") && (!status || status === "todos")) {
+        if (!nome.trim() && !cpf.trim() && (!status || status === "todos")) {
           setTotalGeral(data.length);
         }
       } catch (e: unknown) {
