@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarDays, CalendarPlus, Check, Lock, Pencil, Repeat2, Search } from "lucide-react";
+import { CalendarDays, CalendarPlus, Check, Clock, Lock, Pencil, Repeat2, Search } from "lucide-react";
 import { toast } from "sonner";
 import type { Appointment, AppointmentStatus, Professional } from "./agendaTypes";
 import { DURATION_OPTIONS, APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS } from "./agendaTypes";
@@ -73,6 +73,10 @@ export default function AgendaNewEventDialog({
   const [repete, setRepete] = useState(false);
   const [semanas, setSemanas] = useState(4);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Lista de Espera (avisar paciente se vagar antes)
+  const [addToWaitlist, setAddToWaitlist] = useState(false);
+  const [waitlistUrgencia, setWaitlistUrgencia] = useState<"alta" | "media" | "baixa">("media");
 
   const [recebimentoPendente, setRecebimentoPendente] = useState<{ id: string; descricao: string; valor: number } | null>(null);
   const [confirmandoPagamento, setConfirmandoPagamento] = useState(false);
@@ -254,6 +258,8 @@ export default function AgendaNewEventDialog({
     setRecebimentoPendente(null);
     setConfirmandoPagamento(false);
     setConfirmarForma("");
+    setAddToWaitlist(false);
+    setWaitlistUrgencia("media");
   };
 
   const handleSave = () => {
@@ -288,6 +294,8 @@ export default function AgendaNewEventDialog({
       status: isEditing ? status : "agendado",
       notes: notes.trim() || undefined,
       gerarCobranca,
+      addToWaitlist: addToWaitlist || undefined,
+      waitlistUrgencia: addToWaitlist ? waitlistUrgencia : undefined,
     };
 
     if (isEditing && onUpdate) {
@@ -587,6 +595,57 @@ export default function AgendaNewEventDialog({
               <p className="text-[11px] text-muted-foreground/70 mt-1 pl-6">
                 Desmarque para sessões de pacotes (Pilates/Mensalidades) para não duplicar valores.
               </p>
+            </div>
+          )}
+
+          {/* Lista de Espera — avisar se vagar antes */}
+          {!isLocked && !isEditing && (
+            <div className="bg-amber-50/50 border border-amber-200/60 rounded-lg p-3 space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium select-none cursor-pointer text-foreground/80">
+                <input
+                  type="checkbox"
+                  checked={addToWaitlist}
+                  onChange={(e) => setAddToWaitlist(e.target.checked)}
+                  className="w-4 h-4 accent-amber-500"
+                />
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                Adicionar à Lista de Espera
+              </label>
+              <p className="text-[11px] text-muted-foreground/70 pl-6">
+                Marque se o paciente aceita ser chamado caso surja uma vaga antes desta data.
+              </p>
+              {addToWaitlist && (
+                <div className="pl-6 pt-1">
+                  <Label className="text-[11px] font-medium text-muted-foreground">
+                    Urgência
+                  </Label>
+                  <div className="grid grid-cols-3 gap-1.5 mt-1">
+                    {(["alta", "media", "baixa"] as const).map((u) => {
+                      const cfg = {
+                        alta: { label: "Alta", bg: "bg-red-50 text-red-700 border-red-300", dot: "bg-red-500" },
+                        media: { label: "Média", bg: "bg-amber-50 text-amber-700 border-amber-300", dot: "bg-amber-500" },
+                        baixa: { label: "Baixa", bg: "bg-emerald-50 text-emerald-700 border-emerald-300", dot: "bg-emerald-500" },
+                      }[u];
+                      const active = waitlistUrgencia === u;
+                      return (
+                        <button
+                          key={u}
+                          type="button"
+                          onClick={() => setWaitlistUrgencia(u)}
+                          className={`px-2 py-1.5 rounded-md text-xs font-medium border transition-all flex items-center justify-center gap-1.5 ${
+                            active
+                              ? cfg.bg + " ring-1 ring-current"
+                              : "bg-card text-muted-foreground border-border opacity-60 hover:opacity-100"
+                          }`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                          {cfg.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

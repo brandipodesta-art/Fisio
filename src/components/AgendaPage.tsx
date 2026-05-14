@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Plus, Calendar } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar, Clock } from "lucide-react";
 import type { Appointment, AppointmentStatus, Professional, ViewMode } from "./agendaTypes";
 import {
   mapDbProfessional,
@@ -19,6 +19,8 @@ import {
 } from "./agendaData";
 import AgendaEventCard from "./AgendaEventCard";
 import AgendaNewEventDialog from "./AgendaNewEventDialog";
+import ListaEsperaDrawer from "./ListaEsperaDrawer";
+import { usePermissoes } from "@/lib/auth/usePermissoes";
 
 /**
  * AgendaPage - Main scheduling page (Google Calendar style)
@@ -41,7 +43,28 @@ export default function AgendaPage() {
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Lista de Espera
+  const { podeVerListaEspera } = usePermissoes();
+  const [listaEsperaOpen, setListaEsperaOpen] = useState(false);
+  const [listaEsperaCount, setListaEsperaCount] = useState(0);
+  const [listaEsperaAlta, setListaEsperaAlta] = useState(0);
+
   const supabase = createClient();
+
+  // Buscar contadores da lista de espera
+  useEffect(() => {
+    async function fetchListaEsperaCount() {
+      const { data } = await supabase
+        .from("lista_espera")
+        .select("urgencia")
+        .eq("status", "aguardando");
+      if (data) {
+        setListaEsperaCount(data.length);
+        setListaEsperaAlta(data.filter((i) => i.urgencia === "alta").length);
+      }
+    }
+    if (podeVerListaEspera) fetchListaEsperaCount();
+  }, [podeVerListaEspera, listaEsperaOpen]);
 
   // Buscar profissionais do Supabase
   useEffect(() => {
@@ -211,6 +234,35 @@ export default function AgendaPage() {
       setAppointments((prev) =>
         prev.map((a) => (a.id === apt.id ? { ...a, id: data.id } : a))
       );
+
+      // Lista de Espera: criar entrada vinculada ao agendamento
+      if (apt.addToWaitlist && apt.pacienteId) {
+        try {
+          const { data: pacData } = await supabase
+            .from("pacientes")
+            .select("telefone_cel")
+            .eq("id", apt.pacienteId)
+            .maybeSingle();
+
+          await supabase.from("lista_espera").insert({
+            paciente_id: apt.pacienteId,
+            paciente_nome: apt.patientName,
+            telefone: pacData?.telefone_cel ?? null,
+            profissional_preferido_id: apt.professionalId,
+            procedimento_id: apt.procedimentoId ?? null,
+            motivo: apt.notes ?? null,
+            urgencia: apt.waitlistUrgencia ?? "media",
+            agendamento_atual_id: data.id,
+            status: "aguardando",
+          });
+          toast.success("Paciente adicionado à Lista de Espera");
+          // Atualiza contador
+          setListaEsperaCount((c) => c + 1);
+          if (apt.waitlistUrgencia === "alta") setListaEsperaAlta((c) => c + 1);
+        } catch (err) {
+          console.warn("Erro ao adicionar à lista de espera:", err);
+        }
+      }
     }
   };
 
@@ -612,6 +664,28 @@ export default function AgendaPage() {
                 Mês
               </button>
             </div>
+            {podeVerListaEspera && (
+              <Button
+                variant="outline"
+                onClick={() => setListaEsperaOpen(true)}
+                className="text-sm relative gap-1.5"
+                title="Lista de Espera"
+              >
+                <Clock className="w-4 h-4" />
+                <span className="hidden md:inline">Lista de Espera</span>
+                {listaEsperaCount > 0 && (
+                  <span
+                    className={`ml-0.5 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold ${
+                      listaEsperaAlta > 0
+                        ? "bg-red-500 text-white"
+                        : "bg-amber-500 text-white"
+                    }`}
+                  >
+                    {listaEsperaCount}
+                  </span>
+                )}
+              </Button>
+            )}
             <Button
               onClick={() => openNewDialog()}
               className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm"
@@ -901,6 +975,15 @@ export default function AgendaPage() {
           ))}
         </div>
       </Card>
+
+      {/* Lista de Espera Drawer */}
+      {podeVerListaEspera && (
+        <ListaEsperaDrawer
+          open={listaEsperaOpen}
+          onOpenChange={setListaEsperaOpen}
+          professionals={professionals}
+        />
+      )}
 
       {/* New/Edit Event Dialog */}
       <AgendaNewEventDialog

@@ -27,6 +27,9 @@ export interface Appointment {
   status: AppointmentStatus;
   notes?: string;
   gerarCobranca?: boolean;
+  // Lista de Espera (apenas no fluxo de salvamento — não persistido em agendamentos)
+  addToWaitlist?: boolean;
+  waitlistUrgencia?: "alta" | "media" | "baixa";
 }
 
 export type AppointmentStatus =

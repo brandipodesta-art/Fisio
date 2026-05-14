@@ -46,6 +46,13 @@ export function usePermissoes() {
     /** Pode acessar o módulo Financeiro */
     podeVerFinanceiro: isAdmin || isFinanceiro,
 
+    // ── Lista de Espera ───────────────────────────────────────────────────────
+    /** Pode ver e gerenciar a lista de espera da agenda */
+    podeVerListaEspera: isAdmin || isFinanceiro || isFuncionario,
+
+    /** Pode remover entradas da lista de espera */
+    podeRemoverListaEspera: isAdmin || isFinanceiro || isFuncionario,
+
     // ── Utilitários ───────────────────────────────────────────────────────────
     tipo,
     isAdmin,
