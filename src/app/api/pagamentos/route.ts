@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getSupabase } from "@/lib/supabaseServer";
 
 // GET /api/pagamentos — lista com filtros opcionais
 export async function GET(req: NextRequest) {
+  const supabase = getSupabase();
   const { searchParams } = new URL(req.url);
   const status    = searchParams.get("status");
   const categoria = searchParams.get("categoria");
@@ -31,6 +27,7 @@ export async function GET(req: NextRequest) {
 
 // POST /api/pagamentos — cria novo pagamento
 export async function POST(req: NextRequest) {
+  const supabase = getSupabase();
   const body = await req.json();
   // Garantir que categoria nunca seja null (coluna NOT NULL no banco)
   // Usa o nome da categoria se disponível, senão fallback para "Outros"

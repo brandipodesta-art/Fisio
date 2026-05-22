@@ -1,16 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { getSupabase } from "@/lib/supabaseServer";
 
 // GET /api/recebimentos/[id]
 export async function GET(
   _: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabase = getSupabase();
   const { id } = await params;
   const { data, error } = await supabase
     .from("recebimentos")
@@ -27,6 +23,7 @@ async function criarComissaoSeAplicavel(
   recebimento: { observacoes: string | null; valor: number; procedimento_id: string | null },
   dataPagamento: string
 ) {
+  const supabase = getSupabase();
   // 1. Idempotência — não duplicar se comissão já foi criada para este recebimento
   const { data: existente } = await supabase
     .from("pagamentos")
@@ -97,6 +94,7 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabase = getSupabase();
   const { id } = await params;
   const body = await req.json();
 
@@ -133,6 +131,7 @@ export async function DELETE(
   _: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const supabase = getSupabase();
   const { id } = await params;
   const { error } = await supabase.from("recebimentos").delete().eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
