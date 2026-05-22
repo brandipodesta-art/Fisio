@@ -631,8 +631,24 @@ function SecaoProfissionais() {
     setSalvando(true);
     setErroForm(null);
     try {
-      if (mostrando === "novo") await inserirProf({ name: form.name.trim() });
-      else await atualizarProf(mostrando, { name: form.name.trim() });
+      if (mostrando === "novo") {
+        const nome = form.name.trim();
+        const idSlug = nome
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[̀-ͯ]/g, "")
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, "");
+        if (!idSlug) { setErroForm("Nome inválido."); setSalvando(false); return; }
+        const partes = nome.split(" ");
+        const shortName = partes.length > 1
+          ? `${partes[0]} ${partes[partes.length - 1][0]}.`
+          : partes[0];
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await inserirProf({ id: idSlug, name: nome, short_name: shortName } as any);
+      } else {
+        await atualizarProf(mostrando, { name: form.name.trim() });
+      }
       setMostrando("nenhum");
     } catch (e: unknown) {
       setErroForm(e instanceof Error ? e.message : "Erro ao salvar.");
