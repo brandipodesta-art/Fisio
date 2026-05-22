@@ -745,13 +745,14 @@ export default function CadastroForm({
 
         // ── Sincronizar com tabela profissionais se for Funcionário ou Financeiro ──
         if (formData.tipoUsuario === 'funcionario' || formData.tipoUsuario === 'financeiro') {
-          const nome = formData.nomeCompleto.trim();
+          const nome = formData.nomeCompleto?.trim() ?? '';
           const idSlug = nome
             .toLowerCase()
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '')
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-|-$/g, '');
+          if (!idSlug) return; // nome inv\u00e1lido \u2014 n\u00e3o sincroniza profissionais
           const primeiroNome = nome.split(' ')[0];
           const ultimoNome = nome.split(' ').slice(-1)[0];
           const shortName = nome.split(' ').length > 1
