@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 import {
   X,
   Search,
@@ -133,6 +134,8 @@ export default function ListaEsperaDrawer({
   const [filtroStatus, setFiltroStatus] = useState<string>("aguardando");
   const [showAddForm, setShowAddForm] = useState(false);
   const [editing, setEditing] = useState<ListaEsperaItem | null>(null);
+  const [itemParaRemover, setItemParaRemover] = useState<ListaEsperaItem | null>(null);
+  const [removendoLoading, setRemovendoLoading] = useState(false);
   const elRef = useRef<HTMLDivElement | null>(null);
 
   // ── Portal setup ─────────────────────────────────────────────────────────
@@ -258,20 +261,28 @@ export default function ListaEsperaDrawer({
     }
   }
 
-  async function removerItem(item: ListaEsperaItem) {
-    if (!confirm(`Remover ${item.paciente_nome} da lista de espera?`)) return;
+  function removerItem(item: ListaEsperaItem) {
+    setItemParaRemover(item);
+  }
+
+  async function confirmarRemocao() {
+    if (!itemParaRemover) return;
+    setRemovendoLoading(true);
     try {
       const sb = createClient();
       const { error } = await sb
         .from("lista_espera")
         .delete()
-        .eq("id", item.id);
+        .eq("id", itemParaRemover.id);
       if (error) throw error;
       toast.success("Removido da lista de espera");
+      setItemParaRemover(null);
       fetchLista();
     } catch (e) {
       console.error(e);
       toast.error("Erro ao remover");
+    } finally {
+      setRemovendoLoading(false);
     }
   }
 
@@ -540,6 +551,19 @@ export default function ListaEsperaDrawer({
           />
         )}
       </aside>
+
+      <ConfirmDeleteDialog
+        open={!!itemParaRemover}
+        onOpenChange={(o) => { if (!o) setItemParaRemover(null); }}
+        onConfirm={confirmarRemocao}
+        titulo="Remover da Lista de Espera"
+        mensagem={
+          itemParaRemover
+            ? `Tem certeza que deseja remover ${itemParaRemover.paciente_nome} da lista de espera?`
+            : ""
+        }
+        loading={removendoLoading}
+      />
     </>
   );
 
