@@ -4,6 +4,7 @@ import ConfirmActionDialog from "@/components/ui/ConfirmActionDialog";
 import ModalPortal from "@/components/ui/ModalPortal";
 import { AutocompletePaciente } from "@/components/ui/AutocompletePaciente";
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { toast } from "sonner";
 import {
   Plus, RefreshCw, Search, X, CheckCircle2, Clock,
   AlertCircle, XCircle, Pencil, Trash2, Check, Eye, TriangleAlert, Repeat2, CalendarDays, MoreHorizontal,
@@ -664,7 +665,7 @@ export default function FinanceiroPagamentos() {
       setDadosPendentes(null);
       buscar();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Erro ao salvar");
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar");
     } finally {
       setSalvando(false);
     }

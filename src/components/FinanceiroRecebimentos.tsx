@@ -529,7 +529,7 @@ export default function FinanceiroRecebimentos() {
       setEditando(null);
       buscar();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : "Erro ao salvar");
+      toast.error(e instanceof Error ? e.message : "Erro ao salvar");
     } finally {
       setSalvando(false);
     }
