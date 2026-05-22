@@ -593,8 +593,17 @@ export default function ClientesListagem({
                             onClick={() => onVisualizarCliente?.(cliente)}
                             className="cursor-pointer"
                           >
-                            <Eye className="w-4 h-4 mr-2" />
-                            Visualizar
+                            {podeEditarCadastro ? (
+                              <>
+                                <Eye className="w-4 h-4 mr-2" />
+                                Visualizar
+                              </>
+                            ) : (
+                              <>
+                                <Pencil className="w-4 h-4 mr-2" />
+                                Editar
+                              </>
+                            )}
                           </DropdownMenuItem>
                           {podeEditarCadastro && (
                             <DropdownMenuItem
