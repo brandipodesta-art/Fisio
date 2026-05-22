@@ -3,6 +3,7 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import AppToaster from "@/components/ui/AppToaster";
 import { AuthProvider } from "@/lib/auth/AuthContext";
+import { Analytics } from "@vercel/analytics/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,6 +27,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
           <AppToaster />
+          <Analytics />
         </AuthProvider>
       </body>
     </html>
