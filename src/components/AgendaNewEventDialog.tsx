@@ -87,7 +87,7 @@ export default function AgendaNewEventDialog({
   const supabase = createClient();
 
   const isEditing = !!appointmentToEdit;
-  const TERMINAL_STATUSES: AppointmentStatus[] = ["concluido", "cancelado", "faltou"];
+  const TERMINAL_STATUSES: AppointmentStatus[] = ["atendido", "nao_atendido", "falta_sem_reposicao", "reposicao"];
   const isLocked = isEditing && TERMINAL_STATUSES.includes(status) && !isForceEdit;
 
   // Buscar procedimentos ativos
@@ -358,9 +358,11 @@ export default function AgendaNewEventDialog({
           {/* Banner de status bloqueado */}
           {isLocked && (
             <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border ${
-              status === "concluido"
+              status === "atendido"
                 ? "bg-green-50 border-green-200 text-green-700"
-                : status === "cancelado"
+                : status === "reposicao"
+                ? "bg-purple-50 border-purple-200 text-purple-700"
+                : status === "falta_sem_reposicao" || status === "nao_atendido"
                 ? "bg-red-50 border-red-200 text-red-700"
                 : "bg-amber-50 border-amber-200 text-amber-700"
             }`}>

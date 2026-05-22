@@ -318,8 +318,8 @@ export default function AgendaPage() {
     prevStatus: AppointmentStatus,
     newStatus: AppointmentStatus
   ) => {
-    const statusNaoTerminal = ["agendado", "confirmado", "em_atendimento"];
-    const statusTerminal    = ["concluido", "faltou"];
+    const statusNaoTerminal = ["agendado", "presenca_confirmada", "atendimento_individual", "falta_com_reposicao"];
+    const statusTerminal    = ["atendido", "nao_atendido", "falta_sem_reposicao", "reposicao"];
 
     // ── Frequências: recomputa do zero a partir dos agendamentos (idempotente) ──
     if (
@@ -333,13 +333,13 @@ export default function AgendaPage() {
           .from("agendamentos")
           .select("*", { count: "exact", head: true })
           .eq("paciente_id", appointment.pacienteId)
-          .eq("status", "concluido")
+          .in("status", ["atendido", "reposicao"])
           .like("date", `${mes}-%`),
         supabase
           .from("agendamentos")
           .select("*", { count: "exact", head: true })
           .eq("paciente_id", appointment.pacienteId)
-          .eq("status", "faltou")
+          .in("status", ["nao_atendido", "falta_sem_reposicao"])
           .like("date", `${mes}-%`),
       ]);
 
@@ -365,8 +365,8 @@ export default function AgendaPage() {
       }
     }
 
-    // ── Recebimento ao confirmar ──
-    if (newStatus === "confirmado" && appointment.pacienteId && appointment.gerarCobranca !== false) {
+    // ── Recebimento ao confirmar presença ──
+    if (newStatus === "presenca_confirmada" && appointment.pacienteId && appointment.gerarCobranca !== false) {
       const { data: existingConf } = await supabase
         .from("recebimentos")
         .select("id")
@@ -402,9 +402,10 @@ export default function AgendaPage() {
       }
     }
 
-    // ── Recebimentos: fallback na conclusão (idempotente) ──
+    // ── Recebimentos: fallback na conclusão / atendimento (idempotente) ──
+    // Apenas "atendido" gera cobrança nova — "reposicao" não cria (paciente já foi cobrado na sessão original)
     if (
-      newStatus === "concluido" &&
+      newStatus === "atendido" &&
       appointment.pacienteId &&
       statusNaoTerminal.includes(prevStatus) &&
       appointment.gerarCobranca !== false
@@ -446,8 +447,9 @@ export default function AgendaPage() {
       }
     }
 
-    // ── Recebimento: cancelar quando paciente faltou ──
-    if (newStatus === "faltou") {
+    // ── Recebimento: cancelar quando paciente faltou (sem reposição) ou não foi atendido ──
+    // OBS: "falta_com_reposicao" mantém o recebimento pendente — paciente vai repor a sessão
+    if (newStatus === "falta_sem_reposicao" || newStatus === "nao_atendido") {
       const { data: recFaltou } = await supabase
         .from("recebimentos")
         .select("id, status")
@@ -462,24 +464,8 @@ export default function AgendaPage() {
       }
     }
 
-    // ── Recebimento: cancelar quando agendamento é cancelado ──
-    if (newStatus === "cancelado") {
-      const { data: recCancelado } = await supabase
-        .from("recebimentos")
-        .select("id, status")
-        .ilike("observacoes", `%agendamento:${appointment.id}%`)
-        .maybeSingle();
-
-      if (recCancelado && (recCancelado.status === "pendente" || recCancelado.status === "atrasado")) {
-        await supabase
-          .from("recebimentos")
-          .update({ status: "cancelado" })
-          .eq("id", recCancelado.id);
-      }
-    }
-
-    // ── Recebimento: reabrir quando agendamento é reagendado (cancelado/faltou → agendado) ──
-    if (newStatus === "agendado" && (prevStatus === "cancelado" || prevStatus === "faltou")) {
+    // ── Recebimento: reabrir quando agendamento é reagendado (faltas → agendado) ──
+    if (newStatus === "agendado" && (prevStatus === "falta_sem_reposicao" || prevStatus === "nao_atendido")) {
       const { data: recReabrir } = await supabase
         .from("recebimentos")
         .select("id, status")

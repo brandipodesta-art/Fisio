@@ -76,7 +76,7 @@ interface ProcedimentoResumo {
 
 interface FrequenciaSession {
   date: string;
-  status: "concluido" | "faltou" | "cancelado";
+  status: "atendido" | "reposicao" | "falta_sem_reposicao" | "nao_atendido" | "falta_com_reposicao";
   procedimentoNome: string | null;
 }
 
@@ -280,24 +280,24 @@ export default function HistoricoCliente({
           const [recebimentos, agendamentosFreq, evols] = await Promise.all([
             get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status,observacoes`),
             // Frequências calculadas direto dos agendamentos — nunca desatualizado
-            get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(concluido,faltou,cancelado)&select=date,status,procedimentos(nome)&order=date.desc`),
+            get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(atendido,reposicao,nao_atendido,falta_sem_reposicao,falta_com_reposicao)&select=date,status,procedimentos(nome)&order=date.desc`),
             get(`evolucoes?paciente_id=eq.${pacienteId}&order=created_at.desc&select=*`),
           ]);
 
           if (Array.isArray(recebimentos)) setRecebimentosRaw(recebimentos as RecebimentoRaw[]);
           if (Array.isArray(agendamentosFreq)) {
-            // Agrupa por mês: conta presencas (concluido) e faltas (faltou)
+            // Agrupa por mês: presencas (atendido/reposicao), faltas (nao_atendido/falta_sem_reposicao), reposições pendentes (falta_com_reposicao)
             type AptFreq = { date: string; status: string; procedimentos?: { nome: string } | null };
             const byMonth: Record<string, { presencas: number; faltas: number; cancelamentos: number; sessoes: FrequenciaSession[] }> = {};
             for (const apt of agendamentosFreq as AptFreq[]) {
               const mes = apt.date.substring(0, 7);
               if (!byMonth[mes]) byMonth[mes] = { presencas: 0, faltas: 0, cancelamentos: 0, sessoes: [] };
-              if (apt.status === "concluido") byMonth[mes].presencas++;
-              else if (apt.status === "faltou") byMonth[mes].faltas++;
-              else if (apt.status === "cancelado") byMonth[mes].cancelamentos++;
+              if (apt.status === "atendido" || apt.status === "reposicao") byMonth[mes].presencas++;
+              else if (apt.status === "nao_atendido" || apt.status === "falta_sem_reposicao") byMonth[mes].faltas++;
+              else if (apt.status === "falta_com_reposicao") byMonth[mes].cancelamentos++;
               byMonth[mes].sessoes.push({
                 date: apt.date,
-                status: apt.status as "concluido" | "faltou" | "cancelado",
+                status: apt.status as FrequenciaSession["status"],
                 procedimentoNome: apt.procedimentos?.nome ?? null,
               });
             }
@@ -783,12 +783,12 @@ export default function HistoricoCliente({
                           <p className="text-xs font-medium text-muted-foreground mb-2">Sessões do mês</p>
                           {[...freq.sessoes].sort((a, b) => a.date.localeCompare(b.date)).map((s, i) => {
                             const [, mm, dd] = s.date.split("-");
-                            const concluido = s.status === "concluido";
-                            const cancelado = s.status === "cancelado";
-                            const bgClass = concluido ? "bg-green-50/60" : cancelado ? "bg-slate-50" : "bg-red-50/60";
-                            const iconClass = concluido ? "text-green-600" : cancelado ? "text-slate-400" : "text-destructive";
-                            const textClass = concluido ? "text-foreground" : cancelado ? "text-muted-foreground" : "text-destructive/80";
-                            const icon = concluido ? "✓" : cancelado ? "–" : "✗";
+                            const presenca = s.status === "atendido" || s.status === "reposicao";
+                            const cancelado = s.status === "falta_com_reposicao";
+                            const bgClass = presenca ? "bg-green-50/60" : cancelado ? "bg-amber-50" : "bg-red-50/60";
+                            const iconClass = presenca ? "text-green-600" : cancelado ? "text-amber-600" : "text-destructive";
+                            const textClass = presenca ? "text-foreground" : cancelado ? "text-muted-foreground" : "text-destructive/80";
+                            const icon = presenca ? "✓" : cancelado ? "↻" : "✗";
                             return (
                               <div
                                 key={i}
@@ -802,7 +802,7 @@ export default function HistoricoCliente({
                                   {s.procedimentoNome ?? <span className="italic text-muted-foreground/60">Sem procedimento</span>}
                                 </span>
                                 {cancelado && (
-                                  <span className="ml-auto text-[10px] text-slate-400 font-normal">Cancelado</span>
+                                  <span className="ml-auto text-[10px] text-amber-600 font-normal">Reposição pendente</span>
                                 )}
                               </div>
                             );

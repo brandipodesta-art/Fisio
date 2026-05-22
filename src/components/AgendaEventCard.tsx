@@ -39,26 +39,36 @@ function getStatusActions(
   switch (currentStatus) {
     case "agendado":
       return [
-        { label: "Confirmar", status: "confirmado", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-emerald-600" },
-        { label: "Cancelar", status: "cancelado", icon: <XCircle className="w-4 h-4" />, color: "text-red-600" },
-        { label: "Faltou", status: "faltou", icon: <UserX className="w-4 h-4" />, color: "text-amber-600" },
+        { label: "Confirmar Presença", status: "presenca_confirmada", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-emerald-600" },
+        { label: "Atendido", status: "atendido", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-green-600" },
+        { label: "Falta com Reposição", status: "falta_com_reposicao", icon: <UserX className="w-4 h-4" />, color: "text-amber-600" },
+        { label: "Falta sem Reposição", status: "falta_sem_reposicao", icon: <XCircle className="w-4 h-4" />, color: "text-red-600" },
+        { label: "Não Atendido", status: "nao_atendido", icon: <XCircle className="w-4 h-4" />, color: "text-rose-600" },
       ];
-    case "confirmado":
+    case "presenca_confirmada":
       return [
-        { label: "Concluir", status: "concluido", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-green-600" },
-        { label: "Cancelar", status: "cancelado", icon: <XCircle className="w-4 h-4" />, color: "text-red-600" },
-        { label: "Faltou", status: "faltou", icon: <UserX className="w-4 h-4" />, color: "text-amber-600" },
+        { label: "Iniciar Atendimento", status: "atendimento_individual", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-blue-600" },
+        { label: "Atendido", status: "atendido", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-green-600" },
+        { label: "Falta com Reposição", status: "falta_com_reposicao", icon: <UserX className="w-4 h-4" />, color: "text-amber-600" },
+        { label: "Falta sem Reposição", status: "falta_sem_reposicao", icon: <XCircle className="w-4 h-4" />, color: "text-red-600" },
+        { label: "Não Atendido", status: "nao_atendido", icon: <XCircle className="w-4 h-4" />, color: "text-rose-600" },
       ];
-    case "em_atendimento":
+    case "atendimento_individual":
       return [
-        { label: "Concluir", status: "concluido", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-green-600" },
+        { label: "Atendido", status: "atendido", icon: <CheckCircle2 className="w-4 h-4" />, color: "text-green-600" },
       ];
-    case "cancelado":
-    case "faltou":
+    case "falta_com_reposicao":
+      return [
+        { label: "Marcar como Reposição", status: "reposicao", icon: <CalendarCheck className="w-4 h-4" />, color: "text-purple-600" },
+        { label: "Reagendar", status: "agendado", icon: <CalendarCheck className="w-4 h-4" />, color: "text-slate-600" },
+      ];
+    case "nao_atendido":
+    case "falta_sem_reposicao":
       return [
         { label: "Reagendar", status: "agendado", icon: <CalendarCheck className="w-4 h-4" />, color: "text-slate-600" },
       ];
-    case "concluido":
+    case "atendido":
+    case "reposicao":
     default:
       return [];
   }
