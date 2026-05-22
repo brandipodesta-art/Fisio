@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import type { Appointment, AppointmentStatus, Professional } from "./agendaTypes";
 import { DURATION_OPTIONS, APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS } from "./agendaTypes";
 import { TIME_OPTIONS, calculateEndTime, formatDateISO } from "./agendaData";
+import { useAuth } from "@/lib/auth/AuthContext";
 
 interface AgendaNewEventDialogProps {
   open: boolean;
@@ -85,6 +86,7 @@ export default function AgendaNewEventDialog({
   const [salvandoPagamento, setSalvandoPagamento] = useState(false);
 
   const supabase = createClient();
+  const { usuario } = useAuth();
 
   const isEditing = !!appointmentToEdit;
   const TERMINAL_STATUSES: AppointmentStatus[] = ["atendido", "nao_atendido", "falta_sem_reposicao", "reposicao"];
@@ -222,6 +224,8 @@ export default function AgendaNewEventDialog({
           status: "recebido",
           data_pagamento: new Date().toISOString().slice(0, 10),
           forma_pagamento_id: confirmarForma,
+          confirmado_por: usuario?.nome_completo ?? usuario?.nome_acesso ?? null,
+          confirmado_por_id: usuario?.id ?? null,
         }),
       });
       if (res.ok) {
