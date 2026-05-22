@@ -142,7 +142,6 @@ export async function PUT(request: NextRequest) {
     const updatePayload: Record<string, string> = {
       nome_acesso: nome_acesso.trim(),
       email: email.trim().toLowerCase(),
-      updated_at: new Date().toISOString(),
     };
 
     // Só atualiza a senha se foi fornecida
