@@ -58,6 +58,7 @@ interface RecebimentoRaw {
   data_pagamento: string | null;
   status: string;
   observacoes: string | null;
+  confirmado_por: string | null;
 }
 
 interface ProcedimentoResumo {
@@ -97,6 +98,7 @@ interface FinanceiroItem {
   data_vencimento: string;
   status: "pago" | "pendente" | "atrasado" | "cancelado";
   observacoes: string | null;
+  confirmado_por: string | null;
 }
 
 interface Evolucao {
@@ -244,7 +246,7 @@ export default function HistoricoCliente({
 
           // 1. Buscar recebimentos diretamente por profissional_id
           const recebimentos: RecebimentoRaw[] = await get(
-            `recebimentos?profissional_id=eq.${encodeURIComponent(slug)}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status,observacoes`
+            `recebimentos?profissional_id=eq.${encodeURIComponent(slug)}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status,observacoes,confirmado_por`
           );
           const recArray = Array.isArray(recebimentos) ? recebimentos : [];
           setRecebimentosRaw(recArray);
@@ -278,7 +280,7 @@ export default function HistoricoCliente({
         } else if (pacienteId) {
           // ── Modo Paciente ────────────────────────────────────────────────────────────────────
           const [recebimentos, agendamentosFreq, evols] = await Promise.all([
-            get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status,observacoes`),
+            get(`recebimentos?paciente_id=eq.${pacienteId}&order=data_vencimento.desc&select=id,paciente_id,paciente_nome,procedimento_id,descricao,valor,data_vencimento,data_pagamento,status,observacoes,confirmado_por`),
             // Frequências calculadas direto dos agendamentos — nunca desatualizado
             get(`agendamentos?paciente_id=eq.${pacienteId}&status=in.(atendido,reposicao,nao_atendido,falta_sem_reposicao,falta_com_reposicao)&select=date,status,procedimentos(nome)&order=date.desc`),
             get(`evolucoes?paciente_id=eq.${pacienteId}&order=created_at.desc&select=*`),
@@ -379,6 +381,7 @@ export default function HistoricoCliente({
       data_vencimento: r.data_vencimento,
       status: (r.status === "recebido" ? "pago" : r.status) as FinanceiroItem["status"],
       observacoes: r.observacoes ?? null,
+      confirmado_por: r.confirmado_por ?? null,
     }));
   }, [recebimentosRaw]);
 
@@ -429,9 +432,10 @@ export default function HistoricoCliente({
 
       if (res.ok) {
         // Atualiza localmente para resposta imediata na UI
+        const nomeConfirmou = usuario?.nome_completo ?? usuario?.nome_acesso ?? null;
         setRecebimentosRaw(prev =>
           prev.map(r => r.id === item.id
-            ? { ...r, status: "recebido", data_pagamento: new Date().toISOString().slice(0, 10) }
+            ? { ...r, status: "recebido", data_pagamento: new Date().toISOString().slice(0, 10), confirmado_por: nomeConfirmou }
             : r
           )
         );
@@ -1113,6 +1117,14 @@ export default function HistoricoCliente({
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-1">Data do Pagamento</p>
                       <p className="text-sm text-foreground">{formatarData(visualizandoItem.data)}</p>
+                    </div>
+                  )}
+                  {visualizandoItem.status === "pago" && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Confirmado por</p>
+                      <p className="text-sm text-foreground">
+                        {visualizandoItem.confirmado_por ?? <span className="italic text-muted-foreground/60">Não registrado</span>}
+                      </p>
                     </div>
                   )}
                 </div>
