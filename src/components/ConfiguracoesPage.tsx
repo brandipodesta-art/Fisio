@@ -599,7 +599,7 @@ function SecaoFormasPagamentoDespesa() {
 
 // ─── Seção: Profissionais e Comissões ─────────────────────────────────────────
 function SecaoProfissionais() {
-  const { itens: profissionais, carregando: carregandoProf, erro: erroProf, inserir: inserirProf, atualizar: atualizarProf, excluir: excluirProf } = useCrud<Profissional>("profissionais", "*", "name");
+  const { itens: profissionais, carregando: carregandoProf, erro: erroProf, atualizar: atualizarProf, excluir: excluirProf } = useCrud<Profissional>("profissionais", "*", "name");
   const { itens: procedimentos } = useCrud<Procedimento>("procedimentos", "*", "nome");
   const { itens: comissoes, carregando: carregandoCom, inserir: inserirCom, atualizar: atualizarCom, excluir: excluirCom } = useCrud<ComissaoProfissional>(
     "comissoes_profissional",
@@ -619,7 +619,6 @@ function SecaoProfissionais() {
 
   const camposProf = [{ key: "name", label: "Nome do Profissional", placeholder: "Ex: Ana Carolina" }];
 
-  const abrirNovo = () => { setForm({}); setErroForm(null); setMostrando("novo"); };
   const abrirEditar = (item: Profissional) => {
     setForm({ name: item.name });
     setErroForm(null);
@@ -631,24 +630,7 @@ function SecaoProfissionais() {
     setSalvando(true);
     setErroForm(null);
     try {
-      if (mostrando === "novo") {
-        const nome = form.name.trim();
-        const idSlug = nome
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[̀-ͯ]/g, "")
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, "");
-        if (!idSlug) { setErroForm("Nome inválido."); setSalvando(false); return; }
-        const partes = nome.split(" ");
-        const shortName = partes.length > 1
-          ? `${partes[0]} ${partes[partes.length - 1][0]}.`
-          : partes[0];
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await inserirProf({ id: idSlug, name: nome, short_name: shortName } as any);
-      } else {
-        await atualizarProf(mostrando, { name: form.name.trim() });
-      }
+      await atualizarProf(mostrando, { name: form.name.trim() });
       setMostrando("nenhum");
     } catch (e: unknown) {
       setErroForm(e instanceof Error ? e.message : "Erro ao salvar.");
@@ -690,14 +672,8 @@ function SecaoProfissionais() {
     <Secao titulo="Profissionais e Comissões" icone={Users} cor="bg-rose-600">
       <div className="p-4 border-b border-border flex justify-between items-center bg-card">
         <span className="text-xs text-muted-foreground">{profissionais.length} profissional(is) cadastrado(s)</span>
-        <Button size="sm" onClick={abrirNovo} className="bg-rose-600 hover:bg-rose-700 text-white h-8 text-xs">
-          <Plus className="w-3.5 h-3.5 mr-1" /> Novo Profissional
-        </Button>
+        <span className="text-[11px] text-muted-foreground/70 italic">Profissionais são criados automaticamente ao cadastrar um Funcionário</span>
       </div>
-      {mostrando === "novo" && (
-        <FormInline campos={camposProf} valores={form} onChange={(k, v) => setForm(f => ({ ...f, [k]: v }))}
-          onSalvar={salvarProf} onCancelar={() => setMostrando("nenhum")} salvando={salvando} titulo="Novo Profissional" />
-      )}
       {erroForm && <p className="px-5 py-2 text-xs text-red-600 bg-red-50">{erroForm}</p>}
       {carregandoProf && <p className="px-5 py-4 text-sm text-muted-foreground/60">Carregando...</p>}
       {erroProf && <p className="px-5 py-4 text-sm text-red-500">{erroProf}</p>}
