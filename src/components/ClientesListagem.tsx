@@ -152,8 +152,11 @@ export default function ClientesListagem({
 
         const sb = createClient();
 
-        if (tipo === "funcionario" || tipo === "todos") {
-          // Funcionários vêm da tabela profissionais
+        if (tipo === "funcionario") {
+          // Funcionários (filtro específico) vêm da tabela profissionais.
+          // No filtro "Todos" NÃO usamos profissionais — todos os tipos vêm da
+          // tabela pacientes (com rótulo correto), evitando duplicação de
+          // funcionário/financeiro que também são sincronizados em profissionais.
           let q = sb.from("profissionais").select("id, name").order("name");
           if (nome.trim()) q = q.ilike("name", `%${nome.trim()}%`);
           const { data: profs, error } = await q;
@@ -186,11 +189,7 @@ export default function ClientesListagem({
             };
           });
 
-          if (tipo === "funcionario") {
-            data = profsMapped;
-          } else {
-            data = profsMapped;
-          }
+          data = profsMapped;
         }
 
         if (tipo !== "funcionario") {
@@ -210,14 +209,10 @@ export default function ClientesListagem({
           // Funcionário não vê registros do tipo funcionario, admin ou financeiro
           if (isFuncionario) {
             pacs = pacs.filter(c => !['funcionario','admin','financeiro'].includes(c.tipo_usuario));
-          } else if (tipo === "todos") {
-            // No filtro "Todos", funcionários já vêm da tabela profissionais (bloco acima).
-            // Remove os funcionários da tabela pacientes para não duplicar.
-            pacs = pacs.filter(c => c.tipo_usuario !== "funcionario");
           }
           data = [...data, ...pacs];
 
-          // Dedup de segurança por id (funcionário pode aparecer em profissionais e pacientes)
+          // Dedup de segurança por id — evita qualquer duplicação residual
           const vistos = new Set<string>();
           data = data.filter(c => {
             if (vistos.has(c.id)) return false;
