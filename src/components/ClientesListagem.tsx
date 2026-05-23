@@ -210,8 +210,20 @@ export default function ClientesListagem({
           // Funcionário não vê registros do tipo funcionario, admin ou financeiro
           if (isFuncionario) {
             pacs = pacs.filter(c => !['funcionario','admin','financeiro'].includes(c.tipo_usuario));
+          } else if (tipo === "todos") {
+            // No filtro "Todos", funcionários já vêm da tabela profissionais (bloco acima).
+            // Remove os funcionários da tabela pacientes para não duplicar.
+            pacs = pacs.filter(c => c.tipo_usuario !== "funcionario");
           }
           data = [...data, ...pacs];
+
+          // Dedup de segurança por id (funcionário pode aparecer em profissionais e pacientes)
+          const vistos = new Set<string>();
+          data = data.filter(c => {
+            if (vistos.has(c.id)) return false;
+            vistos.add(c.id);
+            return true;
+          });
         }
 
         setClientes(data);
