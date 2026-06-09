@@ -24,9 +24,25 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  AlertTriangle,
+  ArrowDownCircle,
+  ArrowUpCircle,
 } from "lucide-react";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
+
+interface PagamentoAtraso {
+  id: string;
+  descricao: string;
+  categoria: string | null;
+  valor: number;
+  data_vencimento: string;
+  data_pagamento: string | null;
+  status: string;
+  fornecedor: string | null;
+  forma_pagamento: string | null;
+  observacoes: string | null;
+}
 
 interface Paciente {
   id: string;
@@ -136,7 +152,7 @@ export default function RelatoriosPage() {
   const [datePeriod, setDatePeriod] = useState<DateRange>({ from: "", to: "" });
   const dataInicial = datePeriod.from;
   const dataFinal   = datePeriod.to;
-  const [tipoRelatorio, setTipoRelatorio] = useState<"" | "clientes" | "funcionarios">("");
+  const [tipoRelatorio, setTipoRelatorio] = useState<"" | "clientes" | "funcionarios" | "atraso">("");
   const [clienteId, setClienteId] = useState("");
   const [funcionarioId, setFuncionarioId] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "confirmado" | "pendente">("todos");
@@ -150,6 +166,7 @@ export default function RelatoriosPage() {
 
   // ── Resultado do relatório ─────────────────────────────────────────────────
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([]);
+  const [pagamentosAtraso, setPagamentosAtraso] = useState<PagamentoAtraso[]>([]);
   const [loadingRel, setLoadingRel] = useState(false);
   const [gerado, setGerado] = useState(false);
 
@@ -181,33 +198,60 @@ export default function RelatoriosPage() {
 
   // ── Gerar relatório ────────────────────────────────────────────────────────
   const gerarRelatorio = useCallback(async () => {
-    if (!tipoRelatorio || !dataInicial || !dataFinal) return;
+    if (!tipoRelatorio) return;
+    // Para tipo "atraso" o período é opcional
+    if (tipoRelatorio !== "atraso" && (!dataInicial || !dataFinal)) return;
 
     setLoadingRel(true);
     setGerado(false);
+    setRecebimentos([]);
+    setPagamentosAtraso([]);
 
     try {
-      let query = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,profissional_id,confirmado_por`;
-      query += `&data_vencimento=gte.${dataInicial}&data_vencimento=lte.${dataFinal}`;
+      if (tipoRelatorio === "atraso") {
+        // Data de hoje no formato ISO
+        const hoje = new Date().toISOString().slice(0, 10);
 
-      if (tipoRelatorio === "clientes" && clienteId && clienteId !== "todos") {
-        query += `&paciente_id=eq.${clienteId}`;
-      } else if (tipoRelatorio === "funcionarios" && funcionarioId && funcionarioId !== "todos") {
-        // Filtra diretamente por profissional_id — sem depender do cadastro de paciente
-        query += `&profissional_id=eq.${funcionarioId}`;
+        // Recebimentos em atraso: status pendente ou atrasado com vencimento < hoje
+        const qRec = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,profissional_id,confirmado_por&status=in.(pendente,atrasado)&data_vencimento=lt.${hoje}&order=data_vencimento.asc`;
+        const dataRec = await get(qRec);
+        setRecebimentos(Array.isArray(dataRec) ? dataRec : []);
+
+        // Pagamentos em atraso: busca todos e filtra localmente
+        const resPag = await fetch(`/api/pagamentos`);
+        const todosPag: PagamentoAtraso[] = resPag.ok ? await resPag.json() : [];
+        const pagAtrasados = todosPag.filter(
+          (p) =>
+            (p.status === "atrasado" || p.status === "pendente") &&
+            p.data_vencimento < hoje
+        );
+        pagAtrasados.sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento));
+        setPagamentosAtraso(pagAtrasados);
+
+        setGerado(true);
+      } else {
+        let query = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,profissional_id,confirmado_por`;
+        query += `&data_vencimento=gte.${dataInicial}&data_vencimento=lte.${dataFinal}`;
+
+        if (tipoRelatorio === "clientes" && clienteId && clienteId !== "todos") {
+          query += `&paciente_id=eq.${clienteId}`;
+        } else if (tipoRelatorio === "funcionarios" && funcionarioId && funcionarioId !== "todos") {
+          // Filtra diretamente por profissional_id — sem depender do cadastro de paciente
+          query += `&profissional_id=eq.${funcionarioId}`;
+        }
+
+        if (filtroStatus === "confirmado") {
+          query += `&status=in.(recebido,pago)`;
+        } else if (filtroStatus === "pendente") {
+          query += `&status=in.(pendente,atrasado)`;
+        }
+
+        query += `&order=data_vencimento.asc`;
+
+        const data = await get(query);
+        setRecebimentos(Array.isArray(data) ? data : []);
+        setGerado(true);
       }
-
-      if (filtroStatus === "confirmado") {
-        query += `&status=in.(recebido,pago)`;
-      } else if (filtroStatus === "pendente") {
-        query += `&status=in.(pendente,atrasado)`;
-      }
-
-      query += `&order=data_vencimento.asc`;
-
-      const data = await get(query);
-      setRecebimentos(Array.isArray(data) ? data : []);
-      setGerado(true);
     } finally {
       setLoadingRel(false);
     }
@@ -880,7 +924,9 @@ export default function RelatoriosPage() {
     ? groupByProfissional(recFuncPendentes)
     : null;
 
-  const podeGerar = tipoRelatorio !== "" && dataInicial !== "" && dataFinal !== "";
+  const podeGerar =
+    tipoRelatorio !== "" &&
+    (tipoRelatorio === "atraso" || (dataInicial !== "" && dataFinal !== ""));
 
   // ── Renderização de linha (clientes) ──────────────────────────────────────
   const renderLinhaCliente = (r: Recebimento) => {
@@ -1068,10 +1114,17 @@ export default function RelatoriosPage() {
                     Financeiro (Funcionários) — Pagamentos Mensais
                   </span>
                 </SelectItem>
+                <SelectItem value="atraso">
+                  <span className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    Inadimplência — Recebimentos e Pagamentos em Atraso
+                  </span>
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
+          {tipoRelatorio !== "atraso" && (
           <div className="space-y-1.5 sm:col-span-2">
             <DateRangePicker
               label="Período"
@@ -1080,9 +1133,11 @@ export default function RelatoriosPage() {
               placeholder="Selecionar período do relatório"
             />
           </div>
+          )}
         </div>
 
         {/* Linha 2: Status do Pagamento */}
+        {tipoRelatorio !== "atraso" && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
           <div className="space-y-1.5">
             <Label className="text-sm font-medium">Status do Pagamento</Label>
@@ -1111,9 +1166,10 @@ export default function RelatoriosPage() {
             </Select>
           </div>
         </div>
+        )}
 
         {/* Linha 3: Cliente ou Funcionário (opcional) */}
-        {tipoRelatorio !== "" && (
+        {tipoRelatorio !== "" && tipoRelatorio !== "atraso" && (
           <div className="grid grid-cols-1 gap-4 mb-4">
             {tipoRelatorio === "clientes" && (
               <div className="space-y-1.5">
@@ -1174,7 +1230,7 @@ export default function RelatoriosPage() {
         {/* Botões */}
         <div className="mt-5 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex gap-2">
-            {gerado && recebimentos.length > 0 && (
+            {gerado && (recebimentos.length > 0 || pagamentosAtraso.length > 0) && (
               <>
                 <Button
                   variant="outline"
@@ -1215,6 +1271,48 @@ export default function RelatoriosPage() {
         <div className="space-y-6">
 
           {/* Cards de resumo */}
+          {tipoRelatorio === "atraso" ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Card className="p-4 border-red-200 bg-red-50 dark:bg-red-900/10">
+                <div className="flex items-center gap-3">
+                  <ArrowDownCircle className="w-8 h-8 text-red-600" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Recebimentos em Atraso</p>
+                    <p className="text-lg font-bold text-red-600">
+                      {fmt(recebimentos.reduce((s, r) => s + Number(r.valor), 0))}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{recebimentos.length} registro(s)</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-4 border-orange-200 bg-orange-50 dark:bg-orange-900/10">
+                <div className="flex items-center gap-3">
+                  <ArrowUpCircle className="w-8 h-8 text-orange-600" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Pagamentos em Atraso</p>
+                    <p className="text-lg font-bold text-orange-600">
+                      {fmt(pagamentosAtraso.reduce((s, p) => s + Number(p.valor), 0))}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{pagamentosAtraso.length} registro(s)</p>
+                  </div>
+                </div>
+              </Card>
+              <Card className="p-4 border-rose-200 bg-rose-50 dark:bg-rose-900/10">
+                <div className="flex items-center gap-3">
+                  <AlertTriangle className="w-8 h-8 text-rose-600" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total em Aberto</p>
+                    <p className="text-lg font-bold text-rose-600">
+                      {fmt(
+                        recebimentos.reduce((s, r) => s + Number(r.valor), 0) +
+                        pagamentosAtraso.reduce((s, p) => s + Number(p.valor), 0)
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Card className="p-4 border-green-200 bg-green-50 dark:bg-green-900/10">
               <div className="flex items-center gap-3">
@@ -1264,6 +1362,7 @@ export default function RelatoriosPage() {
               </Card>
             )}
           </div>
+          )}
 
           {/* RELATÓRIO 1: CLIENTES */}
           {tipoRelatorio === "clientes" && (
@@ -1518,13 +1617,152 @@ export default function RelatoriosPage() {
             </div>
           )}
 
+          {/* RELATÓRIO 3: INADIMPLÊNCIA / EM ATRASO */}
+          {tipoRelatorio === "atraso" && (
+            <div className="space-y-6">
+
+              {/* Recebimentos em atraso */}
+              <Card className="p-5 shadow-sm border-red-200">
+                <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <ArrowDownCircle className="w-5 h-5 text-red-600" />
+                  Recebimentos em Atraso ({recebimentos.length})
+                </h3>
+                {recebimentos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    Nenhum recebimento em atraso.
+                  </p>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-left">Cliente</th>
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-left">Procedimento</th>
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-left">Profissional</th>
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-left">Vencimento</th>
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-right">Valor</th>
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {recebimentos.map((r, i) => (
+                            <tr key={r.id} className={i % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                              <td className="py-2 px-3 text-sm">{r.paciente_nome}</td>
+                              <td className="py-2 px-3 text-sm">{nomeProcedimento(r.procedimento_id)}</td>
+                              <td className="py-2 px-3 text-sm">{nomeProfissionalBySlug(r.profissional_id ?? null)}</td>
+                              <td className="py-2 px-3 text-sm text-red-600 font-medium">{fmtDate(r.data_vencimento)}</td>
+                              <td className="py-2 px-3 text-sm text-right font-semibold">{fmt(Number(r.valor))}</td>
+                              <td className="py-2 px-3 text-center">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
+                                  {r.status === "atrasado" ? "Atrasado" : "Pendente"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <div className="bg-red-50 border border-red-200 rounded-lg px-5 py-3 text-right">
+                        <p className="text-xs text-muted-foreground mb-0.5">Total Recebimentos em Atraso</p>
+                        <p className="text-xl font-bold text-red-600">
+                          {fmt(recebimentos.reduce((s, r) => s + Number(r.valor), 0))}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </Card>
+
+              {/* Pagamentos em atraso */}
+              <Card className="p-5 shadow-sm border-orange-200">
+                <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
+                  <ArrowUpCircle className="w-5 h-5 text-orange-600" />
+                  Pagamentos em Atraso ({pagamentosAtraso.length})
+                </h3>
+                {pagamentosAtraso.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">
+                    Nenhum pagamento em atraso.
+                  </p>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border">
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-left">Descrição</th>
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-left">Categoria</th>
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-left">Fornecedor</th>
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-left">Vencimento</th>
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-right">Valor</th>
+                            <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pagamentosAtraso.map((p, i) => (
+                            <tr key={p.id} className={i % 2 === 0 ? "bg-background" : "bg-muted/30"}>
+                              <td className="py-2 px-3 text-sm">{p.descricao}</td>
+                              <td className="py-2 px-3 text-sm">{p.categoria ?? "—"}</td>
+                              <td className="py-2 px-3 text-sm">{p.fornecedor ?? "—"}</td>
+                              <td className="py-2 px-3 text-sm text-orange-600 font-medium">{fmtDate(p.data_vencimento)}</td>
+                              <td className="py-2 px-3 text-sm text-right font-semibold">{fmt(Number(p.valor))}</td>
+                              <td className="py-2 px-3 text-center">
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
+                                  {p.status === "atrasado" ? "Atrasado" : "Pendente"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg px-5 py-3 text-right">
+                        <p className="text-xs text-muted-foreground mb-0.5">Total Pagamentos em Atraso</p>
+                        <p className="text-xl font-bold text-orange-600">
+                          {fmt(pagamentosAtraso.reduce((s, p) => s + Number(p.valor), 0))}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </Card>
+
+              {/* Total geral em aberto */}
+              <div className="flex justify-end">
+                <div className="bg-card border border-rose-300 rounded-xl px-6 py-4 text-right shadow-sm min-w-[300px]">
+                  <p className="text-xs text-muted-foreground mb-1">Total Geral em Aberto</p>
+                  <p className="text-2xl font-bold text-rose-600">
+                    {fmt(
+                      recebimentos.reduce((s, r) => s + Number(r.valor), 0) +
+                      pagamentosAtraso.reduce((s, p) => s + Number(p.valor), 0)
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Gerado em {new Date().toLocaleDateString("pt-BR")}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Sem dados */}
-          {gerado && recebimentos.length === 0 && (
+          {gerado && tipoRelatorio !== "atraso" && recebimentos.length === 0 && (
             <Card className="p-8 text-center border-dashed">
               <FileText className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
               <p className="text-sm font-medium text-foreground">Nenhum registro encontrado</p>
               <p className="text-xs text-muted-foreground mt-1">
                 Tente ajustar os filtros de data ou selecionar outro cliente/funcionário.
+              </p>
+            </Card>
+          )}
+          {gerado && tipoRelatorio === "atraso" && recebimentos.length === 0 && pagamentosAtraso.length === 0 && (
+            <Card className="p-8 text-center border-dashed">
+              <CheckCircle2 className="w-10 h-10 text-green-500 mx-auto mb-3" />
+              <p className="text-sm font-medium text-foreground">Nenhum item em atraso!</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Todos os recebimentos e pagamentos estão em dia.
               </p>
             </Card>
           )}
