@@ -156,6 +156,7 @@ export default function RelatoriosPage() {
   const [clienteId, setClienteId] = useState("");
   const [funcionarioId, setFuncionarioId] = useState("");
   const [filtroStatus, setFiltroStatus] = useState<"todos" | "confirmado" | "pendente">("todos");
+  const [tipoInadimplencia, setTipoInadimplencia] = useState<"ambos" | "recebimentos" | "pagamentos">("ambos");
 
   // ── Dados auxiliares ───────────────────────────────────────────────────────
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
@@ -212,21 +213,29 @@ export default function RelatoriosPage() {
         // Data de hoje no formato ISO
         const hoje = new Date().toISOString().slice(0, 10);
 
-        // Recebimentos em atraso: status pendente ou atrasado com vencimento < hoje
-        const qRec = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,profissional_id,confirmado_por&status=in.(pendente,atrasado)&data_vencimento=lt.${hoje}&order=data_vencimento.asc`;
-        const dataRec = await get(qRec);
-        setRecebimentos(Array.isArray(dataRec) ? dataRec : []);
+        // Recebimentos em atraso (somente se filtro for ambos ou recebimentos)
+        if (tipoInadimplencia === "ambos" || tipoInadimplencia === "recebimentos") {
+          const qRec = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,profissional_id,confirmado_por&status=in.(pendente,atrasado)&data_vencimento=lt.${hoje}&order=data_vencimento.asc`;
+          const dataRec = await get(qRec);
+          setRecebimentos(Array.isArray(dataRec) ? dataRec : []);
+        } else {
+          setRecebimentos([]);
+        }
 
-        // Pagamentos em atraso: busca todos e filtra localmente
-        const resPag = await fetch(`/api/pagamentos`);
-        const todosPag: PagamentoAtraso[] = resPag.ok ? await resPag.json() : [];
-        const pagAtrasados = todosPag.filter(
-          (p) =>
-            (p.status === "atrasado" || p.status === "pendente") &&
-            p.data_vencimento < hoje
-        );
-        pagAtrasados.sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento));
-        setPagamentosAtraso(pagAtrasados);
+        // Pagamentos em atraso (somente se filtro for ambos ou pagamentos)
+        if (tipoInadimplencia === "ambos" || tipoInadimplencia === "pagamentos") {
+          const resPag = await fetch(`/api/pagamentos`);
+          const todosPag: PagamentoAtraso[] = resPag.ok ? await resPag.json() : [];
+          const pagAtrasados = todosPag.filter(
+            (p) =>
+              (p.status === "atrasado" || p.status === "pendente") &&
+              p.data_vencimento < hoje
+          );
+          pagAtrasados.sort((a, b) => a.data_vencimento.localeCompare(b.data_vencimento));
+          setPagamentosAtraso(pagAtrasados);
+        } else {
+          setPagamentosAtraso([]);
+        }
 
         setGerado(true);
       } else {
@@ -256,7 +265,7 @@ export default function RelatoriosPage() {
       setLoadingRel(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tipoRelatorio, dataInicial, dataFinal, clienteId, funcionarioId, filtroStatus, pacientes]);
+  }, [tipoRelatorio, dataInicial, dataFinal, clienteId, funcionarioId, filtroStatus, tipoInadimplencia, pacientes]);
 
   // ── Helpers locais para exportação ────────────────────────────────────────────
   const _nomeProcLocal = (id: string | null) =>
@@ -1095,6 +1104,7 @@ export default function RelatoriosPage() {
                 setTipoRelatorio(v as typeof tipoRelatorio);
                 setClienteId("");
                 setFuncionarioId("");
+                setTipoInadimplencia("ambos");
                 setGerado(false);
               }}
             >
@@ -1123,6 +1133,40 @@ export default function RelatoriosPage() {
               </SelectContent>
             </Select>
           </div>
+
+          {tipoRelatorio === "atraso" && (
+          <div className="space-y-1.5">
+            <Label className="text-sm font-medium">Tipo de Inadimplência</Label>
+            <Select
+              value={tipoInadimplencia}
+              onValueChange={(v) => { setTipoInadimplencia(v as typeof tipoInadimplencia); setGerado(false); }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ambos">
+                  <span className="flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                    Recebimentos e Pagamentos em Atraso
+                  </span>
+                </SelectItem>
+                <SelectItem value="recebimentos">
+                  <span className="flex items-center gap-2">
+                    <ArrowDownCircle className="w-4 h-4 text-red-600" />
+                    Recebimentos em Atraso
+                  </span>
+                </SelectItem>
+                <SelectItem value="pagamentos">
+                  <span className="flex items-center gap-2">
+                    <ArrowUpCircle className="w-4 h-4 text-orange-600" />
+                    Pagamentos em Atraso
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          )}
 
           {tipoRelatorio !== "atraso" && (
           <div className="space-y-1.5 sm:col-span-2">
@@ -1273,6 +1317,7 @@ export default function RelatoriosPage() {
           {/* Cards de resumo */}
           {tipoRelatorio === "atraso" ? (
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {(tipoInadimplencia === "ambos" || tipoInadimplencia === "recebimentos") && (
               <Card className="p-4 border-red-200 bg-red-50 dark:bg-red-900/10">
                 <div className="flex items-center gap-3">
                   <ArrowDownCircle className="w-8 h-8 text-red-600" />
@@ -1285,6 +1330,8 @@ export default function RelatoriosPage() {
                   </div>
                 </div>
               </Card>
+              )}
+              {(tipoInadimplencia === "ambos" || tipoInadimplencia === "pagamentos") && (
               <Card className="p-4 border-orange-200 bg-orange-50 dark:bg-orange-900/10">
                 <div className="flex items-center gap-3">
                   <ArrowUpCircle className="w-8 h-8 text-orange-600" />
@@ -1297,11 +1344,16 @@ export default function RelatoriosPage() {
                   </div>
                 </div>
               </Card>
+              )}
               <Card className="p-4 border-rose-200 bg-rose-50 dark:bg-rose-900/10">
                 <div className="flex items-center gap-3">
                   <AlertTriangle className="w-8 h-8 text-rose-600" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Total em Aberto</p>
+                    <p className="text-xs text-muted-foreground">
+                      {tipoInadimplencia === "recebimentos" ? "Total Recebimentos em Atraso" :
+                       tipoInadimplencia === "pagamentos" ? "Total Pagamentos em Atraso" :
+                       "Total em Aberto"}
+                    </p>
                     <p className="text-lg font-bold text-rose-600">
                       {fmt(
                         recebimentos.reduce((s, r) => s + Number(r.valor), 0) +
@@ -1622,6 +1674,7 @@ export default function RelatoriosPage() {
             <div className="space-y-6">
 
               {/* Recebimentos em atraso */}
+              {(tipoInadimplencia === "ambos" || tipoInadimplencia === "recebimentos") && (
               <Card className="p-5 shadow-sm border-red-200">
                 <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
                   <ArrowDownCircle className="w-5 h-5 text-red-600" />
@@ -1674,8 +1727,10 @@ export default function RelatoriosPage() {
                   </>
                 )}
               </Card>
+              )}
 
               {/* Pagamentos em atraso */}
+              {(tipoInadimplencia === "ambos" || tipoInadimplencia === "pagamentos") && (
               <Card className="p-5 shadow-sm border-orange-200">
                 <h3 className="text-base font-semibold text-foreground mb-4 flex items-center gap-2">
                   <ArrowUpCircle className="w-5 h-5 text-orange-600" />
@@ -1728,11 +1783,16 @@ export default function RelatoriosPage() {
                   </>
                 )}
               </Card>
+              )}
 
               {/* Total geral em aberto */}
               <div className="flex justify-end">
                 <div className="bg-card border border-rose-300 rounded-xl px-6 py-4 text-right shadow-sm min-w-[300px]">
-                  <p className="text-xs text-muted-foreground mb-1">Total Geral em Aberto</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    {tipoInadimplencia === "recebimentos" ? "Total Recebimentos em Atraso" :
+                     tipoInadimplencia === "pagamentos" ? "Total Pagamentos em Atraso" :
+                     "Total Geral em Aberto"}
+                  </p>
                   <p className="text-2xl font-bold text-rose-600">
                     {fmt(
                       recebimentos.reduce((s, r) => s + Number(r.valor), 0) +
