@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 export interface ClinicaConfig {
   logo_url: string | null;
   nome_clinica: string | null;
+  cnpj: string | null;
+  telefone: string | null;
+  endereco: string | null;
 }
 
 /** Busca a configuração da clínica (linha única id=1). Retorna null se a tabela não existir. */
@@ -12,7 +15,7 @@ export async function fetchClinicaConfig(): Promise<ClinicaConfig | null> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("configuracoes_clinica")
-    .select("logo_url, nome_clinica")
+    .select("logo_url, nome_clinica, cnpj, telefone, endereco")
     .eq("id", 1)
     .maybeSingle();
   if (error || !data) return null;

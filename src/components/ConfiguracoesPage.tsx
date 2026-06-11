@@ -1063,14 +1063,26 @@ function SecaoLogoClinica() {
   const [removendo, setRemovendo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  // Dados institucionais (rodapé do PDF)
+  const [nomeClinica, setNomeClinica] = useState("");
+  const [cnpj, setCnpj] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [endereco, setEndereco] = useState("");
+  const [salvandoDados, setSalvandoDados] = useState(false);
+  const [dadosSalvos, setDadosSalvos] = useState(false);
+
   const carregar = useCallback(async () => {
     setCarregando(true);
     const { data } = await supabase
       .from("configuracoes_clinica")
-      .select("logo_url")
+      .select("logo_url, nome_clinica, cnpj, telefone, endereco")
       .eq("id", 1)
       .maybeSingle();
     setLogoUrl(data?.logo_url ?? null);
+    setNomeClinica(data?.nome_clinica ?? "");
+    setCnpj(data?.cnpj ?? "");
+    setTelefone(data?.telefone ?? "");
+    setEndereco(data?.endereco ?? "");
     setCarregando(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1143,8 +1155,34 @@ function SecaoLogoClinica() {
     }
   };
 
+  const handleSalvarDados = async () => {
+    setSalvandoDados(true);
+    setErro(null);
+    setDadosSalvos(false);
+    try {
+      const { error: cfgError } = await supabase
+        .from("configuracoes_clinica")
+        .update({
+          nome_clinica: nomeClinica.trim() || null,
+          cnpj: cnpj.trim() || null,
+          telefone: telefone.trim() || null,
+          endereco: endereco.trim() || null,
+          atualizado_em: new Date().toISOString(),
+        })
+        .eq("id", 1);
+      if (cfgError) throw new Error(cfgError.message);
+      setDadosSalvos(true);
+      setTimeout(() => setDadosSalvos(false), 3000);
+      notificarAtualizacao();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Erro ao salvar os dados da clínica.");
+    } finally {
+      setSalvandoDados(false);
+    }
+  };
+
   return (
-    <Secao titulo="Logo da Clinica" icone={ImageIcon} cor="bg-gradient-to-br from-slate-500 to-slate-700">
+    <Secao titulo="Dados da Clinica" icone={ImageIcon} cor="bg-gradient-to-br from-slate-500 to-slate-700">
       <div className="p-5 space-y-4">
         <p className="text-sm text-muted-foreground">
           A logo aparece no topo do sistema e no cabeçalho dos relatórios em PDF.
@@ -1199,6 +1237,67 @@ function SecaoLogoClinica() {
                   ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Removendo...</>
                   : <><Trash2 className="w-4 h-4 mr-2" /> Remover logo</>}
               </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Dados institucionais — aparecem no rodapé dos relatórios em PDF */}
+        <div className="border-t border-border/60 pt-4 space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Estes dados aparecem no rodapé dos relatórios em PDF.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Nome da clínica</label>
+              <Input
+                value={nomeClinica}
+                onChange={(e) => setNomeClinica(e.target.value)}
+                placeholder="Ex.: Clínica Amanda Fisioterapia"
+                className="mt-1"
+                disabled={carregando}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">CNPJ</label>
+              <Input
+                value={cnpj}
+                onChange={(e) => setCnpj(e.target.value)}
+                placeholder="00.000.000/0000-00"
+                className="mt-1"
+                disabled={carregando}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Telefone</label>
+              <Input
+                value={telefone}
+                onChange={(e) => setTelefone(e.target.value)}
+                placeholder="(00) 00000-0000"
+                className="mt-1"
+                disabled={carregando}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Endereço</label>
+              <Input
+                value={endereco}
+                onChange={(e) => setEndereco(e.target.value)}
+                placeholder="Rua, número, bairro - cidade/UF"
+                className="mt-1"
+                disabled={carregando}
+              />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button size="sm" onClick={handleSalvarDados} disabled={salvandoDados || carregando}>
+              {salvandoDados
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Salvando...</>
+                : <><Save className="w-4 h-4 mr-2" /> Salvar dados</>}
+            </Button>
+            {dadosSalvos && (
+              <span className="text-sm text-primary flex items-center gap-1">
+                <Check className="w-4 h-4" /> Dados salvos
+              </span>
             )}
           </div>
         </div>

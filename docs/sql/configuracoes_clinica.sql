@@ -8,8 +8,16 @@ CREATE TABLE IF NOT EXISTS public.configuracoes_clinica (
   id INT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   logo_url TEXT,
   nome_clinica TEXT,
+  cnpj TEXT,
+  telefone TEXT,
+  endereco TEXT,
   atualizado_em TIMESTAMPTZ DEFAULT now()
 );
+
+-- Se a tabela já existia, garante as colunas novas
+ALTER TABLE public.configuracoes_clinica ADD COLUMN IF NOT EXISTS cnpj TEXT;
+ALTER TABLE public.configuracoes_clinica ADD COLUMN IF NOT EXISTS telefone TEXT;
+ALTER TABLE public.configuracoes_clinica ADD COLUMN IF NOT EXISTS endereco TEXT;
 
 -- Linha inicial
 INSERT INTO public.configuracoes_clinica (id)

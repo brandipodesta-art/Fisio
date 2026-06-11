@@ -373,11 +373,13 @@ export default function RelatoriosPage() {
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
 
-    // Carregar logo da clínica (se configurada) para o cabeçalho
+    // Carregar configuração da clínica (logo + dados institucionais)
     let logoData: { dataUrl: string; w: number; h: number } | null = null;
+    let clinicaCfg: import("@/lib/useClinicaConfig").ClinicaConfig | null = null;
     try {
       const { fetchClinicaConfig } = await import("@/lib/useClinicaConfig");
       const cfg = await fetchClinicaConfig();
+      clinicaCfg = cfg;
       if (cfg?.logo_url) {
         logoData = await new Promise((resolve) => {
           const img = new Image();
@@ -431,11 +433,13 @@ export default function RelatoriosPage() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(15);
       doc.setTextColor(...COR_TEXTO);
-      doc.text("FisioSys", ML, 13);
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(7.5);
-      doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Sistema de Gestão de Clínica", ML, 18);
+      doc.text(clinicaCfg?.nome_clinica?.trim() || "FisioSys", ML, 13);
+      if (!clinicaCfg?.nome_clinica?.trim()) {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...COR_TEXTO_MUTED);
+        doc.text("Sistema de Gestão de Clínica", ML, 18);
+      }
     }
 
     doc.setFont("helvetica", "bold");
@@ -833,16 +837,29 @@ export default function RelatoriosPage() {
     }
 
     // ── Rodapé em todas as páginas ──
+    // Linha 1: nome da clínica (ou marca do sistema); Linha 2: CNPJ / telefone / endereço
+    const rodapeNome = clinicaCfg?.nome_clinica?.trim() || "FisioSys  -  Sistema de Gestão de Clínica";
+    const rodapeDetalhes = [
+      clinicaCfg?.cnpj?.trim() ? `CNPJ ${clinicaCfg.cnpj.trim()}` : null,
+      clinicaCfg?.telefone?.trim() || null,
+      clinicaCfg?.endereco?.trim() || null,
+    ].filter(Boolean).join("   |   ");
+
     const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setDrawColor(...COR_LINHA);
       doc.setLineWidth(0.2);
       doc.line(ML, 198, PW - MR, 198);
-      doc.setFont("helvetica", "normal");
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
       doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("FisioSys  -  Sistema de Gestão de Clínica", ML, 202);
+      doc.text(rodapeNome, ML, 202);
+      if (rodapeDetalhes) {
+        doc.setFont("helvetica", "normal");
+        doc.text(rodapeDetalhes, ML, 205.5);
+      }
+      doc.setFont("helvetica", "normal");
       doc.text(`Página ${i} de ${pageCount}`, PW - MR, 202, { align: "right" });
     }
 
