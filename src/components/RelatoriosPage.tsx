@@ -379,156 +379,188 @@ export default function RelatoriosPage() {
     const MR = 14;  // margem direita
     const CW = PW - ML - MR; // largura útil
 
-    // ── Paleta de cores ──
-    const COR_VERDE_HEADER: [number, number, number]  = [22, 163, 74];   // green-600
-    const COR_VERDE_LIGHT: [number, number, number]   = [240, 253, 244]; // green-50
-    const COR_VERDE_MED: [number, number, number]     = [220, 252, 231]; // green-100
-    const COR_VERDE_DARK: [number, number, number]    = [187, 247, 208]; // green-200
-    const COR_VERDE_TOTAL: [number, number, number]   = [134, 239, 172]; // green-300
-    const COR_AMBER_HEADER: [number, number, number]  = [217, 119, 6];   // amber-600
-    const COR_AMBER_LIGHT: [number, number, number]   = [255, 251, 235]; // amber-50
-    const COR_AMBER_MED: [number, number, number]     = [254, 243, 199]; // amber-100
-    const COR_AMBER_DARK: [number, number, number]    = [253, 230, 138]; // amber-200
-    const COR_AZUL_PROF: [number, number, number]     = [219, 234, 254]; // blue-100
-    const COR_AZUL_TEXT: [number, number, number]     = [30, 64, 175];   // blue-800
-    const COR_EMERALD_TOTAL: [number, number, number] = [16, 185, 129];  // emerald-500
-    const COR_CINZA_HEADER: [number, number, number]  = [248, 250, 252]; // slate-50
-    const COR_CINZA_ALT: [number, number, number]     = [241, 245, 249]; // slate-100
-    const COR_TEXTO: [number, number, number]         = [15, 23, 42];    // slate-900
-    const COR_TEXTO_MUTED: [number, number, number]   = [100, 116, 139]; // slate-500
-    const COR_BRANCO: [number, number, number]        = [255, 255, 255];
+    // ── Paleta sóbria: uma cor de marca + tons de cinza ──
+    const COR_MARCA: [number, number, number]       = [22, 163, 74];   // verde da marca (apenas detalhes)
+    const COR_TEXTO: [number, number, number]       = [30, 41, 59];    // slate-800
+    const COR_TEXTO_MUTED: [number, number, number] = [100, 116, 139]; // slate-500
+    const COR_LINHA: [number, number, number]       = [203, 213, 225]; // slate-300
+    const COR_CINZA_HEADER: [number, number, number] = [241, 245, 249]; // slate-100
+    const COR_CINZA_ALT: [number, number, number]   = [248, 250, 252]; // slate-50
 
     const titulo =
       tipoRelatorio === "clientes"
-        ? "Relatorio Financeiro - Clientes"
-        : "Relatorio Financeiro - Funcionarios";
+        ? "Relatório Financeiro - Clientes"
+        : "Relatório Financeiro - Funcionários";
 
     // ── Cabeçalho do documento ──
-    doc.setFillColor(...COR_VERDE_HEADER);
-    doc.rect(0, 0, PW, 22, "F");
-    doc.setFontSize(14);
+    // Área à esquerda reservada para a logo da clínica (configurável futuramente);
+    // enquanto não houver logo, exibe a marca textual.
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(...COR_BRANCO);
-    doc.text(titulo, ML, 10);
-    doc.setFontSize(9);
+    doc.setFontSize(15);
+    doc.setTextColor(...COR_TEXTO);
+    doc.text("FisioSys", ML, 13);
     doc.setFont("helvetica", "normal");
-    doc.text(`Periodo: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML, 17);
-    doc.setTextColor(...COR_TEXTO);
-
-    // ── Linha de geração ──
-    const agora = new Date().toLocaleString("pt-BR");
-    doc.setFontSize(7);
+    doc.setFontSize(7.5);
     doc.setTextColor(...COR_TEXTO_MUTED);
-    doc.text(`Gerado em: ${agora}`, PW - MR, 17, { align: "right" });
+    doc.text("Sistema de Gestão de Clínica", ML, 18);
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...COR_TEXTO);
+    doc.text(titulo, PW - MR, 11, { align: "right" });
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...COR_TEXTO_MUTED);
+    doc.text(`Período: ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, PW - MR, 16, { align: "right" });
+    doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, PW - MR, 20.5, { align: "right" });
+
+    // Linha fina na cor da marca separando o cabeçalho do conteúdo
+    doc.setDrawColor(...COR_MARCA);
+    doc.setLineWidth(0.8);
+    doc.line(ML, 24, PW - MR, 24);
+    doc.setLineWidth(0.2);
+    doc.setDrawColor(...COR_LINHA);
     doc.setTextColor(...COR_TEXTO);
 
-    let cursorY = 26;
+    let cursorY = 30;
 
-    // ── Helper: desenha um banner de seção ──
-    const drawSectionBanner = (
-      y: number,
-      label: string,
-      cor: [number, number, number],
-      corTexto: [number, number, number] = COR_BRANCO
-    ): number => {
-      doc.setFillColor(...cor);
-      doc.roundedRect(ML, y, CW, 8, 1.5, 1.5, "F");
-      doc.setFontSize(9);
+    // ── Helper: título de seção (tipográfico, com linha fina) ──
+    const drawSectionBanner = (y: number, label: string, count: number): number => {
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(...corTexto);
-      doc.text(label, ML + 3, y + 5.5);
+      doc.setFontSize(10);
       doc.setTextColor(...COR_TEXTO);
-      return y + 11;
+      doc.text(label.toUpperCase(), ML, y + 4);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text(`${count} registro(s)`, PW - MR, y + 4, { align: "right" });
+      doc.setDrawColor(...COR_LINHA);
+      doc.setLineWidth(0.2);
+      doc.line(ML, y + 6, PW - MR, y + 6);
+      doc.setTextColor(...COR_TEXTO);
+      return y + 10;
     };
 
-    // ── Helper: desenha um banner de profissional ──
+    // ── Helper: nome do profissional (texto em negrito, sem fundo) ──
     const drawProfBanner = (y: number, label: string): number => {
-      doc.setFillColor(...COR_AZUL_PROF);
-      doc.roundedRect(ML, y, CW, 7, 1, 1, "F");
-      doc.setFontSize(8.5);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(...COR_AZUL_TEXT);
-      doc.text(`>> ${label}`, ML + 3, y + 4.8);
+      doc.setFontSize(9);
+      doc.setTextColor(...COR_TEXTO);
+      doc.text(label, ML, y + 4);
+      return y + 6.5;
+    };
+
+    // ── Helper: linha de data do grupo ──
+    const drawDateBanner = (y: number, label: string, count: number): number => {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text(label, ML, y + 3.5);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${count} registro(s)`, PW - MR, y + 3.5, { align: "right" });
+      doc.setTextColor(...COR_TEXTO);
+      return y + 5.5;
+    };
+
+    // ── Helper: total alinhado à direita (linha fina + valor em negrito) ──
+    const drawTotalBox = (y: number, label: string, valor: string, width = 90): number => {
+      const x = ML + CW - width;
+      doc.setDrawColor(...COR_LINHA);
+      doc.setLineWidth(0.2);
+      doc.line(x, y, ML + CW, y);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text(label, x, y + 4.8);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(...COR_TEXTO);
+      doc.text(valor, ML + CW, y + 4.8, { align: "right" });
       doc.setTextColor(...COR_TEXTO);
       return y + 9;
     };
 
-    // ── Helper: desenha um banner de data ──
-    const drawDateBanner = (y: number, label: string, count: number): number => {
-      doc.setFillColor(...COR_CINZA_HEADER);
-      doc.rect(ML, y, CW, 6, "F");
-      doc.setFontSize(7.5);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text(`Data: ${label}`, ML + 3, y + 4.2);
-      doc.text(`${count} registro(s)`, ML + CW - 3, y + 4.2, { align: "right" });
-      doc.setTextColor(...COR_TEXTO);
-      return y + 7;
-    };
-
-    // ── Helper: desenha caixa de total alinhada à direita ──
-    const drawTotalBox = (
-      y: number,
-      label: string,
-      valor: string,
-      cor: [number, number, number],
-      corTexto: [number, number, number],
-      width = 70
-    ): number => {
-      const x = ML + CW - width;
-      doc.setFillColor(...cor);
-      doc.roundedRect(x, y, width, 12, 1.5, 1.5, "F");
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text(label, x + width - 3, y + 4.5, { align: "right" });
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...corTexto);
-      doc.text(valor, x + width - 3, y + 10, { align: "right" });
-      doc.setTextColor(...COR_TEXTO);
-      return y + 15;
-    };
-
-    // ── Helper: desenha duas caixas de total lado a lado ──
+    // ── Helper: dois totais lado a lado ──
     const drawDoubleTotalBox = (
       y: number,
-      label1: string, valor1: string, cor1: [number, number, number], corT1: [number, number, number],
-      label2: string, valor2: string, cor2: [number, number, number], corT2: [number, number, number],
-      width = 70
+      label1: string, valor1: string,
+      label2: string, valor2: string,
+      width = 90
     ): number => {
-      const gap = 4;
+      const gap = 10;
       const x2 = ML + CW - width;
       const x1 = x2 - width - gap;
-      doc.setFillColor(...cor1);
-      doc.roundedRect(x1, y, width, 12, 1.5, 1.5, "F");
-      doc.setFontSize(7);
+      doc.setDrawColor(...COR_LINHA);
+      doc.setLineWidth(0.2);
+      doc.line(x1, y, ML + CW, y);
       doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
       doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text(label1, x1 + width - 3, y + 4.5, { align: "right" });
-      doc.setFontSize(10);
+      doc.text(label1, x1, y + 4.8);
+      doc.text(label2, x2, y + 4.8);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(...corT1);
-      doc.text(valor1, x1 + width - 3, y + 10, { align: "right" });
-
-      doc.setFillColor(...cor2);
-      doc.roundedRect(x2, y, width, 12, 1.5, 1.5, "F");
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text(label2, x2 + width - 3, y + 4.5, { align: "right" });
       doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(...corT2);
-      doc.text(valor2, x2 + width - 3, y + 10, { align: "right" });
       doc.setTextColor(...COR_TEXTO);
-      return y + 15;
+      doc.text(valor1, x2 - gap, y + 4.8, { align: "right" });
+      doc.text(valor2, ML + CW, y + 4.8, { align: "right" });
+      doc.setTextColor(...COR_TEXTO);
+      return y + 9;
+    };
+
+    // ── Helper: faixa de resumo (caixas neutras com borda fina) ──
+    const drawResumo = (items: { label: string; valor: string }[]) => {
+      const cardW = (CW - 4 * (items.length - 1)) / items.length;
+      const cardH = 14;
+      items.forEach((it, i) => {
+        const x = ML + i * (cardW + 4);
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(...COR_LINHA);
+        doc.setLineWidth(0.2);
+        doc.roundedRect(x, cursorY, cardW, cardH, 1, 1, "FD");
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(...COR_TEXTO_MUTED);
+        doc.text(it.label.toUpperCase(), x + 4, cursorY + 5);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(...COR_TEXTO);
+        doc.text(it.valor, x + 4, cursorY + 11);
+      });
+      doc.setTextColor(...COR_TEXTO);
+      cursorY += cardH + 8;
+    };
+
+    // ── Helper: bloco de total geral no fim do relatório ──
+    const drawTotalGeral = (linhas: { label: string; valor: string }[], registros: number) => {
+      checkPage(12 + linhas.length * 8);
+      doc.setDrawColor(...COR_MARCA);
+      doc.setLineWidth(0.6);
+      doc.line(ML, cursorY, ML + CW, cursorY);
+      doc.setLineWidth(0.2);
+      let y = cursorY + 7;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text(`${registros} registro(s)  -  ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML, y);
+      linhas.forEach((l, i) => {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(i === 0 ? 8.5 : 8);
+        doc.setTextColor(...COR_TEXTO_MUTED);
+        doc.text(l.label, ML + CW - 75, y, { align: "right" });
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(i === 0 ? 13 : 10);
+        doc.setTextColor(...COR_TEXTO);
+        doc.text(l.valor, ML + CW, y, { align: "right" });
+        y += i === 0 ? 8 : 6;
+      });
+      cursorY = y;
+      doc.setTextColor(...COR_TEXTO);
     };
 
     // ── Helper: verifica se precisa de nova página ──
     const checkPage = (neededHeight: number) => {
       const pageH = 210; // A4 landscape height
-      const marginBottom = 15;
+      const marginBottom = 18; // reserva espaço para o rodapé
       if (cursorY + neededHeight > pageH - marginBottom) {
         doc.addPage();
         cursorY = 15;
@@ -539,8 +571,7 @@ export default function RelatoriosPage() {
     const renderTabelaData = (
       data: string,
       itens: Recebimento[],
-      tipo: "clientes" | "funcionarios",
-      corSubtotal: [number, number, number]
+      tipo: "clientes" | "funcionarios"
     ) => {
       checkPage(30);
       cursorY = drawDateBanner(cursorY, fmtDate(data), itens.length);
@@ -566,17 +597,17 @@ export default function RelatoriosPage() {
           ];
         });
         body.push([
-          { content: "Subtotal do dia", colSpan: 4, styles: { fontStyle: "bold" as const, textColor: COR_TEXTO_MUTED, fillColor: corSubtotal } } as unknown as string,
-          { content: fmt(subtotal), styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: corSubtotal } } as unknown as string,
-          { content: "", styles: { fillColor: corSubtotal } } as unknown as string,
+          { content: "Subtotal do dia", colSpan: 4, styles: { fontStyle: "bold" as const, textColor: COR_TEXTO_MUTED, fillColor: COR_CINZA_HEADER } } as unknown as string,
+          { content: fmt(subtotal), styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: COR_CINZA_HEADER } } as unknown as string,
+          { content: "", styles: { fillColor: COR_CINZA_HEADER } } as unknown as string,
         ]);
         autoTable(doc, {
           head,
           body,
           startY: cursorY,
-          margin: { left: ML, right: MR },
+          margin: { left: ML, right: MR, bottom: 18 },
           styles: { fontSize: 7.5, cellPadding: 1.8, textColor: COR_TEXTO },
-          headStyles: { fillColor: COR_CINZA_HEADER, textColor: COR_TEXTO_MUTED, fontStyle: "bold", fontSize: 7 },
+          headStyles: { fillColor: COR_CINZA_HEADER, textColor: COR_TEXTO, fontStyle: "bold", fontSize: 7 },
           alternateRowStyles: { fillColor: COR_CINZA_ALT },
           columnStyles: { 4: { halign: "right" } },
           tableLineColor: [226, 232, 240],
@@ -584,7 +615,7 @@ export default function RelatoriosPage() {
           didDrawPage: () => { cursorY = 15; },
         });
       } else {
-        const head = [["Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor", "Comissao", "Cliente"]];
+        const head = [["Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor", "Comissão", "Cliente"]];
         const body = itens.map((r) => {
           const com = _comissaoRec(r);
           const valorCom = com ? (Number(r.valor) * com.percentual) / 100 : null;
@@ -599,18 +630,18 @@ export default function RelatoriosPage() {
           ];
         });
         body.push([
-          { content: "Subtotal do dia", colSpan: 4, styles: { fontStyle: "bold" as const, textColor: COR_TEXTO_MUTED, fillColor: corSubtotal } } as unknown as string,
-          { content: fmt(subtotal), styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: corSubtotal } } as unknown as string,
-          { content: fmt(subtotalCom), styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: corSubtotal, textColor: COR_EMERALD_TOTAL } } as unknown as string,
-          { content: "", styles: { fillColor: corSubtotal } } as unknown as string,
+          { content: "Subtotal do dia", colSpan: 4, styles: { fontStyle: "bold" as const, textColor: COR_TEXTO_MUTED, fillColor: COR_CINZA_HEADER } } as unknown as string,
+          { content: fmt(subtotal), styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: COR_CINZA_HEADER } } as unknown as string,
+          { content: fmt(subtotalCom), styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: COR_CINZA_HEADER } } as unknown as string,
+          { content: "", styles: { fillColor: COR_CINZA_HEADER } } as unknown as string,
         ]);
         autoTable(doc, {
           head,
           body,
           startY: cursorY,
-          margin: { left: ML, right: MR },
+          margin: { left: ML, right: MR, bottom: 18 },
           styles: { fontSize: 7.5, cellPadding: 1.8, textColor: COR_TEXTO },
-          headStyles: { fillColor: COR_CINZA_HEADER, textColor: COR_TEXTO_MUTED, fontStyle: "bold", fontSize: 7 },
+          headStyles: { fillColor: COR_CINZA_HEADER, textColor: COR_TEXTO, fontStyle: "bold", fontSize: 7 },
           alternateRowStyles: { fillColor: COR_CINZA_ALT },
           columnStyles: { 4: { halign: "right" }, 5: { halign: "right" } },
           tableLineColor: [226, 232, 240],
@@ -633,82 +664,44 @@ export default function RelatoriosPage() {
       const totalPend = recPend.reduce((s, r) => s + Number(r.valor), 0);
       const totalGeral = recebimentos.reduce((s, r) => s + Number(r.valor), 0);
 
-      // ── Cards de resumo ──
-      const cardW = (CW - 8) / 3;
-      const cardH = 14;
-      // Card Confirmados
-      doc.setFillColor(...COR_VERDE_LIGHT);
-      doc.roundedRect(ML, cursorY, cardW, cardH, 2, 2, "F");
-      doc.setDrawColor(...COR_VERDE_HEADER);
-      doc.roundedRect(ML, cursorY, cardW, cardH, 2, 2, "S");
-      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Confirmados", ML + 3, cursorY + 5);
-      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_VERDE_HEADER);
-      doc.text(fmt(totalConf), ML + 3, cursorY + 11);
-      // Card Pendentes
-      const cx2 = ML + cardW + 4;
-      doc.setFillColor(...COR_AMBER_LIGHT);
-      doc.roundedRect(cx2, cursorY, cardW, cardH, 2, 2, "F");
-      doc.setDrawColor(...COR_AMBER_HEADER);
-      doc.roundedRect(cx2, cursorY, cardW, cardH, 2, 2, "S");
-      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Pendentes", cx2 + 3, cursorY + 5);
-      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_AMBER_HEADER);
-      doc.text(fmt(totalPend), cx2 + 3, cursorY + 11);
-      // Card Total Geral
-      const cx3 = ML + (cardW + 4) * 2;
-      doc.setFillColor(...COR_CINZA_HEADER);
-      doc.roundedRect(cx3, cursorY, cardW, cardH, 2, 2, "F");
-      doc.setDrawColor(203, 213, 225);
-      doc.roundedRect(cx3, cursorY, cardW, cardH, 2, 2, "S");
-      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Total Geral", cx3 + 3, cursorY + 5);
-      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_TEXTO);
-      doc.text(fmt(totalGeral), cx3 + 3, cursorY + 11);
-      doc.setTextColor(...COR_TEXTO);
-      doc.setDrawColor(0);
-      cursorY += cardH + 6;
+      // ── Faixa de resumo ──
+      drawResumo([
+        { label: "Confirmados", valor: fmt(totalConf) },
+        { label: "Pendentes", valor: fmt(totalPend) },
+        { label: "Total Geral", valor: fmt(totalGeral) },
+      ]);
 
       // ── Seção Confirmados ──
       if (recConf.length > 0) {
         checkPage(20);
-        cursorY = drawSectionBanner(cursorY, `Pagamentos Confirmados  (${recConf.length} registro(s))`, COR_VERDE_HEADER);
+        cursorY = drawSectionBanner(cursorY, "Pagamentos Confirmados", recConf.length);
         const gruposConf = groupByDate(recConf);
         for (const [data, itens] of gruposConf.entries()) {
-          renderTabelaData(data, itens, "clientes", COR_VERDE_MED);
+          renderTabelaData(data, itens, "clientes");
         }
-        checkPage(18);
-        cursorY = drawTotalBox(cursorY, "Total Confirmado", fmt(totalConf), COR_VERDE_LIGHT, COR_VERDE_HEADER);
+        checkPage(12);
+        cursorY = drawTotalBox(cursorY, "Total Confirmado", fmt(totalConf));
         cursorY += 4;
       }
 
       // ── Seção Pendentes ──
       if (recPend.length > 0) {
         checkPage(20);
-        cursorY = drawSectionBanner(cursorY, `Pagamentos Pendentes  (${recPend.length} registro(s))`, COR_AMBER_HEADER);
+        cursorY = drawSectionBanner(cursorY, "Pagamentos Pendentes", recPend.length);
         const gruposPend = groupByDate(recPend);
         for (const [data, itens] of gruposPend.entries()) {
-          renderTabelaData(data, itens, "clientes", COR_AMBER_MED);
+          renderTabelaData(data, itens, "clientes");
         }
-        checkPage(18);
-        cursorY = drawTotalBox(cursorY, "Total Pendente", fmt(totalPend), COR_AMBER_LIGHT, COR_AMBER_HEADER);
+        checkPage(12);
+        cursorY = drawTotalBox(cursorY, "Total Pendente", fmt(totalPend));
         cursorY += 4;
       }
 
       // ── Total geral final ──
-      checkPage(20);
-      doc.setFillColor(...COR_CINZA_HEADER);
-      doc.roundedRect(ML, cursorY, CW, 16, 2, 2, "F");
-      doc.setDrawColor(203, 213, 225);
-      doc.roundedRect(ML, cursorY, CW, 16, 2, 2, "S");
-      doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Somatoria Total do Periodo", ML + CW - 3, cursorY + 5.5, { align: "right" });
-      doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_TEXTO);
-      doc.text(fmt(totalGeral), ML + CW - 3, cursorY + 13, { align: "right" });
-      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text(`${recebimentos.length} registro(s) - ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML + 3, cursorY + 9);
-      doc.setTextColor(...COR_TEXTO);
-      doc.setDrawColor(0);
+      drawTotalGeral(
+        [{ label: "Somatória total do período", valor: fmt(totalGeral) }],
+        recebimentos.length
+      );
 
     // ════════════════════════════════════════════════════════════
     // RELATÓRIO FUNCIONÁRIOS
@@ -724,46 +717,17 @@ export default function RelatoriosPage() {
         return c ? s + (Number(r.valor) * c.percentual) / 100 : s;
       }, 0);
 
-      // ── Cards de resumo ──
-      const cardW = (CW - 8) / 3;
-      const cardH = 14;
-      // Card Confirmados
-      doc.setFillColor(...COR_VERDE_LIGHT);
-      doc.roundedRect(ML, cursorY, cardW, cardH, 2, 2, "F");
-      doc.setDrawColor(...COR_VERDE_HEADER);
-      doc.roundedRect(ML, cursorY, cardW, cardH, 2, 2, "S");
-      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Confirmados", ML + 3, cursorY + 5);
-      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_VERDE_HEADER);
-      doc.text(fmt(totalConf), ML + 3, cursorY + 11);
-      // Card Pendentes
-      const cx2 = ML + cardW + 4;
-      doc.setFillColor(...COR_AMBER_LIGHT);
-      doc.roundedRect(cx2, cursorY, cardW, cardH, 2, 2, "F");
-      doc.setDrawColor(...COR_AMBER_HEADER);
-      doc.roundedRect(cx2, cursorY, cardW, cardH, 2, 2, "S");
-      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Pendentes", cx2 + 3, cursorY + 5);
-      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_AMBER_HEADER);
-      doc.text(fmt(totalPend), cx2 + 3, cursorY + 11);
-      // Card Total Comissão
-      const cx3 = ML + (cardW + 4) * 2;
-      doc.setFillColor(236, 253, 245); // emerald-50
-      doc.roundedRect(cx3, cursorY, cardW, cardH, 2, 2, "F");
-      doc.setDrawColor(...COR_EMERALD_TOTAL);
-      doc.roundedRect(cx3, cursorY, cardW, cardH, 2, 2, "S");
-      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Total Comissao", cx3 + 3, cursorY + 5);
-      doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_EMERALD_TOTAL);
-      doc.text(fmt(totalGeralComissao), cx3 + 3, cursorY + 11);
-      doc.setTextColor(...COR_TEXTO);
-      doc.setDrawColor(0);
-      cursorY += cardH + 6;
+      // ── Faixa de resumo ──
+      drawResumo([
+        { label: "Confirmados", valor: fmt(totalConf) },
+        { label: "Pendentes", valor: fmt(totalPend) },
+        { label: "Total Comissão", valor: fmt(totalGeralComissao) },
+      ]);
 
       // ── Seção Confirmados por profissional ──
       if (recConf.length > 0) {
         checkPage(20);
-        cursorY = drawSectionBanner(cursorY, `Pagamentos Confirmados  (${recConf.length} registro(s))`, COR_VERDE_HEADER);
+        cursorY = drawSectionBanner(cursorY, "Pagamentos Confirmados", recConf.length);
         const gruposPorProf = groupByProfissional(recConf);
         let totalConfValor = 0;
         let totalConfComissao = 0;
@@ -778,23 +742,23 @@ export default function RelatoriosPage() {
           checkPage(20);
           cursorY = drawProfBanner(cursorY, `${profNome}  -  ${todosItensProf.length} registro(s)`);
           for (const [data, itens] of dateMap.entries()) {
-            renderTabelaData(data, itens, "funcionarios", COR_VERDE_MED);
+            renderTabelaData(data, itens, "funcionarios");
           }
-          checkPage(18);
+          checkPage(12);
           cursorY = drawDoubleTotalBox(
             cursorY,
-            `Total ${profNome}`, fmt(totalValorProf), COR_VERDE_LIGHT, COR_VERDE_HEADER,
-            `Comissão ${profNome}`, fmt(totalComProf), [236, 253, 245], COR_EMERALD_TOTAL
+            `Total ${profNome}`, fmt(totalValorProf),
+            `Comissão ${profNome}`, fmt(totalComProf)
           );
           cursorY += 4;
           totalConfValor += totalValorProf;
           totalConfComissao += totalComProf;
         }
-        checkPage(18);
+        checkPage(12);
         cursorY = drawDoubleTotalBox(
           cursorY,
-          "Total Confirmado", fmt(totalConfValor), COR_VERDE_DARK, COR_VERDE_HEADER,
-          "Total Comissão", fmt(totalConfComissao), COR_VERDE_TOTAL, [20, 83, 45]
+          "Total Confirmado", fmt(totalConfValor),
+          "Total Comissão", fmt(totalConfComissao)
         );
         cursorY += 6;
       }
@@ -802,7 +766,7 @@ export default function RelatoriosPage() {
       // ── Seção Pendentes por profissional ──
       if (recPend.length > 0) {
         checkPage(20);
-        cursorY = drawSectionBanner(cursorY, `Pagamentos Pendentes  (${recPend.length} registro(s))`, COR_AMBER_HEADER);
+        cursorY = drawSectionBanner(cursorY, "Pagamentos Pendentes", recPend.length);
         const gruposPorProfPend = groupByProfissional(recPend);
         let totalPendValor = 0;
         for (const [profSlug, dateMap] of gruposPorProfPend.entries()) {
@@ -810,49 +774,42 @@ export default function RelatoriosPage() {
           const todosItensProf = [...dateMap.values()].flat();
           const totalValorProf = todosItensProf.reduce((s, r) => s + Number(r.valor), 0);
           checkPage(20);
-          // Banner de profissional em âmbar
-          doc.setFillColor(...COR_AMBER_LIGHT);
-          doc.roundedRect(ML, cursorY, CW, 7, 1, 1, "F");
-          doc.setFontSize(8.5);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(...COR_AMBER_HEADER);
-          doc.text(`>> ${profNome}  -  ${todosItensProf.length} registro(s)`, ML + 3, cursorY + 4.8);
-          doc.setTextColor(...COR_TEXTO);
-          cursorY += 9;
+          cursorY = drawProfBanner(cursorY, `${profNome}  -  ${todosItensProf.length} registro(s)`);
           for (const [data, itens] of dateMap.entries()) {
-            renderTabelaData(data, itens, "funcionarios", COR_AMBER_MED);
+            renderTabelaData(data, itens, "funcionarios");
           }
-          checkPage(18);
-          cursorY = drawTotalBox(
-            cursorY,
-            `Total Pendente ${profNome}`, fmt(totalValorProf), COR_AMBER_LIGHT, COR_AMBER_HEADER
-          );
+          checkPage(12);
+          cursorY = drawTotalBox(cursorY, `Total Pendente ${profNome}`, fmt(totalValorProf));
           cursorY += 4;
           totalPendValor += totalValorProf;
         }
-        checkPage(18);
-        cursorY = drawTotalBox(cursorY, "Total Pendente Geral", fmt(totalPendValor), COR_AMBER_DARK, COR_AMBER_HEADER);
+        checkPage(12);
+        cursorY = drawTotalBox(cursorY, "Total Pendente Geral", fmt(totalPendValor));
         cursorY += 6;
       }
 
       // ── Total geral final ──
-      checkPage(22);
-      doc.setFillColor(...COR_CINZA_HEADER);
-      doc.roundedRect(ML, cursorY, CW, 20, 2, 2, "F");
-      doc.setDrawColor(203, 213, 225);
-      doc.roundedRect(ML, cursorY, CW, 20, 2, 2, "S");
-      doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Somatoria Total do Periodo", ML + CW - 3, cursorY + 5.5, { align: "right" });
-      doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_TEXTO);
-      doc.text(fmt(totalGeralValor), ML + CW - 3, cursorY + 12, { align: "right" });
-      doc.setFontSize(7.5); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text("Total de Comissao", ML + CW - 3, cursorY + 16.5, { align: "right" });
-      doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.setTextColor(...COR_EMERALD_TOTAL);
-      doc.text(fmt(totalGeralComissao), ML + CW - 3, cursorY + 20, { align: "right" });
-      doc.setFontSize(7); doc.setFont("helvetica", "normal"); doc.setTextColor(...COR_TEXTO_MUTED);
-      doc.text(`${recebimentos.length} registro(s) - ${fmtDate(dataInicial)} a ${fmtDate(dataFinal)}`, ML + 3, cursorY + 9);
-      doc.setTextColor(...COR_TEXTO);
-      doc.setDrawColor(0);
+      drawTotalGeral(
+        [
+          { label: "Somatória total do período", valor: fmt(totalGeralValor) },
+          { label: "Total de comissão", valor: fmt(totalGeralComissao) },
+        ],
+        recebimentos.length
+      );
+    }
+
+    // ── Rodapé em todas as páginas ──
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setDrawColor(...COR_LINHA);
+      doc.setLineWidth(0.2);
+      doc.line(ML, 198, PW - MR, 198);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text("FisioSys  -  Sistema de Gestão de Clínica", ML, 202);
+      doc.text(`Página ${i} de ${pageCount}`, PW - MR, 202, { align: "right" });
     }
 
     doc.save(`relatorio_${tipoRelatorio}_${dataInicial}_${dataFinal}.pdf`);
