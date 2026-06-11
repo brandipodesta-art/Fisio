@@ -515,6 +515,47 @@ export default function AgendaPage() {
     if (prev && prev.status !== apt.status) {
       await runStatusSideEffects(apt, prev.status, apt.status);
     }
+
+    // Lista de Espera: criar entrada vinculada ao agendamento (igual ao fluxo de criação)
+    if (apt.addToWaitlist && apt.pacienteId) {
+      try {
+        // Evitar duplicar: já existe entrada aguardando para este paciente?
+        const { data: existente } = await supabase
+          .from("lista_espera")
+          .select("id")
+          .eq("paciente_id", apt.pacienteId)
+          .eq("status", "aguardando")
+          .maybeSingle();
+
+        if (existente) {
+          toast.info("Paciente já está na Lista de Espera");
+          return;
+        }
+
+        const { data: pacData } = await supabase
+          .from("pacientes")
+          .select("telefone_cel")
+          .eq("id", apt.pacienteId)
+          .maybeSingle();
+
+        await supabase.from("lista_espera").insert({
+          paciente_id: apt.pacienteId,
+          paciente_nome: apt.patientName,
+          telefone: pacData?.telefone_cel ?? null,
+          profissional_preferido_id: apt.professionalId,
+          procedimento_id: apt.procedimentoId ?? null,
+          motivo: apt.notes ?? null,
+          urgencia: apt.waitlistUrgencia ?? "media",
+          agendamento_atual_id: apt.id,
+          status: "aguardando",
+        });
+        toast.success("Paciente adicionado à Lista de Espera");
+        setListaEsperaCount((c) => c + 1);
+        if (apt.waitlistUrgencia === "alta") setListaEsperaAlta((c) => c + 1);
+      } catch (err) {
+        console.warn("Erro ao adicionar à lista de espera:", err);
+      }
+    }
   };
 
   // Change appointment status

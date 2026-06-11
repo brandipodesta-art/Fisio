@@ -125,6 +125,8 @@ export default function AgendaNewEventDialog({
       setNotes(appointmentToEdit.notes || "");
       setStatus(appointmentToEdit.status);
       setGerarCobranca(appointmentToEdit.gerarCobranca ?? true);
+      setAddToWaitlist(false);
+      setWaitlistUrgencia("media");
     }
   }, [appointmentToEdit, open]);
 
@@ -605,7 +607,7 @@ export default function AgendaNewEventDialog({
           )}
 
           {/* Lista de Espera — avisar se vagar antes */}
-          {!isLocked && !isEditing && (
+          {!isLocked && (
             <div className="bg-amber-50/50 border border-amber-200/60 rounded-lg p-3 space-y-2">
               <label className="flex items-center gap-2 text-sm font-medium select-none cursor-pointer text-foreground/80">
                 <input
