@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
+import { useClinicaConfig } from "@/lib/useClinicaConfig";
 import { toast } from "sonner";
 
 interface TopBarProps {
@@ -28,6 +29,7 @@ const TODOS_MENUS = [
 export default function TopBar({ activePage, onPageChange }: TopBarProps) {
   const { usuario, logout } = useAuth();
   const { podeVerConfiguracoes, isFuncionario, isAdmin } = usePermissoes();
+  const clinicaConfig = useClinicaConfig();
 
   // Filtra menus conforme permissões do perfil
   const menuItems = TODOS_MENUS.filter(m => {
@@ -65,6 +67,18 @@ export default function TopBar({ activePage, onPageChange }: TopBarProps) {
             <span className="text-[15px] font-bold text-foreground tracking-tight">
               FisioSys
             </span>
+            {/* Logo da clínica (configurável em Configurações) */}
+            {clinicaConfig?.logo_url && (
+              <>
+                <span className="h-6 w-px bg-border mx-1" aria-hidden />
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={clinicaConfig.logo_url}
+                  alt="Logo da clínica"
+                  className="h-8 max-w-[120px] object-contain"
+                />
+              </>
+            )}
           </div>
 
           {/* ── Navegação central ─────────────────────── */}

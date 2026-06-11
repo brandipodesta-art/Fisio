@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import {
   Settings, ChevronDown, ChevronRight, Plus, Pencil, Trash2,
   Check, X, Stethoscope, DollarSign, CreditCard, Tag, Users, Percent,
-  AlertTriangle, Loader2, Bell, Mail, Clock, Save,
+  AlertTriangle, Loader2, Bell, Mail, Clock, Save, ImageIcon, Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1054,6 +1054,159 @@ function SecaoAlertasEmail() {
 }
 
 // ─── Aviso de tabelas pendentes ───────────────────────────────────────────────
+// ─── Secao: Logo da Clinica ──────────────────────────────────────
+function SecaoLogoClinica() {
+  const supabase = createClient();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [enviando, setEnviando] = useState(false);
+  const [removendo, setRemovendo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    const { data } = await supabase
+      .from("configuracoes_clinica")
+      .select("logo_url")
+      .eq("id", 1)
+      .maybeSingle();
+    setLogoUrl(data?.logo_url ?? null);
+    setCarregando(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const notificarAtualizacao = () => {
+    window.dispatchEvent(new Event("clinica-config-updated"));
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // permite reenviar o mesmo arquivo
+    if (!file) return;
+    setErro(null);
+
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      setErro("Formato inválido. Use PNG, JPG ou WEBP (PNG com fundo transparente é o ideal).");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setErro("Arquivo muito grande. O limite é 2 MB.");
+      return;
+    }
+
+    setEnviando(true);
+    try {
+      const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+      const path = `logo.${ext}`;
+
+      const { error: upError } = await supabase.storage
+        .from("branding")
+        .upload(path, file, { upsert: true, contentType: file.type });
+      if (upError) throw new Error(upError.message);
+
+      const { data: pub } = supabase.storage.from("branding").getPublicUrl(path);
+      // Cache-busting: a URL muda a cada upload para o navegador não mostrar a logo antiga
+      const url = `${pub.publicUrl}?v=${Date.now()}`;
+
+      const { error: cfgError } = await supabase
+        .from("configuracoes_clinica")
+        .update({ logo_url: url, atualizado_em: new Date().toISOString() })
+        .eq("id", 1);
+      if (cfgError) throw new Error(cfgError.message);
+
+      setLogoUrl(url);
+      notificarAtualizacao();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Erro ao enviar a logo. Verifique se o SQL de configuração foi executado.");
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  const handleRemover = async () => {
+    setRemovendo(true);
+    setErro(null);
+    try {
+      const { error: cfgError } = await supabase
+        .from("configuracoes_clinica")
+        .update({ logo_url: null, atualizado_em: new Date().toISOString() })
+        .eq("id", 1);
+      if (cfgError) throw new Error(cfgError.message);
+      setLogoUrl(null);
+      notificarAtualizacao();
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Erro ao remover a logo.");
+    } finally {
+      setRemovendo(false);
+    }
+  };
+
+  return (
+    <Secao titulo="Logo da Clinica" icone={ImageIcon} cor="bg-gradient-to-br from-slate-500 to-slate-700">
+      <div className="p-5 space-y-4">
+        <p className="text-sm text-muted-foreground">
+          A logo aparece no topo do sistema e no cabeçalho dos relatórios em PDF.
+          Prefira PNG com fundo transparente, com até 2 MB.
+        </p>
+
+        {erro && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+            {erro}
+          </div>
+        )}
+
+        <div className="flex items-center gap-5">
+          {/* Preview */}
+          <div className="flex items-center justify-center w-40 h-20 rounded-lg border border-dashed border-border bg-muted/30 overflow-hidden shrink-0">
+            {carregando ? (
+              <Loader2 className="w-5 h-5 animate-spin text-muted-foreground/50" />
+            ) : logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logoUrl} alt="Logo da clínica" className="max-w-full max-h-full object-contain" />
+            ) : (
+              <span className="text-xs text-muted-foreground/60">Nenhuma logo enviada</span>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={handleUpload}
+                disabled={enviando}
+              />
+              <Button asChild variant="outline" size="sm" className="cursor-pointer">
+                <span>
+                  {enviando
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Enviando...</>
+                    : <><Upload className="w-4 h-4 mr-2" /> {logoUrl ? "Trocar logo" : "Enviar logo"}</>}
+                </span>
+              </Button>
+            </label>
+            {logoUrl && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRemover}
+                disabled={removendo}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                {removendo
+                  ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Removendo...</>
+                  : <><Trash2 className="w-4 h-4 mr-2" /> Remover logo</>}
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </Secao>
+  );
+}
+
 function AvisoSQL() {
   const [visivel, setVisivel] = useState(true);
   if (!visivel) return null;
@@ -1103,7 +1256,7 @@ export default function ConfiguracoesPage() {
       </div>
 
       {/* Grid de duas colunas: Profissionais | Notificações */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         <div>
           <h2 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-4 px-1">Profissionais</h2>
           <SecaoProfissionais />
@@ -1111,6 +1264,14 @@ export default function ConfiguracoesPage() {
         <div>
           <h2 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-4 px-1">Notificações</h2>
           <SecaoAlertasEmail />
+        </div>
+      </div>
+
+      {/* Identidade visual da clínica */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div>
+          <h2 className="text-xs font-bold text-muted-foreground/60 uppercase tracking-widest mb-4 px-1">Clínica</h2>
+          <SecaoLogoClinica />
         </div>
       </div>
     </div>

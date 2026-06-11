@@ -373,6 +373,34 @@ export default function RelatoriosPage() {
     const jsPDF = (await import("jspdf")).default;
     const autoTable = (await import("jspdf-autotable")).default;
 
+    // Carregar logo da clínica (se configurada) para o cabeçalho
+    let logoData: { dataUrl: string; w: number; h: number } | null = null;
+    try {
+      const { fetchClinicaConfig } = await import("@/lib/useClinicaConfig");
+      const cfg = await fetchClinicaConfig();
+      if (cfg?.logo_url) {
+        logoData = await new Promise((resolve) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            try {
+              const canvas = document.createElement("canvas");
+              canvas.width = img.naturalWidth;
+              canvas.height = img.naturalHeight;
+              canvas.getContext("2d")!.drawImage(img, 0, 0);
+              resolve({ dataUrl: canvas.toDataURL("image/png"), w: img.naturalWidth, h: img.naturalHeight });
+            } catch {
+              resolve(null);
+            }
+          };
+          img.onerror = () => resolve(null);
+          img.src = cfg.logo_url!;
+        });
+      }
+    } catch {
+      // Sem logo configurada: o cabeçalho usa a marca textual
+    }
+
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const PW = 297; // largura A4 landscape
     const ML = 14;  // margem esquerda
@@ -393,16 +421,22 @@ export default function RelatoriosPage() {
         : "Relatório Financeiro - Funcionários";
 
     // ── Cabeçalho do documento ──
-    // Área à esquerda reservada para a logo da clínica (configurável futuramente);
-    // enquanto não houver logo, exibe a marca textual.
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(15);
-    doc.setTextColor(...COR_TEXTO);
-    doc.text("FisioSys", ML, 13);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...COR_TEXTO_MUTED);
-    doc.text("Sistema de Gestão de Clínica", ML, 18);
+    // Logo da clínica à esquerda (configurável em Configurações);
+    // sem logo, exibe a marca textual.
+    if (logoData) {
+      const logoH = 13; // altura em mm
+      const logoW = Math.min((logoData.w / logoData.h) * logoH, 50);
+      doc.addImage(logoData.dataUrl, "PNG", ML, 5, logoW, logoH);
+    } else {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(15);
+      doc.setTextColor(...COR_TEXTO);
+      doc.text("FisioSys", ML, 13);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text("Sistema de Gestão de Clínica", ML, 18);
+    }
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
