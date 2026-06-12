@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.configuracoes_clinica (
 ALTER TABLE public.configuracoes_clinica ADD COLUMN IF NOT EXISTS cnpj TEXT;
 ALTER TABLE public.configuracoes_clinica ADD COLUMN IF NOT EXISTS telefone TEXT;
 ALTER TABLE public.configuracoes_clinica ADD COLUMN IF NOT EXISTS endereco TEXT;
+ALTER TABLE public.configuracoes_clinica ADD COLUMN IF NOT EXISTS cor_tema TEXT DEFAULT 'verde';
 
 -- Linha inicial
 INSERT INTO public.configuracoes_clinica (id)

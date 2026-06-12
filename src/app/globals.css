@@ -174,6 +174,50 @@
   --chart-5: oklch(0.700 0.128 19);
 }
 
+/* ── Theme: Purple (Roxa) ──────────────────────────────── */
+[data-theme="roxa"] {
+  --primary:            oklch(0.550 0.193 295.0);
+  --sidebar-primary:    oklch(0.550 0.193 295.0);
+  --sidebar-accent:     oklch(0.955 0.012 295.0);
+  --sidebar-accent-foreground: oklch(0.38 0.12 295.0);
+  --accent:             oklch(0.955 0.012 295.0);
+  --accent-foreground:  oklch(0.38 0.12 295.0);
+  --ring:               oklch(0.550 0.193 295.0);
+  --chart-1:            oklch(0.550 0.195 295.0);
+}
+.dark[data-theme="roxa"], .dark [data-theme="roxa"] {
+  --primary:            oklch(0.590 0.190 295.0);
+  --sidebar-primary:    oklch(0.590 0.190 295.0);
+  --sidebar-accent:     oklch(0.20 0.025 295.0);
+  --sidebar-accent-foreground: oklch(0.72 0.15 295.0);
+  --accent:             oklch(0.20 0.025 295.0);
+  --accent-foreground:  oklch(0.72 0.15 295.0);
+  --ring:               oklch(0.590 0.190 295.0);
+  --chart-1:            oklch(0.670 0.185 295.0);
+}
+
+/* ── Theme: Blue (Azul) ───────────────────────────────── */
+[data-theme="azul"] {
+  --primary:            oklch(0.550 0.193 250.0);
+  --sidebar-primary:    oklch(0.550 0.193 250.0);
+  --sidebar-accent:     oklch(0.955 0.012 250.0);
+  --sidebar-accent-foreground: oklch(0.38 0.12 250.0);
+  --accent:             oklch(0.955 0.012 250.0);
+  --accent-foreground:  oklch(0.38 0.12 250.0);
+  --ring:               oklch(0.550 0.193 250.0);
+  --chart-1:            oklch(0.550 0.195 250.0);
+}
+.dark[data-theme="azul"], .dark [data-theme="azul"] {
+  --primary:            oklch(0.590 0.190 250.0);
+  --sidebar-primary:    oklch(0.590 0.190 250.0);
+  --sidebar-accent:     oklch(0.20 0.025 250.0);
+  --sidebar-accent-foreground: oklch(0.72 0.15 250.0);
+  --accent:             oklch(0.20 0.025 250.0);
+  --accent-foreground:  oklch(0.72 0.15 250.0);
+  --ring:               oklch(0.590 0.190 250.0);
+  --chart-1:            oklch(0.670 0.185 250.0);
+}
+
 /* ═══════════════════════════════════════════════════════════
    BASE LAYER
    ═══════════════════════════════════════════════════════════ */

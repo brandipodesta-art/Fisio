@@ -1068,6 +1068,7 @@ function SecaoLogoClinica() {
   const [cnpj, setCnpj] = useState("");
   const [telefone, setTelefone] = useState("");
   const [endereco, setEndereco] = useState("");
+  const [corTema, setCorTema] = useState("verde");
   const [salvandoDados, setSalvandoDados] = useState(false);
   const [dadosSalvos, setDadosSalvos] = useState(false);
 
@@ -1075,7 +1076,7 @@ function SecaoLogoClinica() {
     setCarregando(true);
     const { data } = await supabase
       .from("configuracoes_clinica")
-      .select("logo_url, nome_clinica, cnpj, telefone, endereco")
+      .select("logo_url, nome_clinica, cnpj, telefone, endereco, cor_tema")
       .eq("id", 1)
       .maybeSingle();
     setLogoUrl(data?.logo_url ?? null);
@@ -1083,6 +1084,7 @@ function SecaoLogoClinica() {
     setCnpj(data?.cnpj ?? "");
     setTelefone(data?.telefone ?? "");
     setEndereco(data?.endereco ?? "");
+    setCorTema(data?.cor_tema ?? "verde");
     setCarregando(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1167,6 +1169,7 @@ function SecaoLogoClinica() {
           cnpj: cnpj.trim() || null,
           telefone: telefone.trim() || null,
           endereco: endereco.trim() || null,
+          cor_tema: corTema,
           atualizado_em: new Date().toISOString(),
         })
         .eq("id", 1);
@@ -1288,6 +1291,48 @@ function SecaoLogoClinica() {
               />
             </div>
           </div>
+
+          {/* Aparência do Sistema (Tema de cores) */}
+          <div className="border-t border-border/60 pt-4 space-y-2.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Aparência (Cor de Destaque)
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Escolha a cor principal para botões, links, destaques e menus em todo o sistema.
+            </p>
+            <div className="flex items-center gap-3.5 pt-1">
+              {[
+                { key: "verde", label: "Verde (Padrão)", colorBg: "bg-emerald-600" },
+                { key: "roxa",  label: "Roxo",          colorBg: "bg-purple-600" },
+                { key: "azul",  label: "Azul",          colorBg: "bg-blue-600" }
+              ].map((temaOpt) => {
+                const isSelected = corTema === temaOpt.key;
+                return (
+                  <button
+                    key={temaOpt.key}
+                    onClick={() => setCorTema(temaOpt.key)}
+                    className={`
+                      relative flex items-center justify-center h-9 w-9 rounded-full cursor-pointer
+                      transition-all duration-200 outline-none
+                      ${isSelected ? "ring-2 ring-primary ring-offset-2 scale-110" : "hover:scale-105 opacity-85 hover:opacity-100"}
+                    `}
+                    title={temaOpt.label}
+                    type="button"
+                  >
+                    <span className={`h-6.5 w-6.5 rounded-full ${temaOpt.colorBg} shadow-inner flex items-center justify-center`}>
+                      {isSelected && (
+                        <Check className="w-3.5 h-3.5 text-white stroke-[3px]" />
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+              <span className="text-xs text-foreground/80 font-medium ml-1.5 capitalize">
+                {corTema === "verde" ? "Verde (Padrão)" : corTema}
+              </span>
+            </div>
+          </div>
+
           <div className="flex items-center gap-3">
             <Button size="sm" onClick={handleSalvarDados} disabled={salvandoDados || carregando}>
               {salvandoDados

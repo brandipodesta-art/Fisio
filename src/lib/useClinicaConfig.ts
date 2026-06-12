@@ -8,6 +8,7 @@ export interface ClinicaConfig {
   cnpj: string | null;
   telefone: string | null;
   endereco: string | null;
+  cor_tema?: string | null;
 }
 
 /** Busca a configuração da clínica (linha única id=1). Retorna null se a tabela não existir. */
@@ -15,7 +16,7 @@ export async function fetchClinicaConfig(): Promise<ClinicaConfig | null> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("configuracoes_clinica")
-    .select("logo_url, nome_clinica, cnpj, telefone, endereco")
+    .select("logo_url, nome_clinica, cnpj, telefone, endereco, cor_tema")
     .eq("id", 1)
     .maybeSingle();
   if (error || !data) return null;
@@ -30,7 +31,13 @@ export function useClinicaConfig() {
     let ativo = true;
     const carregar = () => {
       fetchClinicaConfig().then((c) => {
-        if (ativo) setConfig(c);
+        if (ativo) {
+          setConfig(c);
+          if (typeof document !== "undefined") {
+            const tema = c?.cor_tema || "verde";
+            document.documentElement.setAttribute("data-theme", tema);
+          }
+        }
       });
     };
     carregar();
