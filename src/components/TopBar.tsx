@@ -60,24 +60,25 @@ export default function TopBar({ activePage, onPageChange }: TopBarProps) {
         <div className="flex items-center justify-between h-[60px]">
 
           {/* ── Logo ──────────────────────────────────── */}
-          <div className="flex items-center gap-2.5 shrink-0">
-            <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-emerald-700 shadow-sm">
-              <Activity className="w-[18px] h-[18px] text-white" />
-            </div>
-            <span className="text-[15px] font-bold text-foreground tracking-tight">
-              FisioSys
-            </span>
-            {/* Logo da clínica (configurável em Configurações) */}
-            {clinicaConfig?.logo_url && (
-              <>
-                <span className="h-6 w-px bg-border mx-1" aria-hidden />
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={clinicaConfig.logo_url}
-                  alt="Logo da clínica"
-                  className="h-8 max-w-[120px] object-contain"
-                />
-              </>
+          <div className="flex items-center gap-3 shrink-0">
+            {clinicaConfig?.logo_url ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={clinicaConfig.logo_url}
+                alt={clinicaConfig.nome_clinica || "Logo da clínica"}
+                className="h-10 md:h-11 w-auto max-w-[180px] object-contain"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-emerald-700 shadow-sm">
+                <Activity className="w-[18px] h-[18px] text-white" />
+              </div>
+            )}
+            
+            {/* Nome do espaço de fisioterapia configurado pelo usuário */}
+            {(!clinicaConfig?.logo_url || clinicaConfig?.nome_clinica) && (
+              <span className="text-[15px] font-bold text-foreground tracking-tight truncate max-w-[160px] sm:max-w-[240px] md:max-w-none">
+                {clinicaConfig?.nome_clinica || "FisioSys"}
+              </span>
             )}
           </div>
 

@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/AuthContext";
+import { useClinicaConfig } from "@/lib/useClinicaConfig";
 
 // ─── Validação de requisitos de senha ────────────────────────────────────────
 function validarSenha(senha: string) {
@@ -22,6 +23,7 @@ type Tela = "login" | "solicitar";
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const clinicaConfig = useClinicaConfig();
 
   const [tela, setTela]                   = useState<Tela>("login");
   const [identificador, setIdentificador] = useState("");
@@ -116,10 +118,23 @@ export default function LoginPage() {
         <div className="w-full max-w-md">
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
-            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-emerald-700 shadow-lg mb-4">
-              <Activity className="w-7 h-7 text-white" />
-            </div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">FisioSys</h1>
+            {clinicaConfig?.logo_url ? (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                src={clinicaConfig.logo_url}
+                alt={clinicaConfig.nome_clinica || "Logo da clínica"}
+                className="h-16 w-auto max-w-[240px] object-contain mb-4"
+              />
+            ) : (
+              <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-emerald-700 shadow-lg mb-4">
+                <Activity className="w-7 h-7 text-white" />
+              </div>
+            )}
+            {(!clinicaConfig?.logo_url || clinicaConfig?.nome_clinica) && (
+              <h1 className="text-2xl font-bold text-foreground tracking-tight">
+                {clinicaConfig?.nome_clinica || "FisioSys"}
+              </h1>
+            )}
             <p className="text-sm text-muted-foreground mt-1">Sistema de Gestão de Clínica</p>
           </div>
 
@@ -207,10 +222,23 @@ export default function LoginPage() {
 
         {/* ── Logo e título ── */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-emerald-700 shadow-lg mb-4">
-            <Activity className="w-7 h-7 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight">FisioSys</h1>
+          {clinicaConfig?.logo_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={clinicaConfig.logo_url}
+              alt={clinicaConfig.nome_clinica || "Logo da clínica"}
+              className="h-16 w-auto max-w-[240px] object-contain mb-4"
+            />
+          ) : (
+            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-emerald-700 shadow-lg mb-4">
+              <Activity className="w-7 h-7 text-white" />
+            </div>
+          )}
+          {(!clinicaConfig?.logo_url || clinicaConfig?.nome_clinica) && (
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">
+              {clinicaConfig?.nome_clinica || "FisioSys"}
+            </h1>
+          )}
           <p className="text-sm text-muted-foreground mt-1">Sistema de Gestão de Clínica</p>
         </div>
 
@@ -309,7 +337,7 @@ export default function LoginPage() {
 
         {/* ── Rodapé ── */}
         <p className="text-center text-xs text-muted-foreground mt-6">
-          FisioSys © {new Date().getFullYear()} — Acesso restrito a funcionários autorizados
+          {clinicaConfig?.nome_clinica || "FisioSys"} © {new Date().getFullYear()} — Acesso restrito a funcionários autorizados
         </p>
       </div>
     </div>
