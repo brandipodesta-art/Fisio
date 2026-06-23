@@ -60,15 +60,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // tipo_usuario: usa o campo próprio de usuarios_acesso
-    // Se não existir (registros antigos), tenta buscar do join com pacientes
+    // tipo_usuario: a fonte primária é a tabela pacientes (onde o CadastroForm salva o perfil).
+    // O campo tipo_usuario em usuarios_acesso pode não existir, estar null ou desatualizado.
+    // Prioridade: pacientes.tipo_usuario > usuarios_acesso.tipo_usuario > fallback "funcionario"
     const paciente = Array.isArray(usuario.pacientes)
       ? usuario.pacientes[0]
       : usuario.pacientes;
 
     const nomeCompleto: string = paciente?.nome_completo ?? usuario.nome_acesso;
-    // Prioridade: campo próprio > join com pacientes > fallback
-    const tipoUsuario: string = (usuario as any).tipo_usuario ?? paciente?.tipo_usuario ?? "funcionario";
+    const tipoUsuario: string = paciente?.tipo_usuario || (usuario as any).tipo_usuario || "funcionario";
 
     // Montar payload da sessão (sem dados sensíveis)
     const sessao = {
