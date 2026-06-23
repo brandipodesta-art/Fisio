@@ -145,13 +145,15 @@ export default function FinanceiroResumo() {
 
   const cards: KpiCardProps[] = resumo
     ? [
-        { label: "Total Recebido",         valor: resumo.totalRecebido, icon: TrendingUp,   variant: "success" },
+        { label: "Total Recebido (Bruto)", valor: resumo.totalRecebido, icon: TrendingUp,   variant: "success" },
+        { label: "Taxas de Cartão",        valor: -(resumo.totalTaxasCartao ?? 0), icon: TrendingDown, variant: "destructive" },
+        { label: "Total Recebido (Líquido)", valor: resumo.totalLiquidoRecebido ?? resumo.totalRecebido, icon: TrendingUp,   variant: "success" },
         { label: "A Receber (Pendente)",    valor: resumo.totalPendente, icon: Clock,        variant: "info" },
         { label: "Recebimentos Atrasados",  valor: resumo.totalAtrasado, icon: AlertCircle,  variant: "warning" },
         { label: "Total Pago (Despesas)",   valor: resumo.totalPago,    icon: TrendingDown,  variant: "destructive" },
         { label: "Despesas Pendentes",      valor: resumo.totalDespesasPendentes, icon: AlertCircle, variant: "warning" },
         {
-          label: "Saldo Liquido",
+          label: "Saldo Líquido",
           valor: resumo.saldoLiquido,
           icon: DollarSign,
           variant: resumo.saldoLiquido >= 0 ? "success" : "destructive",

@@ -80,6 +80,11 @@ interface Recebimento {
   procedimento_id: string | null;
   profissional_id: string | null;
   confirmado_por: string | null;
+  cartao_bandeira?: string | null;
+  cartao_tipo?: string | null;
+  cartao_antecipado?: boolean | null;
+  taxa_valor?: number | null;
+  valor_liquido?: number | null;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -215,7 +220,7 @@ export default function RelatoriosPage() {
 
         // Recebimentos em atraso (somente se filtro for ambos ou recebimentos)
         if (tipoInadimplencia === "ambos" || tipoInadimplencia === "recebimentos") {
-          const qRec = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,profissional_id,confirmado_por&status=in.(pendente,atrasado)&data_vencimento=lt.${hoje}&order=data_vencimento.asc`;
+          const qRec = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,profissional_id,confirmado_por,cartao_bandeira,taxa_valor,valor_liquido&status=in.(pendente,atrasado)&data_vencimento=lt.${hoje}&order=data_vencimento.asc`;
           const dataRec = await get(qRec);
           setRecebimentos(Array.isArray(dataRec) ? dataRec : []);
         } else {
@@ -239,7 +244,7 @@ export default function RelatoriosPage() {
 
         setGerado(true);
       } else {
-        let query = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,profissional_id,confirmado_por`;
+        let query = `recebimentos?select=id,paciente_id,paciente_nome,descricao,valor,data_vencimento,data_pagamento,status,forma_pagamento,procedimento_id,profissional_id,confirmado_por,cartao_bandeira,taxa_valor,valor_liquido`;
         query += `&data_vencimento=gte.${dataInicial}&data_vencimento=lte.${dataFinal}`;
 
         if (tipoRelatorio === "clientes" && clienteId && clienteId !== "todos") {
@@ -297,7 +302,7 @@ export default function RelatoriosPage() {
     if (tipoRelatorio === "clientes") {
       // ── Clientes: agrupado por data ──
       const grupos = groupByDate(recebimentos);
-      linhas.push(["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor (R$)", "Profissional"]);
+      linhas.push(["Status", "Cliente", "Vencimento", "Data Pagamento", "Procedimento", "Valor Bruto (R$)", "Taxa Cartão (R$)", "Valor Líquido (R$)", "Profissional"]);
       for (const [data, itens] of grupos.entries()) {
         linhas.push([`Data: ${fmtDate(data)}`]);
         for (const r of itens) {
@@ -308,15 +313,21 @@ export default function RelatoriosPage() {
             fmtDate(r.data_pagamento),
             _nomeProcLocal(r.procedimento_id),
             Number(r.valor),
-            _nomeProfLocal(r.profissional_id ?? null),
+            Number(r.taxa_valor ?? 0),
+            Number(r.valor_liquido ?? r.valor),
+            _nomeProfLocal(r.profissional_id ?? null) + (r.cartao_bandeira ? ` (${r.cartao_bandeira})` : ""),
           ]);
         }
         const subtotal = itens.reduce((s, r) => s + Number(r.valor), 0);
-        linhas.push(["", "", "", "", "Subtotal do dia", subtotal, ""]);
+        const subtotalTaxa = itens.reduce((s, r) => s + Number(r.taxa_valor ?? 0), 0);
+        const subtotalLiquido = itens.reduce((s, r) => s + Number(r.valor_liquido ?? r.valor), 0);
+        linhas.push(["", "", "", "", "Subtotal do dia", subtotal, subtotalTaxa, subtotalLiquido, ""]);
         linhas.push([]);
       }
       const total = recebimentos.reduce((s, r) => s + Number(r.valor), 0);
-      linhas.push(["", "", "", "", "TOTAL GERAL", total, ""]);
+      const totalTaxa = recebimentos.reduce((s, r) => s + Number(r.taxa_valor ?? 0), 0);
+      const totalLiquido = recebimentos.reduce((s, r) => s + Number(r.valor_liquido ?? r.valor), 0);
+      linhas.push(["", "", "", "", "TOTAL GERAL", total, totalTaxa, totalLiquido, ""]);
     } else {
       // ── Funcionários: agrupado por profissional → data ──
       linhas.push(["Status", "Profissional", "Procedimento", "Data Proc.", "Data Pagto", "Valor (R$)", "Comissão (R$)", "Cliente"]);
@@ -545,6 +556,37 @@ export default function RelatoriosPage() {
       return y + 9;
     };
 
+    // ── Helper: três totais lado a lado ──
+    const drawTripleTotalBox = (
+      y: number,
+      label1: string, valor1: string,
+      label2: string, valor2: string,
+      label3: string, valor3: string,
+      width = 75
+    ): number => {
+      const gap = 6;
+      const x3 = ML + CW - width;
+      const x2 = x3 - width - gap;
+      const x1 = x2 - width - gap;
+      doc.setDrawColor(...COR_LINHA);
+      doc.setLineWidth(0.2);
+      doc.line(x1, y, ML + CW, y);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(...COR_TEXTO_MUTED);
+      doc.text(label1, x1, y + 4.8);
+      doc.text(label2, x2, y + 4.8);
+      doc.text(label3, x3, y + 4.8);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(...COR_TEXTO);
+      doc.text(valor1, x2 - gap, y + 4.8, { align: "right" });
+      doc.text(valor2, x3 - gap, y + 4.8, { align: "right" });
+      doc.text(valor3, ML + CW, y + 4.8, { align: "right" });
+      doc.setTextColor(...COR_TEXTO);
+      return y + 9;
+    };
+
     // ── Helper: faixa de resumo (caixas neutras com borda fina) ──
     const drawResumo = (items: { label: string; valor: string }[]) => {
       const cardW = (CW - 4 * (items.length - 1)) / items.length;
@@ -623,7 +665,7 @@ export default function RelatoriosPage() {
         : 0;
 
       if (tipo === "clientes") {
-        const head = [["Cliente", "Vencimento", "Pagamento", "Procedimento", "Valor", "Profissional"]];
+        const head = [["Cliente", "Vencimento", "Pagamento", "Procedimento", "Valor Bruto", "Taxa", "Valor Líq.", "Profissional"]];
         const body = itens.map((r) => {
           return [
             r.paciente_nome,
@@ -631,12 +673,18 @@ export default function RelatoriosPage() {
             fmtDate(r.data_pagamento),
             _nomeProcLocal(r.procedimento_id),
             fmt(Number(r.valor)),
-            _nomeProfLocal(r.profissional_id ?? null),
+            Number(r.taxa_valor ?? 0) > 0 ? `-${fmt(Number(r.taxa_valor))}` : "—",
+            fmt(Number(r.valor_liquido ?? r.valor)),
+            _nomeProfLocal(r.profissional_id ?? null) + (r.cartao_bandeira ? ` (${r.cartao_bandeira})` : ""),
           ];
         });
+        const subtotalTaxa = itens.reduce((s, r) => s + Number(r.taxa_valor ?? 0), 0);
+        const subtotalLiquido = itens.reduce((s, r) => s + Number(r.valor_liquido ?? r.valor), 0);
         body.push([
           { content: "Subtotal do dia", colSpan: 4, styles: { fontStyle: "bold" as const, textColor: COR_TEXTO_MUTED, fillColor: COR_CINZA_HEADER } } as unknown as string,
           { content: fmt(subtotal), styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: COR_CINZA_HEADER } } as unknown as string,
+          { content: subtotalTaxa > 0 ? `-${fmt(subtotalTaxa)}` : "—", styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: COR_CINZA_HEADER } } as unknown as string,
+          { content: fmt(subtotalLiquido), styles: { fontStyle: "bold" as const, halign: "right" as const, fillColor: COR_CINZA_HEADER } } as unknown as string,
           { content: "", styles: { fillColor: COR_CINZA_HEADER } } as unknown as string,
         ]);
         autoTable(doc, {
@@ -647,7 +695,7 @@ export default function RelatoriosPage() {
           styles: { fontSize: 7.5, cellPadding: 1.8, textColor: COR_TEXTO },
           headStyles: { fillColor: COR_CINZA_HEADER, textColor: COR_TEXTO, fontStyle: "bold", fontSize: 7 },
           alternateRowStyles: { fillColor: COR_CINZA_ALT },
-          columnStyles: { 4: { halign: "right" } },
+          columnStyles: { 4: { halign: "right" }, 5: { halign: "right" }, 6: { halign: "right" } },
           tableLineColor: [226, 232, 240],
           tableLineWidth: 0.1,
           didDrawPage: () => { cursorY = 15; },
@@ -699,14 +747,20 @@ export default function RelatoriosPage() {
       const recConf = recebimentos.filter((r) => r.status === "recebido" || r.status === "pago");
       const recPend = recebimentos.filter((r) => r.status === "pendente" || r.status === "atrasado");
       const totalConf = recConf.reduce((s, r) => s + Number(r.valor), 0);
+      const totalConfTaxa = recConf.reduce((s, r) => s + Number(r.taxa_valor ?? 0), 0);
+      const totalConfLiquido = recConf.reduce((s, r) => s + Number(r.valor_liquido ?? r.valor), 0);
       const totalPend = recPend.reduce((s, r) => s + Number(r.valor), 0);
       const totalGeral = recebimentos.reduce((s, r) => s + Number(r.valor), 0);
+      const totalGeralTaxa = recebimentos.reduce((s, r) => s + Number(r.taxa_valor ?? 0), 0);
+      const totalGeralLiquido = recebimentos.reduce((s, r) => s + Number(r.valor_liquido ?? r.valor), 0);
 
       // ── Faixa de resumo ──
       drawResumo([
-        { label: "Confirmados", valor: fmt(totalConf) },
+        { label: "Confirmado (Bruto)", valor: fmt(totalConf) },
+        { label: "Taxas Descontadas", valor: totalConfTaxa > 0 ? `-${fmt(totalConfTaxa)}` : "—" },
+        { label: "Confirmado (Líquido)", valor: fmt(totalConfLiquido) },
         { label: "Pendentes", valor: fmt(totalPend) },
-        { label: "Total Geral", valor: fmt(totalGeral) },
+        { label: "Total Geral (Líquido)", valor: fmt(totalGeralLiquido) },
       ]);
 
       // ── Seção Confirmados ──
@@ -718,7 +772,12 @@ export default function RelatoriosPage() {
           renderTabelaData(data, itens, "clientes");
         }
         checkPage(12);
-        cursorY = drawTotalBox(cursorY, "Total Confirmado", fmt(totalConf));
+        cursorY = drawTripleTotalBox(
+          cursorY,
+          "Bruto Confirmado", fmt(totalConf),
+          "Taxas Descontadas", totalConfTaxa > 0 ? `-${fmt(totalConfTaxa)}` : "—",
+          "Líquido Confirmado", fmt(totalConfLiquido)
+        );
         cursorY += 4;
       }
 
@@ -737,7 +796,11 @@ export default function RelatoriosPage() {
 
       // ── Total geral final ──
       drawTotalGeral(
-        [{ label: "Somatória total do período", valor: fmt(totalGeral) }],
+        [
+          { label: "Total Geral Líquido", valor: fmt(totalGeralLiquido) },
+          { label: "Total Geral Bruto", valor: fmt(totalGeral) },
+          { label: "Total Geral Taxas", valor: totalGeralTaxa > 0 ? `-${fmt(totalGeralTaxa)}` : "—" },
+        ],
         recebimentos.length
       );
 
@@ -955,7 +1018,16 @@ export default function RelatoriosPage() {
         <td className="py-2.5 px-3 text-sm text-muted-foreground">{fmtDate(r.data_pagamento)}</td>
         <td className="py-2.5 px-3 text-sm text-foreground">{nomeProcedimento(r.procedimento_id)}</td>
         <td className="py-2.5 px-3 text-sm font-medium text-foreground text-right">{fmt(Number(r.valor))}</td>
-        <td className="py-2.5 px-3 text-sm text-muted-foreground">{nomeProfissionalBySlug(profSlug)}</td>
+        <td className="py-2.5 px-3 text-sm text-red-600 text-right">
+          {Number(r.taxa_valor ?? 0) > 0 ? `-${fmt(Number(r.taxa_valor))}` : "—"}
+        </td>
+        <td className="py-2.5 px-3 text-sm font-semibold text-success text-right">
+          {fmt(Number(r.valor_liquido ?? r.valor))}
+        </td>
+        <td className="py-2.5 px-3 text-sm text-muted-foreground">
+          {nomeProfissionalBySlug(profSlug)}
+          {r.cartao_bandeira && ` (${r.cartao_bandeira})`}
+        </td>
       </tr>
     );
   };
@@ -996,6 +1068,8 @@ export default function RelatoriosPage() {
     tipo: "clientes" | "funcionarios";
   }) => {
     const subtotal = itens.reduce((s, r) => s + Number(r.valor), 0);
+    const subtotalTaxa = itens.reduce((s, r) => s + Number(r.taxa_valor ?? 0), 0);
+    const subtotalLiquido = itens.reduce((s, r) => s + Number(r.valor_liquido ?? r.valor), 0);
     const subtotalComissao =
       tipo === "funcionarios"
         ? itens.reduce((s, r) => {
@@ -1022,6 +1096,8 @@ export default function RelatoriosPage() {
                     <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-left">Pagamento</th>
                     <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-left">Procedimento</th>
                     <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-right">Valor</th>
+                    <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-right">Taxa</th>
+                    <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-right">Valor Líq.</th>
                     <th className="py-2 px-3 text-xs font-semibold text-muted-foreground text-left">Profissional</th>
                   </>
                 ) : (
@@ -1050,6 +1126,10 @@ export default function RelatoriosPage() {
                       Subtotal do dia
                     </td>
                     <td className="py-2 px-3 text-sm font-bold text-foreground text-right">{fmt(subtotal)}</td>
+                    <td className="py-2 px-3 text-sm font-medium text-red-600 text-right">
+                      {subtotalTaxa > 0 ? `-${fmt(subtotalTaxa)}` : "—"}
+                    </td>
+                    <td className="py-2 px-3 text-sm font-bold text-success text-right">{fmt(subtotalLiquido)}</td>
                     <td />
                   </>
                 ) : (

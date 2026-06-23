@@ -57,6 +57,12 @@ export interface Recebimento {
   confirmado_por: string | null;
   /** ID do usuário que confirmou o recebimento (FK → usuarios_acesso.id) */
   confirmado_por_id: string | null;
+  // Campos de taxas de cartão
+  cartao_bandeira?: "ELO" | "MASTER" | "VISA" | null;
+  cartao_tipo?: "debito" | "credito" | "parcelado_2_6" | "parcelado_7_12" | null;
+  cartao_antecipado?: boolean | null;
+  taxa_valor?: number | null;
+  valor_liquido?: number | null;
 }
 
 export type RecebimentoInput = Omit<Recebimento, "id" | "created_at">;
@@ -101,6 +107,8 @@ export interface ComissaoProfissional {
 
 export interface ResumoFinanceiro {
   totalRecebido: number;
+  totalTaxasCartao?: number;
+  totalLiquidoRecebido?: number;
   totalPendente: number;
   totalAtrasado: number;
   totalPago: number;

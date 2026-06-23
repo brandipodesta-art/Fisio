@@ -46,6 +46,91 @@ function useFormasPagamento() {
   return { formas };
 }
 
+interface TaxaCartao {
+  id: string;
+  bandeira: "ELO" | "MASTER" | "VISA";
+  debito: number;
+  credito: number;
+  parcelado_2_6: number;
+  parcelado_7_12: number;
+}
+
+function useTaxasCartao() {
+  const [taxas, setTaxas] = useState<TaxaCartao[]>([]);
+  const [taxaPix, setTaxaPix] = useState<number>(0);
+  const [taxaAntecipacao, setTaxaAntecipacao] = useState<number>(1.54);
+
+  useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    
+    fetch(`${url}/rest/v1/taxas_cartao?order=bandeira`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setTaxas(data as TaxaCartao[]); })
+      .catch(() => {});
+
+    fetch(`${url}/rest/v1/configuracoes_clinica?id=eq.1&select=taxa_pix,taxa_antecipacao`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data[0]) {
+          setTaxaPix(Number(data[0].taxa_pix) || 0);
+          setTaxaAntecipacao(Number(data[0].taxa_antecipacao) || 0);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return { taxas, taxaPix, taxaAntecipacao };
+}
+
+function calcularTaxa(
+  valor: number,
+  formaSlug: string | null,
+  bandeira: string | null,
+  tipoCartao: string | null,
+  antecipado: boolean,
+  taxas: TaxaCartao[],
+  taxaPix: number,
+  taxaAntecipacao: number
+): { taxa_valor: number; valor_liquido: number } {
+  if (valor <= 0) return { taxa_valor: 0, valor_liquido: 0 };
+  
+  let rate = 0;
+
+  if (formaSlug === "pix") {
+    rate = taxaPix;
+  } else if (formaSlug === "cartao_debito" && bandeira) {
+    const taxaBandeira = taxas.find(t => t.bandeira === bandeira);
+    if (taxaBandeira) {
+      rate = Number(taxaBandeira.debito) || 0;
+    }
+  } else if (formaSlug === "cartao_credito" && bandeira && tipoCartao) {
+    const taxaBandeira = taxas.find(t => t.bandeira === bandeira);
+    if (taxaBandeira) {
+      if (tipoCartao === "credito") {
+        rate = Number(taxaBandeira.credito) || 0;
+      } else if (tipoCartao === "parcelado_2_6") {
+        rate = Number(taxaBandeira.parcelado_2_6) || 0;
+      } else if (tipoCartao === "parcelado_7_12") {
+        rate = Number(taxaBandeira.parcelado_7_12) || 0;
+      }
+      if (antecipado) {
+        rate += taxaAntecipacao;
+      }
+    }
+  }
+
+  const taxa_valor = Math.round(valor * rate) / 100;
+  const valor_liquido = Math.max(0, valor - taxa_valor);
+
+  return { taxa_valor, valor_liquido };
+}
+
+
 /** Converte nome da forma de pagamento para slug legado */
 function slugFromNome(nome: string): FormaPagamento | null {
   const map: Record<string, FormaPagamento> = {
@@ -121,11 +206,14 @@ interface FormModalProps {
   onFechar: () => void;
   salvando: boolean;
   formas: FormaPagamentoItem[];
+  taxas: TaxaCartao[];
+  taxaPix: number;
+  taxaAntecipacao: number;
 }
 
 // ─── Formulário Modal ─────────────────────────────────────────────────────────
 
-function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalProps) {
+function FormModal({ inicial, onSalvar, onFechar, salvando, formas, taxas, taxaPix, taxaAntecipacao }: FormModalProps) {
   const { procedimentos, carregando: carregandoProc } = useProcedimentos();
 
   // Extrai o procedimento base removendo numeração de parcelas: "Acupuntura (2/4)" → "Acupuntura"
@@ -151,7 +239,67 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
     observacoes:         obsLimpa,
     confirmado_por:      inicial?.confirmado_por      ?? null,
     confirmado_por_id:   inicial?.confirmado_por_id   ?? null,
+    cartao_bandeira:     inicial?.cartao_bandeira     ?? null,
+    cartao_tipo:         inicial?.cartao_tipo         ?? null,
+    cartao_antecipado:   inicial?.cartao_antecipado   ?? false,
+    taxa_valor:          inicial?.taxa_valor          ?? 0,
+    valor_liquido:       inicial?.valor_liquido       ?? inicial?.valor ?? 0,
   });
+
+  // Re-calcular taxas de cartão e valor líquido ao mudar valores relevantes
+  useEffect(() => {
+    const fp = formas.find(f => f.id === form.forma_pagamento_id);
+    const slug = fp ? slugFromNome(fp.nome) : null;
+    
+    const isCartao = slug === "cartao_credito" || slug === "cartao_debito";
+    const isCredito = slug === "cartao_credito";
+    
+    const cartaoBandeira = isCartao ? (form.cartao_bandeira ?? null) : null;
+    const cartaoTipo = isCartao ? (isCredito ? (form.cartao_tipo ?? null) : "debito") : null;
+    const cartaoAntecipado = isCartao && isCredito ? (form.cartao_antecipado ?? false) : false;
+    
+    const { taxa_valor, valor_liquido } = calcularTaxa(
+      form.valor,
+      slug,
+      cartaoBandeira,
+      cartaoTipo,
+      cartaoAntecipado,
+      taxas,
+      taxaPix,
+      taxaAntecipacao
+    );
+
+    setForm(f => {
+      if (
+        f.taxa_valor === taxa_valor &&
+        f.valor_liquido === valor_liquido &&
+        f.cartao_bandeira === cartaoBandeira &&
+        f.cartao_tipo === cartaoTipo &&
+        f.cartao_antecipado === cartaoAntecipado
+      ) {
+        return f;
+      }
+      return {
+        ...f,
+        cartao_bandeira: cartaoBandeira,
+        cartao_tipo: cartaoTipo,
+        cartao_antecipado: cartaoAntecipado,
+        taxa_valor,
+        valor_liquido,
+      };
+    });
+  }, [
+    form.valor,
+    form.forma_pagamento_id,
+    form.cartao_bandeira,
+    form.cartao_tipo,
+    form.cartao_antecipado,
+    formas,
+    taxas,
+    taxaPix,
+    taxaAntecipacao
+  ]);
+
   const [repete, setRepete] = useState(false);
   const [meses, setMeses]   = useState(3);
 
@@ -311,6 +459,80 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas }: FormModalP
               </Select>
             </div>
           </div>
+          {/* Campos de Cartão Condicionais */}
+          {(() => {
+            const fp = formas.find(f => f.id === form.forma_pagamento_id);
+            const slug = fp ? slugFromNome(fp.nome) : null;
+            if (slug !== "cartao_credito" && slug !== "cartao_debito") return null;
+
+            return (
+              <div className="border border-border rounded-lg p-3 space-y-3 bg-muted/30">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Detalhes da Transação em Cartão</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-muted-foreground mb-1">Bandeira *</label>
+                    <Select
+                      value={form.cartao_bandeira ?? ""}
+                      onValueChange={v => set("cartao_bandeira", v || null)}
+                    >
+                      <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ELO">ELO</SelectItem>
+                        <SelectItem value="MASTER">MASTER</SelectItem>
+                        <SelectItem value="VISA">VISA</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {slug === "cartao_credito" ? (
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Modalidade *</label>
+                      <Select
+                        value={form.cartao_tipo ?? ""}
+                        onValueChange={v => set("cartao_tipo", v || null)}
+                      >
+                        <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="credito">Crédito à Vista</SelectItem>
+                          <SelectItem value="parcelado_2_6">Parcelado 2-6</SelectItem>
+                          <SelectItem value="parcelado_7_12">Parcelado 7-12</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-medium text-muted-foreground mb-1">Modalidade</label>
+                      <Input value="Débito" disabled className="bg-muted text-muted-foreground h-9 text-sm" />
+                    </div>
+                  )}
+                </div>
+
+                {slug === "cartao_credito" && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="cartao_antecipado"
+                      checked={form.cartao_antecipado ?? false}
+                      onChange={e => set("cartao_antecipado", e.target.checked)}
+                      className="w-4 h-4 accent-primary cursor-pointer"
+                    />
+                    <label htmlFor="cartao_antecipado" className="text-xs font-medium text-foreground/80 cursor-pointer select-none">
+                      Deseja antecipar o recebimento? (+{taxaAntecipacao}% de taxa)
+                    </label>
+                  </div>
+                )}
+
+                {form.taxa_valor !== undefined && form.taxa_valor !== null && form.taxa_valor > 0 && (
+                  <div className="bg-background/80 border border-border/60 rounded-md p-2 flex justify-between items-center text-xs">
+                    <span className="text-muted-foreground">Taxa cobrada:</span>
+                    <span className="font-semibold text-red-600">-{fmt(form.taxa_valor)}</span>
+                    <span className="text-muted-foreground ml-2">Língido a receber:</span>
+                    <span className="font-bold text-success">{fmt(form.valor_liquido ?? form.valor)}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {/* Recorrência mensal — só na criação */}
           {!inicial && (
             <div className="border border-border rounded-lg p-3 space-y-3 bg-muted/50">
@@ -412,6 +634,12 @@ export default function FinanceiroRecebimentos() {
   const { podeAlterarRecebimento } = usePermissoes();
   const { procedimentos } = useProcedimentos();
   const { formas } = useFormasPagamento();
+  const { taxas, taxaPix, taxaAntecipacao } = useTaxasCartao();
+
+  const [confirmarBandeira, setConfirmarBandeira] = useState<string>("");
+  const [confirmarTipo, setConfirmarTipo] = useState<string>("");
+  const [confirmarAntecipado, setConfirmarAntecipado] = useState<boolean>(false);
+
 
   // Rótulo da forma de pagamento para exibição (prefere UUID, fallback para slug legado)
   function formaLabel(item: Recebimento): string | null {
@@ -560,7 +788,27 @@ export default function FinanceiroRecebimentos() {
     buscar();
   }
 
-  async function marcarRecebido(item: Recebimento, formaPagamentoId: string) {
+  async function marcarRecebido(
+    item: Recebimento,
+    formaPagamentoId: string,
+    bandeira?: string | null,
+    tipoCartao?: string | null,
+    antecipado?: boolean
+  ) {
+    const fp = formas.find(f => f.id === formaPagamentoId);
+    const slug = fp ? slugFromNome(fp.nome) : null;
+    
+    const { taxa_valor, valor_liquido } = calcularTaxa(
+      Number(item.valor),
+      slug,
+      bandeira || null,
+      tipoCartao || null,
+      antecipado || false,
+      taxas,
+      taxaPix,
+      taxaAntecipacao
+    );
+
     await fetch(`/api/recebimentos/${item.id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -569,12 +817,19 @@ export default function FinanceiroRecebimentos() {
         status: "recebido",
         data_pagamento: new Date().toISOString().slice(0, 10),
         forma_pagamento_id: formaPagamentoId || null,
+        forma_pagamento: slug,
         confirmado_por: usuario?.nome_completo ?? usuario?.nome_acesso ?? null,
         confirmado_por_id: usuario?.id ?? null,
+        cartao_bandeira: bandeira || null,
+        cartao_tipo: tipoCartao || null,
+        cartao_antecipado: antecipado || false,
+        taxa_valor,
+        valor_liquido,
       }),
     });
     buscar();
   }
+
 
   // Filtragem local por procedimento, vencimento e data de pagamento
   const itensFiltrados = itens.filter(r => {
@@ -745,7 +1000,16 @@ export default function FinanceiroRecebimentos() {
                       <span>Venc.: {fmtDate(item.data_vencimento)}</span>
                       {item.data_pagamento && <span>Pago: {fmtDate(item.data_pagamento)}</span>}
                       {formaLabel(item) && (
-                        <span>{formaLabel(item)}</span>
+                        <span>
+                          {formaLabel(item)}
+                          {item.cartao_bandeira && ` (${item.cartao_bandeira})`}
+                        </span>
+                      )}
+                      {item.taxa_valor !== undefined && Number(item.taxa_valor) > 0 && (
+                        <span className="text-red-500 font-medium">Taxa: -{fmt(Number(item.taxa_valor))}</span>
+                      )}
+                      {item.valor_liquido !== undefined && Number(item.valor_liquido) !== Number(item.valor) && (
+                        <span className="text-success font-semibold">Líq.: {fmt(Number(item.valor_liquido))}</span>
                       )}
                     </div>
                   </div>
@@ -842,6 +1106,9 @@ export default function FinanceiroRecebimentos() {
           onFechar={() => { setModalAberto(false); setEditando(null); }}
           salvando={salvando}
           formas={formas}
+          taxas={taxas}
+          taxaPix={taxaPix}
+          taxaAntecipacao={taxaAntecipacao}
         />
       )}
 
@@ -906,6 +1173,30 @@ export default function FinanceiroRecebimentos() {
                   <p className="text-xs font-medium text-muted-foreground mb-1">Forma de Pagamento</p>
                   <p className="text-sm text-foreground">{formaLabel(visualizando) ?? <span className="italic text-muted-foreground/60">—</span>}</p>
                 </div>
+                {visualizando.cartao_bandeira && (
+                  <>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Bandeira / Modalidade</p>
+                      <p className="text-sm text-foreground">
+                        {visualizando.cartao_bandeira} - {
+                          visualizando.cartao_tipo === 'debito' ? 'Débito' :
+                          visualizando.cartao_tipo === 'credito' ? 'Crédito à Vista' :
+                          visualizando.cartao_tipo === 'parcelado_2_6' ? 'Parcelado 2-6' :
+                          visualizando.cartao_tipo === 'parcelado_7_12' ? 'Parcelado 7-12' : 'Outro'
+                        }
+                        {visualizando.cartao_antecipado && " (Antecipado)"}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Taxa / Valor Líquido</p>
+                      <p className="text-sm text-foreground">
+                        <span className="text-red-600">-{fmt(Number(visualizando.taxa_valor ?? 0))}</span>
+                        {" / "}
+                        <span className="text-success font-semibold">{fmt(Number(visualizando.valor_liquido ?? visualizando.valor))}</span>
+                      </p>
+                    </div>
+                  </>
+                )}
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-1">Registrado em</p>
                   <p className="text-sm text-foreground">{new Date(visualizando.created_at).toLocaleDateString('pt-BR')}</p>
@@ -976,7 +1267,15 @@ export default function FinanceiroRecebimentos() {
       {/* Dialog: Confirmar Recebimento com Forma de Pagamento */}
       <Dialog
         open={!!marcarRecebidoItem}
-        onOpenChange={(open) => { if (!open) { setMarcarRecebidoItem(null); setMarcarRecebidoForma(""); } }}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMarcarRecebidoItem(null);
+            setMarcarRecebidoForma("");
+            setConfirmarBandeira("");
+            setConfirmarTipo("");
+            setConfirmarAntecipado(false);
+          }
+        }}
       >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -1007,19 +1306,105 @@ export default function FinanceiroRecebimentos() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Campos de Cartão Condicionais */}
+            {(() => {
+              const fp = formas.find(f => f.id === marcarRecebidoForma);
+              const slug = fp ? slugFromNome(fp.nome) : null;
+              if (slug !== "cartao_credito" && slug !== "cartao_debito") return null;
+
+              return (
+                <div className="space-y-3 border-t border-border/50 pt-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Bandeira *</Label>
+                    <Select value={confirmarBandeira} onValueChange={setConfirmarBandeira}>
+                      <SelectTrigger className="text-sm">
+                        <SelectValue placeholder="Selecione..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="ELO">ELO</SelectItem>
+                        <SelectItem value="MASTER">MASTER</SelectItem>
+                        <SelectItem value="VISA">VISA</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {slug === "cartao_credito" ? (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-muted-foreground">Modalidade *</Label>
+                        <Select value={confirmarTipo} onValueChange={setConfirmarTipo}>
+                          <SelectTrigger className="text-sm">
+                            <SelectValue placeholder="Selecione..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="credito">Crédito à Vista</SelectItem>
+                            <SelectItem value="parcelado_2_6">Parcelado 2-6</SelectItem>
+                            <SelectItem value="parcelado_7_12">Parcelado 7-12</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="checkbox"
+                          id="confirmar_antecipado"
+                          checked={confirmarAntecipado}
+                          onChange={e => setConfirmarAntecipado(e.target.checked)}
+                          className="w-4 h-4 accent-primary cursor-pointer"
+                        />
+                        <Label htmlFor="confirmar_antecipado" className="text-xs font-medium text-foreground/80 cursor-pointer select-none">
+                          Antecipar recebimento? (+{taxaAntecipacao}%)
+                        </Label>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground">Modalidade</Label>
+                      <Input value="Débito" disabled className="bg-muted text-muted-foreground h-9 text-sm" />
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" size="sm" onClick={() => { setMarcarRecebidoItem(null); setMarcarRecebidoForma(""); }}>
+            <Button variant="outline" size="sm" onClick={() => {
+              setMarcarRecebidoItem(null);
+              setMarcarRecebidoForma("");
+              setConfirmarBandeira("");
+              setConfirmarTipo("");
+              setConfirmarAntecipado(false);
+            }}>
               Cancelar
             </Button>
             <Button
               size="sm"
-              disabled={!marcarRecebidoForma}
+              disabled={
+                !marcarRecebidoForma ||
+                (() => {
+                  const fp = formas.find(f => f.id === marcarRecebidoForma);
+                  const slug = fp ? slugFromNome(fp.nome) : null;
+                  if (slug === "cartao_debito" && !confirmarBandeira) return true;
+                  if (slug === "cartao_credito" && (!confirmarBandeira || !confirmarTipo)) return true;
+                  return false;
+                })()
+              }
               onClick={async () => {
                 if (marcarRecebidoItem) {
-                  await marcarRecebido(marcarRecebidoItem, marcarRecebidoForma);
+                  const fp = formas.find(f => f.id === marcarRecebidoForma);
+                  const slug = fp ? slugFromNome(fp.nome) : null;
+                  await marcarRecebido(
+                    marcarRecebidoItem,
+                    marcarRecebidoForma,
+                    confirmarBandeira || null,
+                    slug === "cartao_credito" ? confirmarTipo : "debito",
+                    confirmarAntecipado
+                  );
                   setMarcarRecebidoItem(null);
                   setMarcarRecebidoForma("");
+                  setConfirmarBandeira("");
+                  setConfirmarTipo("");
+                  setConfirmarAntecipado(false);
                 }
               }}
             >

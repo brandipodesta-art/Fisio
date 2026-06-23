@@ -9,6 +9,8 @@ export interface ClinicaConfig {
   telefone: string | null;
   endereco: string | null;
   cor_tema?: string | null;
+  taxa_pix?: number | null;
+  taxa_antecipacao?: number | null;
 }
 
 /** Busca a configuração da clínica (linha única id=1). Retorna null se a tabela não existir. */
@@ -16,7 +18,7 @@ export async function fetchClinicaConfig(): Promise<ClinicaConfig | null> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("configuracoes_clinica")
-    .select("logo_url, nome_clinica, cnpj, telefone, endereco, cor_tema")
+    .select("logo_url, nome_clinica, cnpj, telefone, endereco, cor_tema, taxa_pix, taxa_antecipacao")
     .eq("id", 1)
     .maybeSingle();
   if (error || !data) return null;

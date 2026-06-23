@@ -1351,6 +1351,227 @@ function SecaoLogoClinica() {
   );
 }
 
+interface TaxaCartao {
+  id: string;
+  bandeira: string;
+  debito: number;
+  credito: number;
+  parcelado_2_6: number;
+  parcelado_7_12: number;
+}
+
+function SecaoTaxasCartao() {
+  const supabase = createClient();
+  const [taxas, setTaxas] = useState<TaxaCartao[]>([]);
+  const [taxaPix, setTaxaPix] = useState<string>("0.00");
+  const [taxaAntecipacao, setTaxaAntecipacao] = useState<string>("1.54");
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [salvo, setSalvo] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const carregar = useCallback(async () => {
+    setCarregando(true);
+    setErro(null);
+    try {
+      const { data: dataTaxas, error: errorTaxas } = await supabase
+        .from("taxas_cartao")
+        .select("*")
+        .order("bandeira");
+      if (errorTaxas) throw new Error(errorTaxas.message);
+      setTaxas(dataTaxas ?? []);
+
+      const { data: dataClinica, error: errorClinica } = await supabase
+        .from("configuracoes_clinica")
+        .select("taxa_pix, taxa_antecipacao")
+        .eq("id", 1)
+        .maybeSingle();
+      if (errorClinica) throw new Error(errorClinica.message);
+      if (dataClinica) {
+        setTaxaPix(dataClinica.taxa_pix?.toString() ?? "0.00");
+        setTaxaAntecipacao(dataClinica.taxa_antecipacao?.toString() ?? "1.54");
+      }
+    } catch (e: any) {
+      setErro(e.message ?? "Erro ao carregar taxas");
+    } finally {
+      setCarregando(false);
+    }
+  }, [supabase]);
+
+  useEffect(() => { carregar(); }, [carregar]);
+
+  const handleInputChange = (index: number, campo: keyof Omit<TaxaCartao, "id" | "bandeira">, valor: string) => {
+    const novasTaxas = [...taxas];
+    novasTaxas[index] = {
+      ...novasTaxas[index],
+      [campo]: parseFloat(valor) || 0,
+    };
+    setTaxas(novasTaxas);
+  };
+
+  const salvar = async () => {
+    setSalvando(true);
+    setErro(null);
+    setSalvo(false);
+    try {
+      for (const taxa of taxas) {
+        const { error } = await supabase
+          .from("taxas_cartao")
+          .update({
+            debito: taxa.debito,
+            credito: taxa.credito,
+            parcelado_2_6: taxa.parcelado_2_6,
+            parcelado_7_12: taxa.parcelado_7_12,
+          })
+          .eq("id", taxa.id);
+        if (error) throw new Error(error.message);
+      }
+
+      const { error: errorClinica } = await supabase
+        .from("configuracoes_clinica")
+        .update({
+          taxa_pix: parseFloat(taxaPix) || 0,
+          taxa_antecipacao: parseFloat(taxaAntecipacao) || 0,
+          atualizado_em: new Date().toISOString(),
+        })
+        .eq("id", 1);
+      if (errorClinica) throw new Error(errorClinica.message);
+
+      setSalvo(true);
+      setTimeout(() => setSalvo(false), 3000);
+      window.dispatchEvent(new Event("clinica-config-updated"));
+    } catch (e: any) {
+      setErro(e.message ?? "Erro ao salvar taxas");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <Secao titulo="Taxas do Cartão" icone={Percent} cor="bg-teal-600">
+      {carregando ? (
+        <p className="px-5 py-4 text-sm text-muted-foreground/60">Carregando...</p>
+      ) : erro ? (
+        <p className="px-5 py-4 text-sm text-red-500">{erro}</p>
+      ) : (
+        <div className="p-5 space-y-6">
+          <p className="text-xs text-muted-foreground">
+            Configure as taxas cobradas pelas bandeiras de cartão de crédito/débito e PIX para o cálculo do valor líquido nos recebimentos.
+          </p>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="py-2 text-xs font-semibold text-muted-foreground">Bandeira</th>
+                  <th className="py-2 px-1 text-xs font-semibold text-muted-foreground">Débito (%)</th>
+                  <th className="py-2 px-1 text-xs font-semibold text-muted-foreground">Crédito (%)</th>
+                  <th className="py-2 px-1 text-xs font-semibold text-muted-foreground">Parcelado 2-6 (%)</th>
+                  <th className="py-2 px-1 text-xs font-semibold text-muted-foreground">Parcelado 7-12 (%)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {taxas.map((taxa, index) => (
+                  <tr key={taxa.id} className="border-b border-border/40 last:border-0">
+                    <td className="py-3 text-sm font-semibold text-foreground">{taxa.bandeira}</td>
+                    <td className="py-2 px-1">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={taxa.debito}
+                        onChange={(e) => handleInputChange(index, "debito", e.target.value)}
+                        className="h-8 w-20 text-xs text-center tabular-nums"
+                      />
+                    </td>
+                    <td className="py-2 px-1">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={taxa.credito}
+                        onChange={(e) => handleInputChange(index, "credito", e.target.value)}
+                        className="h-8 w-20 text-xs text-center tabular-nums"
+                      />
+                    </td>
+                    <td className="py-2 px-1">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={taxa.parcelado_2_6}
+                        onChange={(e) => handleInputChange(index, "parcelado_2_6", e.target.value)}
+                        className="h-8 w-20 text-xs text-center tabular-nums"
+                      />
+                    </td>
+                    <td className="py-2 px-1">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        value={taxa.parcelado_7_12}
+                        onChange={(e) => handleInputChange(index, "parcelado_7_12", e.target.value)}
+                        className="h-8 w-20 text-xs text-center tabular-nums"
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="border-t border-border/60 pt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">Custo por PIX (%)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={taxaPix}
+                onChange={(e) => setTaxaPix(e.target.value)}
+                className="h-9 text-sm w-36"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground block mb-1">Extra de Antecipação (%)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={taxaAntecipacao}
+                onChange={(e) => setTaxaAntecipacao(e.target.value)}
+                className="h-9 text-sm w-36"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 pt-2">
+            <Button
+              onClick={salvar}
+              disabled={salvando}
+              className="bg-teal-600 hover:bg-teal-700 text-white gap-2"
+            >
+              {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {salvando ? "Salvando..." : "Salvar Taxas"}
+            </Button>
+            {salvo && (
+              <span className="flex items-center gap-1 text-sm text-primary font-medium">
+                <Check className="w-4 h-4" /> Taxas salvas com sucesso!
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </Secao>
+  );
+}
+
 function AvisoSQL() {
   const [visivel, setVisivel] = useState(true);
   if (!visivel) return null;
@@ -1386,6 +1607,7 @@ export default function ConfiguracoesPage() {
           <div className="space-y-4">
             <SecaoProcedimentos />
             <SecaoFormasPagamentoRecebimento />
+            <SecaoTaxasCartao />
           </div>
         </div>
 
