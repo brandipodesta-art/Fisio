@@ -27,6 +27,103 @@ import { DURATION_OPTIONS, APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS 
 import { TIME_OPTIONS, calculateEndTime, formatDateISO } from "./agendaData";
 import { useAuth } from "@/lib/auth/AuthContext";
 
+interface TaxaCartao {
+  id: string;
+  bandeira: "ELO" | "MASTER" | "VISA";
+  debito: number;
+  credito: number;
+  parcelado_2_6: number;
+  parcelado_7_12: number;
+}
+
+function useTaxasCartao() {
+  const [taxas, setTaxas] = useState<TaxaCartao[]>([]);
+  const [taxaPix, setTaxaPix] = useState<number>(0);
+  const [taxaAntecipacao, setTaxaAntecipacao] = useState<number>(1.54);
+
+  useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    
+    fetch(`${url}/rest/v1/taxas_cartao?order=bandeira`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setTaxas(data as TaxaCartao[]); })
+      .catch(() => {});
+
+    fetch(`${url}/rest/v1/configuracoes_clinica?id=eq.1&select=taxa_pix,taxa_antecipacao`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data[0]) {
+          setTaxaPix(Number(data[0].taxa_pix) || 0);
+          setTaxaAntecipacao(Number(data[0].taxa_antecipacao) || 0);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  return { taxas, taxaPix, taxaAntecipacao };
+}
+
+function calcularTaxa(
+  valor: number,
+  formaSlug: string | null,
+  bandeira: string | null,
+  tipoCartao: string | null,
+  antecipado: boolean,
+  taxas: TaxaCartao[],
+  taxaPix: number,
+  taxaAntecipacao: number
+): { taxa_valor: number; valor_liquido: number } {
+  if (valor <= 0) return { taxa_valor: 0, valor_liquido: 0 };
+  
+  let rate = 0;
+
+  if (formaSlug === "pix") {
+    rate = taxaPix;
+  } else if (formaSlug === "cartao_debito" && bandeira) {
+    const taxaBandeira = taxas.find(t => t.bandeira === bandeira);
+    if (taxaBandeira) {
+      rate = Number(taxaBandeira.debito) || 0;
+    }
+  } else if (formaSlug === "cartao_credito" && bandeira && tipoCartao) {
+    const taxaBandeira = taxas.find(t => t.bandeira === bandeira);
+    if (taxaBandeira) {
+      if (tipoCartao === "credito") {
+        rate = Number(taxaBandeira.credito) || 0;
+      } else if (tipoCartao === "parcelado_2_6") {
+        rate = Number(taxaBandeira.parcelado_2_6) || 0;
+      } else if (tipoCartao === "parcelado_7_12") {
+        rate = Number(taxaBandeira.parcelado_7_12) || 0;
+      }
+      if (antecipado) {
+        rate += taxaAntecipacao;
+      }
+    }
+  }
+
+  const taxa_valor = Math.round(valor * rate) / 100;
+  const valor_liquido = Math.max(0, valor - taxa_valor);
+
+  return { taxa_valor, valor_liquido };
+}
+
+function slugFromNome(nome: string): string | null {
+  const map: Record<string, string> = {
+    "Dinheiro":          "dinheiro",
+    "PIX":               "pix",
+    "Cartão de Crédito": "cartao_credito",
+    "Cartão de Débito":  "cartao_debito",
+    "Transferência":     "transferencia",
+    "Boleto":            "boleto",
+    "Cheque":            "cheque",
+  };
+  return map[nome] ?? null;
+}
+
 interface AgendaNewEventDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -82,8 +179,13 @@ export default function AgendaNewEventDialog({
   const [recebimentoPendente, setRecebimentoPendente] = useState<{ id: string; descricao: string; valor: number } | null>(null);
   const [confirmandoPagamento, setConfirmandoPagamento] = useState(false);
   const [confirmarForma, setConfirmarForma] = useState("");
+  const [confirmarBandeira, setConfirmarBandeira] = useState("");
+  const [confirmarTipo, setConfirmarTipo] = useState("");
+  const [confirmarAntecipado, setConfirmarAntecipado] = useState(false);
   const [formasPagamento, setFormasPagamento] = useState<{ id: string; nome: string }[]>([]);
   const [salvandoPagamento, setSalvandoPagamento] = useState(false);
+
+  const { taxas, taxaPix, taxaAntecipacao } = useTaxasCartao();
 
   const supabase = createClient();
   const { usuario } = useAuth();
@@ -217,6 +319,27 @@ export default function AgendaNewEventDialog({
     if (!recebimentoPendente || !confirmarForma) return;
     setSalvandoPagamento(true);
     try {
+      const fp = formasPagamento.find(f => f.id === confirmarForma);
+      const slug = fp ? slugFromNome(fp.nome) : null;
+
+      const isCartao = slug === "cartao_credito" || slug === "cartao_debito";
+      const isCredito = slug === "cartao_credito";
+
+      const cartaoBandeira = isCartao ? (confirmarBandeira || null) : null;
+      const cartaoTipo = isCartao ? (isCredito ? (confirmarTipo || null) : "debito") : null;
+      const cartaoAntecipado = isCartao && isCredito ? confirmarAntecipado : false;
+
+      const { taxa_valor, valor_liquido } = calcularTaxa(
+        Number(recebimentoPendente.valor),
+        slug,
+        cartaoBandeira,
+        cartaoTipo,
+        cartaoAntecipado,
+        taxas,
+        taxaPix,
+        taxaAntecipacao
+      );
+
       const recAtual = await fetch(`/api/recebimentos/${recebimentoPendente.id}`).then(r => r.json());
       const res = await fetch(`/api/recebimentos/${recebimentoPendente.id}`, {
         method: "PUT",
@@ -226,8 +349,14 @@ export default function AgendaNewEventDialog({
           status: "recebido",
           data_pagamento: new Date().toISOString().slice(0, 10),
           forma_pagamento_id: confirmarForma,
+          forma_pagamento: slug,
           confirmado_por: usuario?.nome_completo ?? usuario?.nome_acesso ?? null,
           confirmado_por_id: usuario?.id ?? null,
+          cartao_bandeira: cartaoBandeira,
+          cartao_tipo: cartaoTipo,
+          cartao_antecipado: cartaoAntecipado,
+          taxa_valor,
+          valor_liquido,
         }),
       });
       if (res.ok) {
@@ -235,6 +364,9 @@ export default function AgendaNewEventDialog({
         setRecebimentoPendente(null);
         setConfirmandoPagamento(false);
         setConfirmarForma("");
+        setConfirmarBandeira("");
+        setConfirmarTipo("");
+        setConfirmarAntecipado(false);
       } else {
         toast.error("Erro ao confirmar pagamento");
       }
@@ -739,7 +871,15 @@ export default function AgendaNewEventDialog({
 
     <Dialog
       open={confirmandoPagamento}
-      onOpenChange={(o) => { if (!o) { setConfirmandoPagamento(false); setConfirmarForma(""); } }}
+      onOpenChange={(o) => {
+        if (!o) {
+          setConfirmandoPagamento(false);
+          setConfirmarForma("");
+          setConfirmarBandeira("");
+          setConfirmarTipo("");
+          setConfirmarAntecipado(false);
+        }
+      }}
     >
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
@@ -769,6 +909,89 @@ export default function AgendaNewEventDialog({
               </SelectContent>
             </Select>
           </div>
+
+          {/* Campos de Cartão Condicionais */}
+          {(() => {
+            const fp = formasPagamento.find(f => f.id === confirmarForma);
+            const slug = fp ? slugFromNome(fp.nome) : null;
+            if (slug !== "cartao_credito" && slug !== "cartao_debito") return null;
+
+            return (
+              <div className="space-y-3 border-t border-border/50 pt-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-medium text-muted-foreground">Bandeira *</Label>
+                  <Select value={confirmarBandeira} onValueChange={setConfirmarBandeira}>
+                    <SelectTrigger className="text-sm">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ELO">ELO</SelectItem>
+                      <SelectItem value="MASTER">MASTER</SelectItem>
+                      <SelectItem value="VISA">VISA</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {slug === "cartao_credito" ? (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium text-muted-foreground">Modalidade *</Label>
+                      <Select value={confirmarTipo} onValueChange={setConfirmarTipo}>
+                        <SelectTrigger className="text-sm">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="credito">Crédito à Vista</SelectItem>
+                          <SelectItem value="parcelado_2_6">Parcelado 2-6</SelectItem>
+                          <SelectItem value="parcelado_7_12">Parcelado 7-12</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex items-center gap-2 pt-1">
+                      <input
+                        type="checkbox"
+                        id="confirmar_antecipado"
+                        checked={confirmarAntecipado}
+                        onChange={e => setConfirmarAntecipado(e.target.checked)}
+                        className="w-4 h-4 accent-primary cursor-pointer"
+                      />
+                      <Label htmlFor="confirmar_antecipado" className="text-xs font-medium text-foreground/80 cursor-pointer select-none">
+                        Antecipar recebimento? (+{taxaAntecipacao}%)
+                      </Label>
+                    </div>
+                  </>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Modalidade</Label>
+                    <Input value="Débito" disabled className="bg-muted text-muted-foreground h-9 text-sm" />
+                  </div>
+                )}
+
+                {/* Exibição da Taxa e Valor Líquido */}
+                {(() => {
+                  const { taxa_valor, valor_liquido } = calcularTaxa(
+                    Number(recebimentoPendente?.valor || 0),
+                    slug,
+                    confirmarBandeira || null,
+                    slug === "cartao_credito" ? confirmarTipo || null : "debito",
+                    confirmarAntecipado,
+                    taxas,
+                    taxaPix,
+                    taxaAntecipacao
+                  );
+                  if (taxa_valor <= 0) return null;
+                  return (
+                    <div className="bg-background/80 border border-border/60 rounded-md p-2 flex justify-between items-center text-[11px]">
+                      <span className="text-muted-foreground">Taxa:</span>
+                      <span className="font-semibold text-red-600">-{taxa_valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                      <span className="text-muted-foreground ml-2">Líquido:</span>
+                      <span className="font-bold text-emerald-600">{valor_liquido.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                    </div>
+                  );
+                })()}
+              </div>
+            );
+          })()}
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" size="sm" onClick={() => { setConfirmandoPagamento(false); setConfirmarForma(""); }}>
@@ -776,7 +999,17 @@ export default function AgendaNewEventDialog({
           </Button>
           <Button
             size="sm"
-            disabled={!confirmarForma || salvandoPagamento}
+            disabled={
+              !confirmarForma ||
+              salvandoPagamento ||
+              (() => {
+                const fp = formasPagamento.find(f => f.id === confirmarForma);
+                const slug = fp ? slugFromNome(fp.nome) : null;
+                if (slug === "cartao_debito" && !confirmarBandeira) return true;
+                if (slug === "cartao_credito" && (!confirmarBandeira || !confirmarTipo)) return true;
+                return false;
+              })()
+            }
             className="bg-emerald-600 hover:bg-emerald-700 text-white"
             onClick={handleConfirmarPagamento}
           >
