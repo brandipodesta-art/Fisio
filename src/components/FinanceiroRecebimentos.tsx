@@ -1005,10 +1005,10 @@ export default function FinanceiroRecebimentos() {
                           {item.cartao_bandeira && ` (${item.cartao_bandeira})`}
                         </span>
                       )}
-                      {item.taxa_valor !== undefined && Number(item.taxa_valor) > 0 && (
+                      {item.taxa_valor != null && Number(item.taxa_valor) > 0 && (
                         <span className="text-red-500 font-medium">Taxa: -{fmt(Number(item.taxa_valor))}</span>
                       )}
-                      {item.valor_liquido !== undefined && Number(item.valor_liquido) !== Number(item.valor) && (
+                      {item.valor_liquido != null && Number(item.valor_liquido) !== Number(item.valor) && (
                         <span className="text-success font-semibold">Líq.: {fmt(Number(item.valor_liquido))}</span>
                       )}
                     </div>
