@@ -1014,14 +1014,14 @@ export default function RelatoriosPage() {
     return (
       <tr key={r.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
         <td className="py-2.5 px-3 text-sm text-foreground">{r.paciente_nome}</td>
-        <td className="py-2.5 px-3 text-sm text-muted-foreground">{fmtDate(r.data_vencimento)}</td>
-        <td className="py-2.5 px-3 text-sm text-muted-foreground">{fmtDate(r.data_pagamento)}</td>
+        <td className="py-2.5 px-3 text-sm text-muted-foreground whitespace-nowrap">{fmtDate(r.data_vencimento)}</td>
+        <td className="py-2.5 px-3 text-sm text-muted-foreground whitespace-nowrap">{fmtDate(r.data_pagamento)}</td>
         <td className="py-2.5 px-3 text-sm text-foreground">{nomeProcedimento(r.procedimento_id)}</td>
-        <td className="py-2.5 px-3 text-sm font-medium text-foreground text-right">{fmt(Number(r.valor))}</td>
-        <td className="py-2.5 px-3 text-sm text-red-600 text-right">
+        <td className="py-2.5 px-3 text-sm font-medium text-foreground text-right whitespace-nowrap">{fmt(Number(r.valor))}</td>
+        <td className="py-2.5 px-3 text-sm text-red-600 text-right whitespace-nowrap">
           {Number(r.taxa_valor ?? 0) > 0 ? `-${fmt(Number(r.taxa_valor))}` : "—"}
         </td>
-        <td className="py-2.5 px-3 text-sm font-semibold text-success text-right">
+        <td className="py-2.5 px-3 text-sm font-semibold text-success text-right whitespace-nowrap">
           {fmt(Number(r.valor_liquido ?? r.valor))}
         </td>
         <td className="py-2.5 px-3 text-sm text-muted-foreground">
@@ -1041,16 +1041,16 @@ export default function RelatoriosPage() {
       <tr key={r.id} className="border-b border-border/40 hover:bg-muted/30 transition-colors">
         <td className="py-2.5 px-3 text-sm text-foreground">{nomeProfissionalBySlug(profSlug)}</td>
         <td className="py-2.5 px-3 text-sm text-foreground">{nomeProcedimento(r.procedimento_id)}</td>
-        <td className="py-2.5 px-3 text-sm text-muted-foreground">{fmtDate(r.data_vencimento)}</td>
-        <td className="py-2.5 px-3 text-sm text-muted-foreground">{fmtDate(r.data_pagamento)}</td>
-        <td className="py-2.5 px-3 text-sm font-medium text-foreground text-right">{fmt(Number(r.valor))}</td>
+        <td className="py-2.5 px-3 text-sm text-muted-foreground whitespace-nowrap">{fmtDate(r.data_vencimento)}</td>
+        <td className="py-2.5 px-3 text-sm text-muted-foreground whitespace-nowrap">{fmtDate(r.data_pagamento)}</td>
+        <td className="py-2.5 px-3 text-sm font-medium text-foreground text-right whitespace-nowrap">{fmt(Number(r.valor))}</td>
         {com ? (
-          <td className="py-2.5 px-3 text-sm text-right">
+          <td className="py-2.5 px-3 text-sm text-right whitespace-nowrap">
             <span className="text-muted-foreground text-xs">{com.percentual}% = </span>
             <span className="font-semibold text-emerald-600">{fmt(valorComissao!)}</span>
           </td>
         ) : (
-          <td className="py-2.5 px-3 text-sm text-muted-foreground text-right">—</td>
+          <td className="py-2.5 px-3 text-sm text-muted-foreground text-right whitespace-nowrap">—</td>
         )}
         <td className="py-2.5 px-3 text-sm text-muted-foreground">{r.paciente_nome}</td>
       </tr>
@@ -1125,11 +1125,11 @@ export default function RelatoriosPage() {
                     <td colSpan={4} className="py-2 px-3 text-xs font-semibold text-muted-foreground">
                       Subtotal do dia
                     </td>
-                    <td className="py-2 px-3 text-sm font-bold text-foreground text-right">{fmt(subtotal)}</td>
-                    <td className="py-2 px-3 text-sm font-medium text-red-600 text-right">
+                    <td className="py-2 px-3 text-sm font-bold text-foreground text-right whitespace-nowrap">{fmt(subtotal)}</td>
+                    <td className="py-2 px-3 text-sm font-medium text-red-600 text-right whitespace-nowrap">
                       {subtotalTaxa > 0 ? `-${fmt(subtotalTaxa)}` : "—"}
                     </td>
-                    <td className="py-2 px-3 text-sm font-bold text-success text-right">{fmt(subtotalLiquido)}</td>
+                    <td className="py-2 px-3 text-sm font-bold text-success text-right whitespace-nowrap">{fmt(subtotalLiquido)}</td>
                     <td />
                   </>
                 ) : (
@@ -1137,8 +1137,8 @@ export default function RelatoriosPage() {
                     <td colSpan={4} className="py-2 px-3 text-xs font-semibold text-muted-foreground">
                       Subtotal do dia
                     </td>
-                    <td className="py-2 px-3 text-sm font-bold text-foreground text-right">{fmt(subtotal)}</td>
-                    <td className="py-2 px-3 text-sm font-bold text-emerald-600 text-right">{fmt(subtotalComissao)}</td>
+                    <td className="py-2 px-3 text-sm font-bold text-foreground text-right whitespace-nowrap">{fmt(subtotal)}</td>
+                    <td className="py-2 px-3 text-sm font-bold text-emerald-600 text-right whitespace-nowrap">{fmt(subtotalComissao)}</td>
                     <td />
                   </>
                 )}
@@ -1792,8 +1792,8 @@ export default function RelatoriosPage() {
                               <td className="py-2 px-3 text-sm">{r.paciente_nome}</td>
                               <td className="py-2 px-3 text-sm">{nomeProcedimento(r.procedimento_id)}</td>
                               <td className="py-2 px-3 text-sm">{nomeProfissionalBySlug(r.profissional_id ?? null)}</td>
-                              <td className="py-2 px-3 text-sm text-red-600 font-medium">{fmtDate(r.data_vencimento)}</td>
-                              <td className="py-2 px-3 text-sm text-right font-semibold">{fmt(Number(r.valor))}</td>
+                              <td className="py-2 px-3 text-sm text-red-600 font-medium whitespace-nowrap">{fmtDate(r.data_vencimento)}</td>
+                              <td className="py-2 px-3 text-sm text-right font-semibold whitespace-nowrap">{fmt(Number(r.valor))}</td>
                               <td className="py-2 px-3 text-center">
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
                                   {r.status === "atrasado" ? "Atrasado" : "Pendente"}
@@ -1848,8 +1848,8 @@ export default function RelatoriosPage() {
                               <td className="py-2 px-3 text-sm">{p.descricao}</td>
                               <td className="py-2 px-3 text-sm">{p.categoria ?? "—"}</td>
                               <td className="py-2 px-3 text-sm">{p.fornecedor ?? "—"}</td>
-                              <td className="py-2 px-3 text-sm text-orange-600 font-medium">{fmtDate(p.data_vencimento)}</td>
-                              <td className="py-2 px-3 text-sm text-right font-semibold">{fmt(Number(p.valor))}</td>
+                              <td className="py-2 px-3 text-sm text-orange-600 font-medium whitespace-nowrap">{fmtDate(p.data_vencimento)}</td>
+                              <td className="py-2 px-3 text-sm text-right font-semibold whitespace-nowrap">{fmt(Number(p.valor))}</td>
                               <td className="py-2 px-3 text-center">
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
                                   {p.status === "atrasado" ? "Atrasado" : "Pendente"}
