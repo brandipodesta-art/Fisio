@@ -121,43 +121,50 @@ function FormModal({ inicial, onSalvar, onFechar, salvando, formas, categorias }
       .then(r => r.json()).then(d => { if (Array.isArray(d)) setProcedimentos(d); }).catch(() => {});
   }, [isComissoes]);
 
-  // Pré-popular Profissional, Procedimento e Paciente ao editar comissão vinculada
+  // Pré-popular Profissional, Procedimento e Paciente ao editar comissão vinculada ou manual
   useEffect(() => {
     if (!isComissoes || !inicial?.observacoes) return;
     const recMatch = inicial.observacoes.match(/recebimento:([a-f0-9-]+)/i);
-    if (!recMatch?.[1]) return;
 
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-    const h = { apikey: key, Authorization: `Bearer ${key}` };
+    if (recMatch?.[1]) {
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+      const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+      const h = { apikey: key, Authorization: `Bearer ${key}` };
 
-    fetch(`${url}/rest/v1/recebimentos?id=eq.${recMatch[1]}&select=paciente_id,paciente_nome,observacoes`, { headers: h })
-      .then(r => r.json())
-      .then(async (data) => {
-        if (!Array.isArray(data) || !data[0]) return;
-        const rec = data[0];
+      fetch(`${url}/rest/v1/recebimentos?id=eq.${recMatch[1]}&select=paciente_id,paciente_nome,observacoes`, { headers: h })
+        .then(r => r.json())
+        .then(async (data) => {
+          if (!Array.isArray(data) || !data[0]) return;
+          const rec = data[0];
 
-        // Pré-popular paciente
-        if (rec.paciente_nome) {
-          setPacienteNome(rec.paciente_nome);
-          setPacienteId(rec.paciente_id ?? null);
-        }
+          // Pré-popular paciente
+          if (rec.paciente_nome) {
+            setPacienteNome(rec.paciente_nome);
+            setPacienteId(rec.paciente_id ?? null);
+          }
 
-        // Buscar agendamento → profissional + procedimento
-        const agMatch = rec.observacoes?.match(/agendamento:([a-f0-9-]+)/i);
-        if (!agMatch?.[1]) return;
+          // Buscar agendamento → profissional + procedimento
+          const agMatch = rec.observacoes?.match(/agendamento:([a-f0-9-]+)/i);
+          if (!agMatch?.[1]) return;
 
-        const agRes = await fetch(
-          `${url}/rest/v1/agendamentos?id=eq.${agMatch[1]}&select=professional_id,procedimento_id`,
-          { headers: h }
-        );
-        const agData = await agRes.json();
-        if (!Array.isArray(agData) || !agData[0]) return;
+          const agRes = await fetch(
+            `${url}/rest/v1/agendamentos?id=eq.${agMatch[1]}&select=professional_id,procedimento_id`,
+            { headers: h }
+          );
+          const agData = await agRes.json();
+          if (!Array.isArray(agData) || !agData[0]) return;
 
-        if (agData[0].professional_id) setProfissionalId(agData[0].professional_id);
-        if (agData[0].procedimento_id) setProcedimentoId(agData[0].procedimento_id);
-      })
-      .catch(() => {});
+          if (agData[0].professional_id) setProfissionalId(agData[0].professional_id);
+          if (agData[0].procedimento_id) setProcedimentoId(agData[0].procedimento_id);
+        })
+        .catch(() => {});
+    } else {
+      // Caso de comissão criada manualmente com paciente salvo nas observações
+      const pacMatch = inicial.observacoes.match(/Paciente:\s*([^\n\r]+)/i);
+      if (pacMatch?.[1]) {
+        setPacienteNome(pacMatch[1].trim());
+      }
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isComissoes]);
 

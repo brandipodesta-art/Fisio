@@ -32,6 +32,11 @@ export function AutocompletePaciente({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  // Sincroniza o estado interno caso o valor inicial seja carregado de forma assíncrona
+  useEffect(() => {
+    setQuery(value);
+  }, [value]);
+
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const v = e.target.value;
     setQuery(v);
