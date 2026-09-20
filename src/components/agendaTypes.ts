@@ -27,6 +27,8 @@ export interface Appointment {
   status: AppointmentStatus;
   notes?: string;
   gerarCobranca?: boolean;
+  isBirthday?: boolean;
+  idadeAniversariante?: number | null;
   // Lista de Espera (apenas no fluxo de salvamento — não persistido em agendamentos)
   addToWaitlist?: boolean;
   waitlistUrgencia?: "alta" | "media" | "baixa";

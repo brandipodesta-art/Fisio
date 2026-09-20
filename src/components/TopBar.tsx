@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Users, CalendarDays, DollarSign, LogOut, Settings, ChevronDown, FileText } from "lucide-react";
+import { Activity, Users, CalendarDays, DollarSign, LogOut, Settings, ChevronDown, FileText, Cake } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,8 @@ import {
 import { useAuth } from "@/lib/auth/AuthContext";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
 import { useClinicaConfig } from "@/lib/useClinicaConfig";
+import { useAniversariantes } from "@/lib/useAniversariantes";
+import AniversariantesDialog from "@/components/AniversariantesDialog";
 import { toast } from "sonner";
 
 interface TopBarProps {
@@ -30,6 +32,7 @@ export default function TopBar({ activePage, onPageChange }: TopBarProps) {
   const { usuario, logout } = useAuth();
   const { podeVerConfiguracoes, isFuncionario, isAdmin } = usePermissoes();
   const clinicaConfig = useClinicaConfig();
+  const { aniversariantes, total, isModalOpen, setIsModalOpen, isLoading } = useAniversariantes();
 
   // Filtra menus conforme permissões do perfil
   const menuItems = TODOS_MENUS.filter(m => {
@@ -115,66 +118,95 @@ export default function TopBar({ activePage, onPageChange }: TopBarProps) {
             })}
           </nav>
 
-          {/* ── Account Card + Popover ─────────────────── */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-premium cursor-pointer outline-none">
-                {/* Avatar com iniciais */}
-                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-primary/90 to-emerald-700 text-white text-xs font-semibold shadow-sm">
-                  {iniciais}
-                </div>
-                <div className="hidden md:flex flex-col items-start">
-                  <span className="text-sm font-medium text-foreground leading-tight">
-                    {nomeExibicao.split(" ")[0]}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground leading-tight capitalize">
-                    {usuario?.tipo_usuario ?? ""}
-                  </span>
-                </div>
-                <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block" />
-              </button>
-            </DropdownMenuTrigger>
+          {/* ── Botão de Aniversariantes + Account Card ── */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              title={total > 0 ? `${total} aniversariante(s) hoje!` : "Aniversariantes do Dia"}
+              aria-label="Aniversariantes do Dia"
+              className={`relative flex items-center justify-center w-9 h-9 rounded-lg transition-colors cursor-pointer ${
+                total > 0
+                  ? "text-pink-600 bg-pink-50 hover:bg-pink-100 dark:bg-pink-950/40 dark:text-pink-400"
+                  : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+              }`}
+            >
+              <Cake className="w-[18px] h-[18px]" />
+              {total > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-pink-600 text-[10px] font-bold text-white shadow-xs animate-pulse">
+                  {total}
+                </span>
+              )}
+            </button>
 
-            <DropdownMenuContent align="end" className="w-60">
-              <DropdownMenuLabel className="font-normal">
-                <div className="flex items-center gap-3 py-1">
-                  <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-primary/90 to-emerald-700 text-white text-xs font-semibold">
+            {/* ── Account Card + Popover ─────────────────── */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/60 transition-premium cursor-pointer outline-none">
+                  {/* Avatar com iniciais */}
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-primary/90 to-emerald-700 text-white text-xs font-semibold shadow-sm">
                     {iniciais}
                   </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-sm font-semibold text-foreground truncate">{nomeExibicao}</span>
-                    <span className="text-xs text-muted-foreground truncate">{emailExibicao}</span>
+                  <div className="hidden md:flex flex-col items-start">
+                    <span className="text-sm font-medium text-foreground leading-tight">
+                      {nomeExibicao.split(" ")[0]}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground leading-tight capitalize">
+                      {usuario?.tipo_usuario ?? ""}
+                    </span>
                   </div>
-                </div>
-              </DropdownMenuLabel>
+                  <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block" />
+                </button>
+              </DropdownMenuTrigger>
 
-              <DropdownMenuSeparator />
+              <DropdownMenuContent align="end" className="w-60">
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex items-center gap-3 py-1">
+                    <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gradient-to-br from-primary/90 to-emerald-700 text-white text-xs font-semibold">
+                      {iniciais}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-sm font-semibold text-foreground truncate">{nomeExibicao}</span>
+                      <span className="text-xs text-muted-foreground truncate">{emailExibicao}</span>
+                    </div>
+                  </div>
+                </DropdownMenuLabel>
 
-              {/* Configurações — apenas para admin */}
-              {podeVerConfiguracoes && (
+                <DropdownMenuSeparator />
+
+                {/* Configurações — apenas para admin */}
+                {podeVerConfiguracoes && (
+                  <DropdownMenuItem
+                    onClick={() => onPageChange("configuracoes")}
+                    className="gap-2 cursor-pointer"
+                  >
+                    <Settings className="w-4 h-4 text-muted-foreground" />
+                    <span>Configurações</span>
+                  </DropdownMenuItem>
+                )}
+
+                <DropdownMenuSeparator />
+
                 <DropdownMenuItem
-                  onClick={() => onPageChange("configuracoes")}
-                  className="gap-2 cursor-pointer"
+                  className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+                  onClick={handleLogout}
                 >
-                  <Settings className="w-4 h-4 text-muted-foreground" />
-                  <span>Configurações</span>
+                  <LogOut className="w-4 h-4" />
+                  <span>Sair</span>
                 </DropdownMenuItem>
-              )}
-
-              <DropdownMenuSeparator />
-
-              <DropdownMenuItem
-                className="gap-2 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
-                onClick={handleLogout}
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Sair</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
         </div>
       </div>
+
+      {/* Pop-up de aniversariantes */}
+      <AniversariantesDialog
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        aniversariantes={aniversariantes}
+        isLoading={isLoading}
+      />
     </header>
   );
 }

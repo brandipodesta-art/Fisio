@@ -14,6 +14,7 @@ import {
   UserX,
   CalendarCheck,
   Pencil,
+  Cake,
 } from "lucide-react";
 
 /**
@@ -149,8 +150,24 @@ export default function AgendaEventCard({
       </div>
 
       {/* Patient name */}
-      <div className={`font-medium text-foreground truncate ${compact ? "text-[11px]" : "text-sm"}`}>
-        {appointment.patientName}
+      <div
+        className={`font-medium text-foreground truncate flex items-center gap-1.5 ${
+          compact ? "text-[11px]" : "text-sm"
+        }`}
+      >
+        {appointment.isBirthday && (
+          <span
+            title={
+              appointment.idadeAniversariante
+                ? `Aniversariante do dia (${appointment.idadeAniversariante} anos)`
+                : "Aniversariante do dia"
+            }
+            className="inline-flex items-center text-pink-600 shrink-0 cursor-help"
+          >
+            <Cake className={compact ? "w-3 h-3" : "w-3.5 h-3.5"} />
+          </span>
+        )}
+        <span className="truncate">{appointment.patientName}</span>
       </div>
 
       {/* Professional name - hidden in compact mode */}

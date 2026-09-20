@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Plus, Calendar, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, Cake } from "lucide-react";
 import type { Appointment, AppointmentStatus, Professional, ViewMode } from "./agendaTypes";
 import {
   mapDbProfessional,
@@ -21,6 +21,7 @@ import AgendaEventCard from "./AgendaEventCard";
 import AgendaNewEventDialog from "./AgendaNewEventDialog";
 import ListaEsperaDrawer from "./ListaEsperaDrawer";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
+import { isAniversariante, calcularIdade } from "@/lib/aniversarioUtils";
 
 /**
  * AgendaPage - Main scheduling page (Google Calendar style)
@@ -42,6 +43,9 @@ export default function AgendaPage() {
   }>({});
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pacientesInfo, setPacientesInfo] = useState<
+    { id: string; nome_completo: string; data_nascimento: string | null }[]
+  >([]);
 
   // Lista de Espera
   const { podeVerListaEspera } = usePermissoes();
@@ -80,6 +84,17 @@ export default function AgendaPage() {
       }
     }
     fetchProfessionals();
+  }, []);
+
+  // Buscar informações de pacientes para verificação de aniversários na agenda
+  useEffect(() => {
+    async function fetchPacientesInfo() {
+      const { data } = await supabase
+        .from("pacientes")
+        .select("id, nome_completo, data_nascimento");
+      if (data) setPacientesInfo(data);
+    }
+    fetchPacientesInfo();
   }, []);
 
   // Buscar agendamentos do Supabase (tenta join com procedimentos, fallback para select *)
@@ -160,10 +175,44 @@ export default function AgendaPage() {
     }
   };
 
+  // Enriquecer agendamentos com indicador de aniversário (se a data do agendamento coincidir com o aniversário do paciente)
+  const appointmentsEnriched = useMemo(() => {
+    if (pacientesInfo.length === 0) return appointments;
+
+    const idMap = new Map<string, string>();
+    const nameMap = new Map<string, string>();
+
+    for (const p of pacientesInfo) {
+      if (p.data_nascimento) {
+        idMap.set(p.id, p.data_nascimento);
+        nameMap.set(p.nome_completo.trim().toLowerCase(), p.data_nascimento);
+      }
+    }
+
+    return appointments.map((apt) => {
+      const dataNasc =
+        (apt.pacienteId ? idMap.get(apt.pacienteId) : undefined) ||
+        nameMap.get(apt.patientName.trim().toLowerCase());
+
+      const isBday = isAniversariante(dataNasc, apt.date);
+      const idade = isBday ? calcularIdade(dataNasc, apt.date) : null;
+
+      if (apt.isBirthday === isBday && apt.idadeAniversariante === idade) {
+        return apt;
+      }
+
+      return {
+        ...apt,
+        isBirthday: isBday,
+        idadeAniversariante: idade,
+      };
+    });
+  }, [appointments, pacientesInfo]);
+
   // Get filtered appointments for current view
   const filteredAppointments = useMemo(() => {
     const dateStr = formatDateISO(currentDate);
-    return appointments.filter((apt) => {
+    return appointmentsEnriched.filter((apt) => {
       if (!selectedProfessionals.includes(apt.professionalId)) return false;
       if (viewMode === "day") return apt.date === dateStr;
       if (viewMode === "week") {
@@ -177,7 +226,7 @@ export default function AgendaPage() {
         aptDate.getMonth() === currentDate.getMonth()
       );
     });
-  }, [appointments, currentDate, viewMode, selectedProfessionals]);
+  }, [appointmentsEnriched, currentDate, viewMode, selectedProfessionals]);
 
   // Get appointments for a specific time slot and date
   const getSlotAppointments = (hour: number, dateStr?: string) => {
@@ -818,7 +867,7 @@ export default function AgendaPage() {
                 {monthDays.map((day, i) => {
                   const dateStr = formatDateISO(day);
                   const isCurrentMonth = day.getMonth() === currentDate.getMonth();
-                  const dayApts = appointments
+                  const dayApts = appointmentsEnriched
                     .filter((a) => a.date === dateStr && selectedProfessionals.includes(a.professionalId))
                     .sort((a, b) => a.startTime.localeCompare(b.startTime));
                   const visible = dayApts.slice(0, 3);
@@ -850,10 +899,17 @@ export default function AgendaPage() {
                             <div
                               key={apt.id}
                               onClick={(e) => { e.stopPropagation(); handleEditClick(apt); }}
-                              title={`${apt.startTime} — ${apt.patientName}`}
-                              className={`text-[10px] px-1.5 py-0.5 rounded truncate font-medium cursor-pointer hover:opacity-80 ${prof.bgColor} ${prof.textColor}`}
+                              title={
+                                apt.isBirthday
+                                  ? `🎂 Aniversariante do dia! ${apt.startTime} — ${apt.patientName}`
+                                  : `${apt.startTime} — ${apt.patientName}`
+                              }
+                              className={`text-[10px] px-1.5 py-0.5 rounded truncate font-medium cursor-pointer hover:opacity-80 flex items-center gap-1 ${prof.bgColor} ${prof.textColor}`}
                             >
-                              {apt.startTime} {apt.patientName}
+                              {apt.isBirthday && (
+                                <Cake className="w-2.5 h-2.5 shrink-0 text-pink-600 inline" />
+                              )}
+                              <span className="truncate">{apt.startTime} {apt.patientName}</span>
                             </div>
                           );
                         })}
