@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ChevronLeft, ChevronRight, Plus, Calendar, Clock } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, Cake } from "lucide-react";
 import type { Appointment, AppointmentStatus, Professional, ViewMode } from "./agendaTypes";
 import {
   mapDbProfessional,
@@ -21,6 +21,7 @@ import AgendaEventCard from "./AgendaEventCard";
 import AgendaNewEventDialog from "./AgendaNewEventDialog";
 import ListaEsperaDrawer from "./ListaEsperaDrawer";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
+import { ehAniversario, fetchPacientesComNascimento, normalizarNome } from "@/lib/aniversario";
 
 /**
  * AgendaPage - Main scheduling page (Google Calendar style)
@@ -65,6 +66,35 @@ export default function AgendaPage() {
     }
     if (podeVerListaEspera) fetchListaEsperaCount();
   }, [podeVerListaEspera, listaEsperaOpen]);
+
+  // Datas de nascimento dos pacientes (por id e por nome) para sinalizar aniversariantes
+  const [nascimentos, setNascimentos] = useState<{
+    porId: Map<string, string>;
+    porNome: Map<string, string>;
+  }>({ porId: new Map(), porNome: new Map() });
+
+  useEffect(() => {
+    fetchPacientesComNascimento().then((pacientes) => {
+      const porId = new Map<string, string>();
+      const porNome = new Map<string, string>();
+      for (const p of pacientes) {
+        if (!p.data_nascimento) continue;
+        porId.set(p.id, p.data_nascimento);
+        porNome.set(normalizarNome(p.nome_completo), p.data_nascimento);
+      }
+      setNascimentos({ porId, porNome });
+    });
+  }, []);
+
+  /** Paciente faz aniversário na data do agendamento */
+  const isBirthday = (apt: Appointment) => {
+    const nascimento =
+      (apt.pacienteId && nascimentos.porId.get(apt.pacienteId)) ||
+      nascimentos.porNome.get(normalizarNome(apt.patientName));
+    if (!nascimento) return false;
+    const [ano, mes, dia] = apt.date.split("-").map(Number);
+    return ehAniversario(nascimento, new Date(ano, mes - 1, dia));
+  };
 
   // Buscar profissionais do Supabase
   useEffect(() => {
@@ -853,6 +883,9 @@ export default function AgendaPage() {
                               title={`${apt.startTime} — ${apt.patientName}`}
                               className={`text-[10px] px-1.5 py-0.5 rounded truncate font-medium cursor-pointer hover:opacity-80 ${prof.bgColor} ${prof.textColor}`}
                             >
+                              {isBirthday(apt) && (
+                                <Cake aria-label="Aniversariante" className="inline-block align-[-1px] mr-0.5 w-2.5 h-2.5 text-pink-500" />
+                              )}
                               {apt.startTime} {apt.patientName}
                             </div>
                           );
@@ -908,6 +941,7 @@ export default function AgendaPage() {
                           key={apt.id}
                           appointment={apt}
                           professional={getProfessional(apt.professionalId)}
+                          isBirthday={isBirthday(apt)}
                           onClick={handleEditClick}
                           onStatusChange={handleStatusChange}
                         />
@@ -936,6 +970,7 @@ export default function AgendaPage() {
                             appointment={apt}
                             professional={getProfessional(apt.professionalId)}
                             compact
+                            isBirthday={isBirthday(apt)}
                             onClick={handleEditClick}
                             onStatusChange={handleStatusChange}
                           />

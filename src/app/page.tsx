@@ -8,6 +8,7 @@ import FinanceiroPage from "@/components/FinanceiroPage";
 import ConfiguracoesPage from "@/components/ConfiguracoesPage";
 import RelatoriosPage from "@/components/RelatoriosPage";
 import LoginPage from "@/components/LoginPage";
+import AniversariantesDialog from "@/components/AniversariantesDialog";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
 import { Loader2 } from "lucide-react";
@@ -54,6 +55,7 @@ export default function Page() {
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <TopBar activePage={activePage} onPageChange={setActivePage} />
+      <AniversariantesDialog />
       <main className="flex-1 animate-fade-in" key={activePage}>
         {activePage === "cadastro" && <CadastroLayout />}
         {activePage === "agenda" && (

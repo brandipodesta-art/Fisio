@@ -14,6 +14,7 @@ import {
   UserX,
   CalendarCheck,
   Pencil,
+  Cake,
 } from "lucide-react";
 
 /**
@@ -26,6 +27,8 @@ interface AgendaEventCardProps {
   appointment: Appointment;
   professional: Professional;
   compact?: boolean;
+  /** Paciente faz aniversário na data do agendamento */
+  isBirthday?: boolean;
   onClick?: (appointment: Appointment) => void;
   onStatusChange?: (appointmentId: string, newStatus: AppointmentStatus) => void;
 }
@@ -78,6 +81,7 @@ export default function AgendaEventCard({
   appointment,
   professional,
   compact = false,
+  isBirthday = false,
   onClick,
   onStatusChange,
 }: AgendaEventCardProps) {
@@ -149,7 +153,16 @@ export default function AgendaEventCard({
       </div>
 
       {/* Patient name */}
-      <div className={`font-medium text-foreground truncate ${compact ? "text-[11px]" : "text-sm"}`}>
+      <div
+        className={`font-medium text-foreground truncate ${compact ? "text-[11px]" : "text-sm"}`}
+        title={isBirthday ? `${appointment.patientName} faz aniversário neste dia` : undefined}
+      >
+        {isBirthday && (
+          <Cake
+            aria-label="Aniversariante"
+            className={`inline-block align-[-2px] mr-1 text-pink-500 ${compact ? "w-3 h-3" : "w-3.5 h-3.5"}`}
+          />
+        )}
         {appointment.patientName}
       </div>
 
