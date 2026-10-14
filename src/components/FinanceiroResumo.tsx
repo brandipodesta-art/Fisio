@@ -7,6 +7,9 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import type { ResumoFinanceiro } from "@/lib/types/financeiro";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -15,14 +18,24 @@ function fmt(valor: number) {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
+const MESES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+/** Valor do seletor de mês que representa o ano inteiro */
+const ANO_TODO = "todos";
+
 // ─── Grafico de barras premium (sem lib externa) ──────────────────────────────
 
 interface BarChartProps {
   recebimentos: { mes: string; valor: number }[];
   pagamentos:   { mes: string; valor: number }[];
+  /** Índice (0-11) do mês selecionado; os demais ficam esmaecidos */
+  mesDestacado?: number | null;
 }
 
-function BarChart({ recebimentos, pagamentos }: BarChartProps) {
+function BarChart({ recebimentos, pagamentos, mesDestacado = null }: BarChartProps) {
   const maxValor = Math.max(
     ...recebimentos.map(r => r.valor),
     ...pagamentos.map(p => p.valor),
@@ -55,8 +68,12 @@ function BarChart({ recebimentos, pagamentos }: BarChartProps) {
             {recebimentos.map((r, i) => {
               const altRec = maxValor > 0 ? (r.valor / maxValor) * 100 : 0;
               const altPag = maxValor > 0 ? (pagamentos[i].valor / maxValor) * 100 : 0;
+              const esmaecido = mesDestacado !== null && mesDestacado !== i;
               return (
-                <div key={r.mes} className="flex-1 flex flex-col items-center gap-0.5">
+                <div
+                  key={r.mes}
+                  className={`flex-1 flex flex-col items-center gap-0.5 transition-opacity ${esmaecido ? "opacity-35" : ""}`}
+                >
                   <div className="w-full flex items-end gap-1 h-36">
                     {/* Barra recebimento */}
                     <div
@@ -121,6 +138,7 @@ function KpiCard({ label, valor, icon: Icon, variant }: KpiCardProps) {
 export default function FinanceiroResumo() {
   const anoAtual = new Date().getFullYear();
   const [ano, setAno] = useState(anoAtual);
+  const [mes, setMes] = useState<number | null>(null); // 1-12; null = ano todo
   const [resumo, setResumo] = useState<ResumoFinanceiro | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -129,7 +147,7 @@ export default function FinanceiroResumo() {
     setCarregando(true);
     setErro(null);
     try {
-      const res = await fetch(`/api/recebimentos/resumo?ano=${ano}`);
+      const res = await fetch(`/api/recebimentos/resumo?ano=${ano}${mes ? `&mes=${mes}` : ""}`);
       if (!res.ok) throw new Error("Erro ao carregar resumo");
       setResumo(await res.json());
     } catch (e: unknown) {
@@ -137,9 +155,11 @@ export default function FinanceiroResumo() {
     } finally {
       setCarregando(false);
     }
-  }, [ano]);
+  }, [ano, mes]);
 
   useEffect(() => { buscarResumo(); }, [buscarResumo]);
+
+  const periodoLabel = mes ? `${MESES[mes - 1]} de ${ano}` : `${ano}`;
 
   // ── Cards KPI ──────────────────────────────────────────────────────────
 
@@ -163,13 +183,27 @@ export default function FinanceiroResumo() {
 
   return (
     <div className="space-y-6">
-      {/* Cabecalho com seletor de ano */}
-      <div className="flex items-center justify-between">
+      {/* Cabecalho com seletor de mes e ano */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-foreground">Resumo Financeiro</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Visao geral do fluxo financeiro da clinica</p>
         </div>
         <div className="flex items-center gap-1.5">
+          <Select
+            value={mes ? String(mes) : ANO_TODO}
+            onValueChange={(v) => setMes(v === ANO_TODO ? null : Number(v))}
+          >
+            <SelectTrigger size="sm" className="w-[140px] mr-1" aria-label="Mês">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ANO_TODO}>Ano todo</SelectItem>
+              {MESES.map((nome, i) => (
+                <SelectItem key={nome} value={String(i + 1)}>{nome}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="sm" onClick={() => setAno(a => a - 1)} className="h-8 w-8 p-0">
             <ChevronLeft className="w-4 h-4" />
           </Button>
@@ -217,6 +251,7 @@ export default function FinanceiroResumo() {
           <BarChart
             recebimentos={resumo.recebimentosPorMes}
             pagamentos={resumo.pagamentosPorMes}
+            mesDestacado={mes ? mes - 1 : null}
           />
         </Card>
       )}
@@ -229,7 +264,7 @@ export default function FinanceiroResumo() {
             <DollarSign className="w-7 h-7 text-muted-foreground/40" />
           </div>
           <p className="text-foreground font-medium">
-            Nenhum lancamento financeiro em {ano}
+            Nenhum lancamento financeiro em {periodoLabel}
           </p>
           <p className="text-muted-foreground text-sm mt-1.5">
             Use as abas <strong>Recebimentos</strong> e <strong>Pagamentos</strong> para registrar.
