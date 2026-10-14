@@ -11,6 +11,7 @@ import LoginPage from "@/components/LoginPage";
 import AniversariantesDialog from "@/components/AniversariantesDialog";
 import { useAuth } from "@/lib/auth/AuthContext";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
+import { useClinicaConfigStatus } from "@/lib/useClinicaConfig";
 import { Loader2 } from "lucide-react";
 
 export default function Page() {
@@ -21,6 +22,7 @@ export default function Page() {
   );
   const { usuario, isLoading } = useAuth();
   const { podeVerFinanceiro, podeVerConfiguracoes, isAdmin } = usePermissoes();
+  const { pronta: clinicaPronta } = useClinicaConfigStatus();
 
   // Redireciona para cadastro se a página salva não é permitida para o perfil atual
   useEffect(() => {
@@ -34,12 +36,12 @@ export default function Page() {
     localStorage.setItem("fisio_active_page", activePage);
   }, [activePage]);
 
-  // Aguarda restauração da sessão do sessionStorage
-  if (isLoading) {
+  // Aguarda a sessão e a marca da clínica (logo, nome e cor), para não piscar a marca padrão
+  if (isLoading || !clinicaPronta) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <Loader2 className="w-8 h-8 animate-spin" />
           <span className="text-sm">Carregando...</span>
         </div>
       </div>

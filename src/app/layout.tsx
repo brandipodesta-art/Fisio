@@ -16,6 +16,9 @@ export const metadata: Metadata = {
     "Sistema de cadastro de pacientes, evolução clínica, histórico e agenda para clínica de fisioterapia.",
 };
 
+// Aplica a cor de tema salva antes da primeira pintura (mesma chave de CLINICA_CONFIG_STORAGE_KEY)
+const TEMA_INICIAL_SCRIPT = `try{var c=JSON.parse(localStorage.getItem("fisio_clinica_config")||"null");if(c&&c.cor_tema)document.documentElement.setAttribute("data-theme",c.cor_tema)}catch(e){}`;
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -23,6 +26,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: TEMA_INICIAL_SCRIPT }} />
+      </head>
       <body className={`${geistSans.variable} antialiased`} suppressHydrationWarning>
         <AuthProvider>
           {children}

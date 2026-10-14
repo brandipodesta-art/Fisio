@@ -13,6 +13,43 @@ export interface ClinicaConfig {
   taxa_antecipacao?: number | null;
 }
 
+/**
+ * Chave do localStorage com a última configuração carregada.
+ * Também é lida pelo script inline do layout para aplicar o tema antes da primeira pintura.
+ */
+export const CLINICA_CONFIG_STORAGE_KEY = "fisio_clinica_config";
+
+/** Tempo máximo de espera pela configuração antes de liberar a tela com o padrão */
+const TIMEOUT_CONFIG_MS = 4000;
+
+/**
+ * Configuração já conhecida nesta aba (undefined = ainda não carregada).
+ * Faz os componentes montados depois da carga já nascerem com a marca certa.
+ */
+let memoria: ClinicaConfig | null | undefined;
+
+function lerCache(): ClinicaConfig | null {
+  try {
+    const raw = localStorage.getItem(CLINICA_CONFIG_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as ClinicaConfig) : null;
+  } catch {
+    return null;
+  }
+}
+
+function salvarCache(config: ClinicaConfig) {
+  try {
+    localStorage.setItem(CLINICA_CONFIG_STORAGE_KEY, JSON.stringify(config));
+  } catch {
+    // localStorage indisponível: a configuração só não fica em cache
+  }
+}
+
+function aplicarTema(config: ClinicaConfig | null) {
+  if (typeof document === "undefined") return;
+  document.documentElement.setAttribute("data-theme", config?.cor_tema || "verde");
+}
+
 /** Busca a configuração da clínica (linha única id=1). Retorna null se a tabela não existir. */
 export async function fetchClinicaConfig(): Promise<ClinicaConfig | null> {
   const supabase = createClient();
@@ -25,31 +62,61 @@ export async function fetchClinicaConfig(): Promise<ClinicaConfig | null> {
   return data as ClinicaConfig;
 }
 
-/** Hook para componentes client: logo e nome da clínica, com recarga via evento global. */
-export function useClinicaConfig() {
-  const [config, setConfig] = useState<ClinicaConfig | null>(null);
+/**
+ * Hook para componentes client: configuração da clínica e se ela já é conhecida.
+ * `pronta` fica false até haver configuração em cache ou a busca terminar, para que
+ * a tela não exiba a marca padrão antes da marca da clínica.
+ */
+export function useClinicaConfigStatus(): { config: ClinicaConfig | null; pronta: boolean } {
+  const [config, setConfig] = useState<ClinicaConfig | null>(() => memoria ?? null);
+  const [pronta, setPronta] = useState(() => memoria !== undefined);
 
   useEffect(() => {
     let ativo = true;
+
+    const emCache = lerCache();
+    if (emCache) {
+      memoria = emCache;
+      setConfig(emCache);
+      setPronta(true);
+      aplicarTema(emCache);
+    }
+
     const carregar = () => {
       fetchClinicaConfig().then((c) => {
-        if (ativo) {
+        if (!ativo) return;
+        // Falha na busca: mantém o que já estava em cache em vez de voltar ao padrão
+        if (c) {
+          memoria = c;
           setConfig(c);
-          if (typeof document !== "undefined") {
-            const tema = c?.cor_tema || "verde";
-            document.documentElement.setAttribute("data-theme", tema);
-          }
+          salvarCache(c);
+          aplicarTema(c);
+        } else if (!lerCache()) {
+          memoria = null;
+          aplicarTema(null);
         }
+        setPronta(true);
       });
     };
     carregar();
+
+    const timeout = setTimeout(() => {
+      if (ativo) setPronta(true);
+    }, TIMEOUT_CONFIG_MS);
+
     // Permite que a tela de Configurações avise o TopBar quando a logo mudar
     window.addEventListener("clinica-config-updated", carregar);
     return () => {
       ativo = false;
+      clearTimeout(timeout);
       window.removeEventListener("clinica-config-updated", carregar);
     };
   }, []);
 
-  return config;
+  return { config, pronta };
+}
+
+/** Hook para componentes client: logo e nome da clínica, com recarga via evento global. */
+export function useClinicaConfig() {
+  return useClinicaConfigStatus().config;
 }
