@@ -1069,14 +1069,17 @@ function SecaoLogoClinica() {
   const [telefone, setTelefone] = useState("");
   const [endereco, setEndereco] = useState("");
   const [corTema, setCorTema] = useState("verde");
+  const [horaInicioAgenda, setHoraInicioAgenda] = useState(7);
+  const [horaFimAgenda, setHoraFimAgenda] = useState(20);
   const [salvandoDados, setSalvandoDados] = useState(false);
   const [dadosSalvos, setDadosSalvos] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
+    // `*` para não falhar caso as colunas de horário ainda não existam no banco
     const { data } = await supabase
       .from("configuracoes_clinica")
-      .select("logo_url, nome_clinica, cnpj, telefone, endereco, cor_tema")
+      .select("*")
       .eq("id", 1)
       .maybeSingle();
     setLogoUrl(data?.logo_url ?? null);
@@ -1085,6 +1088,8 @@ function SecaoLogoClinica() {
     setTelefone(data?.telefone ?? "");
     setEndereco(data?.endereco ?? "");
     setCorTema(data?.cor_tema ?? "verde");
+    setHoraInicioAgenda(data?.hora_inicio_agenda ?? 7);
+    setHoraFimAgenda(data?.hora_fim_agenda ?? 20);
     setCarregando(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -1158,6 +1163,10 @@ function SecaoLogoClinica() {
   };
 
   const handleSalvarDados = async () => {
+    if (horaInicioAgenda > horaFimAgenda) {
+      setErro("O primeiro horário da agenda deve ser anterior ao último horário.");
+      return;
+    }
     setSalvandoDados(true);
     setErro(null);
     setDadosSalvos(false);
@@ -1174,6 +1183,18 @@ function SecaoLogoClinica() {
         })
         .eq("id", 1);
       if (cfgError) throw new Error(cfgError.message);
+
+      // Horário da Agenda salvo à parte: se as colunas não existirem, os demais dados já ficaram salvos
+      const { error: horarioError } = await supabase
+        .from("configuracoes_clinica")
+        .update({ hora_inicio_agenda: horaInicioAgenda, hora_fim_agenda: horaFimAgenda })
+        .eq("id", 1);
+      if (horarioError) {
+        throw new Error(
+          "Dados salvos, mas o horário da agenda não foi salvo. Execute o SQL docs/sql/adiciona_horario_agenda.sql no Supabase."
+        );
+      }
+
       setDadosSalvos(true);
       setTimeout(() => setDadosSalvos(false), 3000);
       notificarAtualizacao();
@@ -1289,6 +1310,36 @@ function SecaoLogoClinica() {
                 className="mt-1"
                 disabled={carregando}
               />
+            </div>
+          </div>
+
+          {/* Horário da Agenda */}
+          <div className="border-t border-border/60 pt-4 space-y-2.5">
+            <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+              Horário da Agenda
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Define o primeiro e o último horário exibidos na Agenda e disponíveis no agendamento.
+            </p>
+            <div className="grid grid-cols-2 gap-3 sm:max-w-sm">
+              {[
+                { label: "Primeiro horário", valor: horaInicioAgenda, set: setHoraInicioAgenda },
+                { label: "Último horário", valor: horaFimAgenda, set: setHoraFimAgenda },
+              ].map((campo) => (
+                <div key={campo.label}>
+                  <label className="text-xs font-medium text-muted-foreground">{campo.label}</label>
+                  <select
+                    value={campo.valor}
+                    onChange={(e) => campo.set(Number(e.target.value))}
+                    disabled={carregando}
+                    className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] disabled:opacity-50"
+                  >
+                    {Array.from({ length: 24 }, (_, h) => (
+                      <option key={h} value={h}>{`${String(h).padStart(2, "0")}:00`}</option>
+                    ))}
+                  </select>
+                </div>
+              ))}
             </div>
           </div>
 

@@ -24,7 +24,8 @@ import { CalendarDays, CalendarPlus, Check, Clock, Lock, Pencil, Repeat2, Search
 import { toast } from "sonner";
 import type { Appointment, AppointmentStatus, Professional } from "./agendaTypes";
 import { DURATION_OPTIONS, APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS } from "./agendaTypes";
-import { TIME_OPTIONS, calculateEndTime, formatDateISO } from "./agendaData";
+import { calculateEndTime, formatDateISO, gerarTimeOptions, horarioAgenda } from "./agendaData";
+import { useClinicaConfig } from "@/lib/useClinicaConfig";
 import { useAuth } from "@/lib/auth/AuthContext";
 
 interface TaxaCartao {
@@ -163,6 +164,18 @@ export default function AgendaNewEventDialog({
   >([]);
   const [date, setDate] = useState(defaultDate || formatDateISO(new Date()));
   const [startTime, setStartTime] = useState(defaultTime || "08:00");
+
+  // Horários disponíveis conforme o horário da Agenda configurado pela clínica.
+  // Mantém o horário atual do agendamento na lista mesmo se estiver fora da faixa.
+  const clinicaConfig = useClinicaConfig();
+  const { inicio: horaInicio, fim: horaFim } = horarioAgenda(
+    clinicaConfig?.hora_inicio_agenda,
+    clinicaConfig?.hora_fim_agenda
+  );
+  const opcoesHorario = gerarTimeOptions(horaInicio, horaFim);
+  const timeOptions = startTime && !opcoesHorario.includes(startTime)
+    ? [...opcoesHorario, startTime].sort()
+    : opcoesHorario;
   const [duration, setDuration] = useState("50");
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<AppointmentStatus>("agendado");
@@ -637,7 +650,7 @@ export default function AgendaNewEventDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="max-h-48">
-                  {TIME_OPTIONS.map((time) => (
+                  {timeOptions.map((time) => (
                     <SelectItem key={time} value={time}>
                       {time}
                     </SelectItem>

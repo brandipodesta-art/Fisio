@@ -9,7 +9,8 @@ import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, Cake } from "lucide-r
 import type { Appointment, AppointmentStatus, Professional, ViewMode } from "./agendaTypes";
 import {
   mapDbProfessional,
-  TIME_SLOTS,
+  gerarTimeSlots,
+  horarioAgenda,
   formatDateFull,
   formatDateISO,
   getDayName,
@@ -22,6 +23,7 @@ import AgendaNewEventDialog from "./AgendaNewEventDialog";
 import ListaEsperaDrawer from "./ListaEsperaDrawer";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
 import { ehAniversario, fetchPacientesComNascimento, normalizarNome } from "@/lib/aniversario";
+import { useClinicaConfig } from "@/lib/useClinicaConfig";
 
 /**
  * AgendaPage - Main scheduling page (Google Calendar style)
@@ -638,6 +640,20 @@ export default function AgendaPage() {
   };
 
   const weekDays = getWeekDays(currentDate);
+  // Horário da grade: o configurado pela clínica, ampliado se houver agendamento fora dele
+  const clinicaConfig = useClinicaConfig();
+  const timeSlots = useMemo(() => {
+    let { inicio, fim } = horarioAgenda(clinicaConfig?.hora_inicio_agenda, clinicaConfig?.hora_fim_agenda);
+    for (const apt of filteredAppointments) {
+      const hora = Number(apt.startTime.split(":")[0]);
+      if (Number.isInteger(hora)) {
+        inicio = Math.min(inicio, hora);
+        fim = Math.max(fim, hora);
+      }
+    }
+    return gerarTimeSlots(inicio, fim);
+  }, [clinicaConfig?.hora_inicio_agenda, clinicaConfig?.hora_fim_agenda, filteredAppointments]);
+
   const monthDays = useMemo(
     () => viewMode === "month" ? getMonthDays(currentDate) : [],
     [currentDate, viewMode]
@@ -911,7 +927,7 @@ export default function AgendaPage() {
                 <span className="text-sm font-medium text-muted-foreground">Carregando agenda...</span>
               </div>
             )}
-            {TIME_SLOTS.map((slot) => (
+            {timeSlots.map((slot) => (
               <div
                 key={slot.hour}
                 className={`

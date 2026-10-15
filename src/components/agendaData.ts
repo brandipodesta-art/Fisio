@@ -31,14 +31,46 @@ export function mapDbProfessional(row: {
   };
 }
 
+/** Horário padrão da Agenda quando a clínica não configurou outro */
+export const HORA_INICIO_PADRAO = 7;
+export const HORA_FIM_PADRAO = 20;
+
+/**
+ * Normaliza o horário configurado da Agenda.
+ * Valores ausentes ou inválidos voltam ao padrão (07:00 a 20:00).
+ */
+export function horarioAgenda(
+  inicio: number | null | undefined,
+  fim: number | null | undefined
+): { inicio: number; fim: number } {
+  const valido = (h: unknown): h is number => Number.isInteger(h) && (h as number) >= 0 && (h as number) <= 23;
+  const i = valido(inicio) ? inicio : HORA_INICIO_PADRAO;
+  const f = valido(fim) ? fim : HORA_FIM_PADRAO;
+  return i <= f ? { inicio: i, fim: f } : { inicio: HORA_INICIO_PADRAO, fim: HORA_FIM_PADRAO };
+}
+
+/** Linhas da grade da Agenda, uma por hora, de `inicio` até `fim` (inclusive) */
+export function gerarTimeSlots(inicio: number, fim: number): TimeSlot[] {
+  return Array.from({ length: fim - inicio + 1 }, (_, i) => ({
+    hour: inicio + i,
+    label: `${String(inicio + i).padStart(2, "0")}:00`,
+  }));
+}
+
+/** Horários do agendamento a cada 30 min, de `inicio`:00 até `fim`:00 */
+export function gerarTimeOptions(inicio: number, fim: number): string[] {
+  return Array.from({ length: (fim - inicio) * 2 + 1 }, (_, i) => {
+    const hour = Math.floor(i / 2) + inicio;
+    const minute = (i % 2) * 30;
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+  });
+}
+
 /**
  * Time slots - Clinic working hours
  * Default: 07:00 to 20:00
  */
-export const TIME_SLOTS: TimeSlot[] = Array.from({ length: 14 }, (_, i) => ({
-  hour: i + 7,
-  label: `${String(i + 7).padStart(2, "0")}:00`,
-}));
+export const TIME_SLOTS: TimeSlot[] = gerarTimeSlots(HORA_INICIO_PADRAO, HORA_FIM_PADRAO);
 
 /**
  * Available time options for the appointment dialog (every 30 min)

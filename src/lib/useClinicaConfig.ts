@@ -11,6 +11,10 @@ export interface ClinicaConfig {
   cor_tema?: string | null;
   taxa_pix?: number | null;
   taxa_antecipacao?: number | null;
+  /** Primeiro horário da Agenda (hora cheia, 0-23) */
+  hora_inicio_agenda?: number | null;
+  /** Último horário da Agenda (hora cheia, 0-23) */
+  hora_fim_agenda?: number | null;
 }
 
 /**
@@ -50,12 +54,15 @@ function aplicarTema(config: ClinicaConfig | null) {
   document.documentElement.setAttribute("data-theme", config?.cor_tema || "verde");
 }
 
-/** Busca a configuração da clínica (linha única id=1). Retorna null se a tabela não existir. */
+/**
+ * Busca a configuração da clínica (linha única id=1). Retorna null se a tabela não existir.
+ * Usa `*` para não falhar quando uma coluna opcional ainda não foi criada no banco.
+ */
 export async function fetchClinicaConfig(): Promise<ClinicaConfig | null> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("configuracoes_clinica")
-    .select("logo_url, nome_clinica, cnpj, telefone, endereco, cor_tema, taxa_pix, taxa_antecipacao")
+    .select("*")
     .eq("id", 1)
     .maybeSingle();
   if (error || !data) return null;
