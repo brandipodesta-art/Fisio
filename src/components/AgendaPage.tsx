@@ -24,6 +24,7 @@ import ListaEsperaDrawer from "./ListaEsperaDrawer";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
 import { ehAniversario, fetchPacientesComNascimento, normalizarNome } from "@/lib/aniversario";
 import { useClinicaConfig } from "@/lib/useClinicaConfig";
+import { idAgendamentoSalvo, pacienteMudou, planoExclusaoAgendamento } from "@/lib/agendamentoExclusao";
 
 /**
  * AgendaPage - Main scheduling page (Google Calendar style)
@@ -344,6 +345,45 @@ export default function AgendaPage() {
     }
   };
 
+  // Frequência do paciente no mês ("YYYY-MM"): recontada do zero a partir dos agendamentos (idempotente)
+  const recalcularFrequencia = async (pacienteId: string, mes: string) => {
+    const [{ count: presencas }, { count: faltas }] = await Promise.all([
+      supabase
+        .from("agendamentos")
+        .select("*", { count: "exact", head: true })
+        .eq("paciente_id", pacienteId)
+        .in("status", ["atendido", "reposicao"])
+        .like("date", `${mes}-%`),
+      supabase
+        .from("agendamentos")
+        .select("*", { count: "exact", head: true })
+        .eq("paciente_id", pacienteId)
+        .in("status", ["nao_atendido", "falta_sem_reposicao"])
+        .like("date", `${mes}-%`),
+    ]);
+
+    const { data: freq } = await supabase
+      .from("frequencias")
+      .select("id")
+      .eq("paciente_id", pacienteId)
+      .eq("mes", mes)
+      .maybeSingle();
+
+    if (freq) {
+      await supabase
+        .from("frequencias")
+        .update({ presencas: presencas ?? 0, faltas: faltas ?? 0 })
+        .eq("id", freq.id);
+    } else if ((presencas ?? 0) > 0 || (faltas ?? 0) > 0) {
+      await supabase.from("frequencias").insert({
+        paciente_id: pacienteId,
+        mes,
+        presencas: presencas ?? 0,
+        faltas: faltas ?? 0,
+      });
+    }
+  };
+
   // Side effects when status changes (frequency + financial integration)
   const runStatusSideEffects = async (
     appointment: Appointment,
@@ -358,43 +398,7 @@ export default function AgendaPage() {
       appointment.pacienteId &&
       (statusTerminal.includes(newStatus) || statusTerminal.includes(prevStatus))
     ) {
-      const mes = appointment.date.substring(0, 7); // "YYYY-MM"
-
-      const [{ count: presencas }, { count: faltas }] = await Promise.all([
-        supabase
-          .from("agendamentos")
-          .select("*", { count: "exact", head: true })
-          .eq("paciente_id", appointment.pacienteId)
-          .in("status", ["atendido", "reposicao"])
-          .like("date", `${mes}-%`),
-        supabase
-          .from("agendamentos")
-          .select("*", { count: "exact", head: true })
-          .eq("paciente_id", appointment.pacienteId)
-          .in("status", ["nao_atendido", "falta_sem_reposicao"])
-          .like("date", `${mes}-%`),
-      ]);
-
-      const { data: freq } = await supabase
-        .from("frequencias")
-        .select("id")
-        .eq("paciente_id", appointment.pacienteId)
-        .eq("mes", mes)
-        .maybeSingle();
-
-      if (freq) {
-        await supabase
-          .from("frequencias")
-          .update({ presencas: presencas ?? 0, faltas: faltas ?? 0 })
-          .eq("id", freq.id);
-      } else if ((presencas ?? 0) > 0 || (faltas ?? 0) > 0) {
-        await supabase.from("frequencias").insert({
-          paciente_id: appointment.pacienteId,
-          mes,
-          presencas: presencas ?? 0,
-          faltas: faltas ?? 0,
-        });
-      }
+      await recalcularFrequencia(appointment.pacienteId, appointment.date.substring(0, 7));
     }
 
     // ── Recebimento ao confirmar presença ──
@@ -543,6 +547,23 @@ export default function AgendaPage() {
       return;
     }
 
+    // Paciente trocado (ex.: lançado no paciente errado): as cobranças geradas por este
+    // agendamento passam para o paciente certo
+    if (prev && pacienteMudou(prev, apt)) {
+      const { error: erroReceb } = await supabase
+        .from("recebimentos")
+        .update({ paciente_id: apt.pacienteId ?? null, paciente_nome: apt.patientName })
+        .ilike("observacoes", `%agendamento:${apt.id}%`);
+      if (erroReceb) {
+        toast.error("Agendamento salvo, mas a cobrança ligada a ele não mudou de paciente. Corrija no Financeiro.");
+      }
+    }
+    // Paciente ou data mudou: frequências do antes e do depois são recontadas
+    if (prev && (pacienteMudou(prev, apt) || prev.date !== apt.date)) {
+      if (prev.pacienteId) await recalcularFrequencia(prev.pacienteId, prev.date.substring(0, 7));
+      if (apt.pacienteId) await recalcularFrequencia(apt.pacienteId, apt.date.substring(0, 7));
+    }
+
     // Disparar side effects se o status mudou
     if (prev && prev.status !== apt.status) {
       await runStatusSideEffects(apt, prev.status, apt.status);
@@ -588,6 +609,71 @@ export default function AgendaPage() {
         console.warn("Erro ao adicionar à lista de espera:", err);
       }
     }
+  };
+
+  // Excluir agendamento (ex.: lançado no paciente errado). Cobrança pendente gerada por ele sai
+  // junto; cobrança já paga bloqueia — tem de ser resolvida no Financeiro antes.
+  // Retorna true quando excluiu.
+  const handleDeleteAppointment = async (apt: Appointment): Promise<boolean> => {
+    if (!idAgendamentoSalvo(apt.id)) {
+      toast.error("O agendamento ainda está sendo salvo. Aguarde um instante e tente de novo.");
+      return false;
+    }
+
+    const { data: recebs, error: erroBusca } = await supabase
+      .from("recebimentos")
+      .select("id, status")
+      .ilike("observacoes", `%agendamento:${apt.id}%`);
+    if (erroBusca) {
+      toast.error("Não foi possível verificar o financeiro deste agendamento. Tente novamente.");
+      return false;
+    }
+
+    const plano = planoExclusaoAgendamento(recebs ?? []);
+    if (plano.bloqueado) {
+      toast.error(
+        "Este agendamento já tem pagamento confirmado no Financeiro. Para excluí-lo, estorne ou exclua o recebimento no Financeiro primeiro."
+      );
+      return false;
+    }
+
+    // A lista de espera pode apontar para o agendamento: solta o vínculo antes de excluir
+    await supabase
+      .from("lista_espera")
+      .update({ agendamento_atual_id: null })
+      .eq("agendamento_atual_id", apt.id);
+
+    // .select() devolve o que foi excluído: se uma regra do banco barrar a exclusão, o Supabase
+    // não dá erro, só exclui nada — sem esta conferência o agendamento sumiria só da tela
+    const { data: excluidos, error } = await supabase
+      .from("agendamentos")
+      .delete()
+      .eq("id", apt.id)
+      .select("id");
+    if (error || !excluidos || excluidos.length === 0) {
+      toast.error("Não foi possível excluir o agendamento. Tente novamente.");
+      return false;
+    }
+    setAppointments((lista) => lista.filter((a) => a.id !== apt.id));
+
+    if (plano.apagarRecebimentos.length > 0) {
+      const { error: erroReceb } = await supabase
+        .from("recebimentos")
+        .delete()
+        .in("id", plano.apagarRecebimentos);
+      if (erroReceb) {
+        toast.error("Agendamento excluído, mas a cobrança pendente ligada a ele continua no Financeiro. Exclua-a por lá.");
+      }
+    }
+
+    if (apt.pacienteId) await recalcularFrequencia(apt.pacienteId, apt.date.substring(0, 7));
+
+    toast.success(
+      plano.apagarRecebimentos.length > 0
+        ? "Agendamento excluído, junto com a cobrança pendente."
+        : "Agendamento excluído."
+    );
+    return true;
   };
 
   // Change appointment status
@@ -1073,6 +1159,7 @@ export default function AgendaPage() {
         onSave={handleSaveAppointment}
         onSaveMultiple={handleSaveMultipleAppointments}
         onUpdate={handleUpdateAppointment}
+        onDelete={handleDeleteAppointment}
         appointmentToEdit={editingAppointment}
         defaultDate={dialogDefaults.date}
         defaultTime={dialogDefaults.time}
