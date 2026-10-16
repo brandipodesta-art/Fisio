@@ -103,10 +103,11 @@ export default function AgendaEventCard({
         relative group
       `}
     >
-      {/* Action menu (3 dots) - visible on hover or always on non-compact */}
-      {!compact && actions.length > 0 && onStatusChange && (
+      {/* Menu de ações (3 pontos): com mouse aparece ao passar por cima; em tablet/celular
+          (sem "hover") fica sempre visível. "Editar" existe em qualquer status. */}
+      {!compact && onStatusChange && (
         <div
-          className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-1.5 right-1.5 opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 transition-opacity"
           onClick={(e) => e.stopPropagation()}
         >
           <DropdownMenu>
@@ -127,7 +128,7 @@ export default function AgendaEventCard({
                 <Pencil className="w-4 h-4 text-muted-foreground" />
                 Editar
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
+              {actions.length > 0 && <DropdownMenuSeparator />}
               {/* Status actions */}
               {actions.map((action) => (
                 <DropdownMenuItem

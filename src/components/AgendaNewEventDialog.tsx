@@ -20,7 +20,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { CalendarDays, CalendarPlus, Check, Clock, Lock, Pencil, Repeat2, Search } from "lucide-react";
+import { CalendarDays, CalendarPlus, Check, Clock, Lock, LockOpen, Pencil, Repeat2, Search, Trash2 } from "lucide-react";
+import ConfirmDeleteDialog from "@/components/ui/ConfirmDeleteDialog";
 import { toast } from "sonner";
 import type { Appointment, AppointmentStatus, Professional } from "./agendaTypes";
 import { DURATION_OPTIONS, APPOINTMENT_STATUS_LABELS, APPOINTMENT_STATUS_COLORS } from "./agendaTypes";
@@ -131,6 +132,8 @@ interface AgendaNewEventDialogProps {
   onSave: (appointment: Appointment) => void;
   onSaveMultiple?: (appointments: Appointment[]) => void;
   onUpdate?: (appointment: Appointment) => void;
+  /** Exclui o agendamento em edição; resolve true quando excluiu */
+  onDelete?: (appointment: Appointment) => Promise<boolean>;
   appointmentToEdit?: Appointment | null;
   defaultDate?: string;
   defaultTime?: string;
@@ -143,6 +146,7 @@ export default function AgendaNewEventDialog({
   onSave,
   onSaveMultiple,
   onUpdate,
+  onDelete,
   appointmentToEdit,
   defaultDate,
   defaultTime,
@@ -204,6 +208,8 @@ export default function AgendaNewEventDialog({
   const { usuario } = useAuth();
 
   const isEditing = !!appointmentToEdit;
+  const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
   const TERMINAL_STATUSES: AppointmentStatus[] = ["atendido", "nao_atendido", "falta_sem_reposicao", "reposicao"];
   const isLocked = isEditing && TERMINAL_STATUSES.includes(status) && !isForceEdit;
 
@@ -518,9 +524,19 @@ export default function AgendaNewEventDialog({
                 : "bg-amber-50 border-amber-200 text-amber-700"
             }`}>
               <Lock className="w-4 h-4 shrink-0" />
-              <span>
+              <span className="flex-1">
                 Agendamento <strong>{APPOINTMENT_STATUS_LABELS[status]}</strong> — campos bloqueados para edição
               </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setIsForceEdit(true)}
+                className="shrink-0 gap-1 h-7 px-2 bg-white/70"
+              >
+                <LockOpen className="w-3.5 h-3.5" />
+                Desbloquear
+              </Button>
             </div>
           )}
 
@@ -850,20 +866,21 @@ export default function AgendaNewEventDialog({
 
         {/* Action buttons */}
         <div className="flex gap-2 justify-end mt-4 pt-4 border-t border-border">
-          {isLocked && (
+          {isEditing && onDelete && (
             <Button
               variant="outline"
-              onClick={() => setIsForceEdit(true)}
-              className="mr-auto gap-1.5 text-muted-foreground"
+              onClick={() => setConfirmandoExclusao(true)}
+              disabled={excluindo}
+              className="mr-auto gap-1.5 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
             >
-              <Pencil className="w-4 h-4" />
-              Editar
+              <Trash2 className="w-4 h-4" />
+              Excluir
             </Button>
           )}
           {recebimentoPendente && (
             <Button
               onClick={() => setConfirmandoPagamento(true)}
-              className={`gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white ${!isLocked ? "mr-auto" : ""}`}
+              className={`gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white ${!(isEditing && onDelete) ? "mr-auto" : ""}`}
             >
               <Check className="w-4 h-4" />
               Confirmar Pagamento
@@ -881,6 +898,28 @@ export default function AgendaNewEventDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDeleteDialog
+      open={confirmandoExclusao}
+      onOpenChange={setConfirmandoExclusao}
+      titulo="Excluir agendamento"
+      mensagem={
+        appointmentToEdit
+          ? `Excluir o agendamento de ${appointmentToEdit.patientName} em ${appointmentToEdit.date.split("-").reverse().join("/")} às ${appointmentToEdit.startTime}? Se ele gerou uma cobrança pendente no Financeiro, ela também será excluída. Esta ação não pode ser desfeita.`
+          : undefined
+      }
+      loading={excluindo}
+      onConfirm={async () => {
+        if (!appointmentToEdit || !onDelete) return;
+        setExcluindo(true);
+        const excluiu = await onDelete(appointmentToEdit);
+        setExcluindo(false);
+        if (excluiu) {
+          resetForm();
+          onOpenChange(false);
+        }
+      }}
+    />
 
     <Dialog
       open={confirmandoPagamento}
