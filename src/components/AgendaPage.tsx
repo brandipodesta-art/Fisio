@@ -643,9 +643,15 @@ export default function AgendaPage() {
       .update({ agendamento_atual_id: null })
       .eq("agendamento_atual_id", apt.id);
 
-    const { error } = await supabase.from("agendamentos").delete().eq("id", apt.id);
-    if (error) {
-      toast.error("Erro ao excluir agendamento. Tente novamente.");
+    // .select() devolve o que foi excluído: se uma regra do banco barrar a exclusão, o Supabase
+    // não dá erro, só exclui nada — sem esta conferência o agendamento sumiria só da tela
+    const { data: excluidos, error } = await supabase
+      .from("agendamentos")
+      .delete()
+      .eq("id", apt.id)
+      .select("id");
+    if (error || !excluidos || excluidos.length === 0) {
+      toast.error("Não foi possível excluir o agendamento. Tente novamente.");
       return false;
     }
     setAppointments((lista) => lista.filter((a) => a.id !== apt.id));
