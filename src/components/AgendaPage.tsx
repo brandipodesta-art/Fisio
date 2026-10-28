@@ -24,7 +24,7 @@ import ListaEsperaDrawer from "./ListaEsperaDrawer";
 import { usePermissoes } from "@/lib/auth/usePermissoes";
 import { ehAniversario, fetchPacientesComNascimento, normalizarNome } from "@/lib/aniversario";
 import { useClinicaConfig } from "@/lib/useClinicaConfig";
-import { idAgendamentoSalvo, pacienteMudou, planoExclusaoAgendamento } from "@/lib/agendamentoExclusao";
+import { idAgendamentoSalvo, pacienteMudou, planoExclusaoAgendamento, proximosDaSerie } from "@/lib/agendamentoExclusao";
 
 /**
  * AgendaPage - Main scheduling page (Google Calendar style)
@@ -611,31 +611,23 @@ export default function AgendaPage() {
     }
   };
 
-  // Excluir agendamento (ex.: lançado no paciente errado). Cobrança pendente gerada por ele sai
-  // junto; cobrança já paga bloqueia — tem de ser resolvida no Financeiro antes.
-  // Retorna true quando excluiu.
-  const handleDeleteAppointment = async (apt: Appointment): Promise<boolean> => {
-    if (!idAgendamentoSalvo(apt.id)) {
-      toast.error("O agendamento ainda está sendo salvo. Aguarde um instante e tente de novo.");
-      return false;
-    }
+  // Exclui um agendamento sem avisar o usuário; quem chama decide a mensagem.
+  // Cobrança pendente gerada por ele sai junto; cobrança já paga bloqueia a exclusão.
+  type ResultadoExclusao =
+    | { ok: true; apagouCobranca: boolean; erroCobranca: boolean }
+    | { ok: false; motivo: "nao_salvo" | "erro_financeiro" | "pago" | "erro" };
+
+  const excluirAgendamento = async (apt: Appointment): Promise<ResultadoExclusao> => {
+    if (!idAgendamentoSalvo(apt.id)) return { ok: false, motivo: "nao_salvo" };
 
     const { data: recebs, error: erroBusca } = await supabase
       .from("recebimentos")
       .select("id, status")
       .ilike("observacoes", `%agendamento:${apt.id}%`);
-    if (erroBusca) {
-      toast.error("Não foi possível verificar o financeiro deste agendamento. Tente novamente.");
-      return false;
-    }
+    if (erroBusca) return { ok: false, motivo: "erro_financeiro" };
 
     const plano = planoExclusaoAgendamento(recebs ?? []);
-    if (plano.bloqueado) {
-      toast.error(
-        "Este agendamento já tem pagamento confirmado no Financeiro. Para excluí-lo, estorne ou exclua o recebimento no Financeiro primeiro."
-      );
-      return false;
-    }
+    if (plano.bloqueado) return { ok: false, motivo: "pago" };
 
     // A lista de espera pode apontar para o agendamento: solta o vínculo antes de excluir
     await supabase
@@ -650,30 +642,103 @@ export default function AgendaPage() {
       .delete()
       .eq("id", apt.id)
       .select("id");
-    if (error || !excluidos || excluidos.length === 0) {
-      toast.error("Não foi possível excluir o agendamento. Tente novamente.");
-      return false;
-    }
+    if (error || !excluidos || excluidos.length === 0) return { ok: false, motivo: "erro" };
     setAppointments((lista) => lista.filter((a) => a.id !== apt.id));
 
+    let erroCobranca = false;
     if (plano.apagarRecebimentos.length > 0) {
       const { error: erroReceb } = await supabase
         .from("recebimentos")
         .delete()
         .in("id", plano.apagarRecebimentos);
-      if (erroReceb) {
-        toast.error("Agendamento excluído, mas a cobrança pendente ligada a ele continua no Financeiro. Exclua-a por lá.");
+      erroCobranca = !!erroReceb;
+    }
+
+    return { ok: true, apagouCobranca: plano.apagarRecebimentos.length > 0 && !erroCobranca, erroCobranca };
+  };
+
+  /** Próximos agendamentos da mesma série semanal (para "excluir este e os próximos") */
+  const getProximosDaSerie = (apt: Appointment) => proximosDaSerie(apt, appointments);
+
+  // Excluir agendamento (ex.: lançado no paciente errado) e, se pedido, os próximos da mesma
+  // série semanal. Retorna true quando o agendamento aberto foi excluído.
+  const handleDeleteAppointment = async (apt: Appointment, incluirProximos = false): Promise<boolean> => {
+    const alvos = incluirProximos ? [apt, ...getProximosDaSerie(apt)] : [apt];
+
+    const excluidos: Appointment[] = [];
+    const bloqueadosPorPagamento: Appointment[] = [];
+    let falhas = 0;
+    let errosCobranca = 0;
+    let cobrancasApagadas = 0;
+    let primeiroMotivo: string | null = null;
+
+    for (const alvo of alvos) {
+      const r = await excluirAgendamento(alvo);
+      if (r.ok) {
+        excluidos.push(alvo);
+        if (r.apagouCobranca) cobrancasApagadas++;
+        if (r.erroCobranca) errosCobranca++;
+      } else if (r.motivo === "pago") {
+        bloqueadosPorPagamento.push(alvo);
+      } else {
+        falhas++;
+        if (alvo.id === apt.id) primeiroMotivo = r.motivo;
       }
     }
 
-    if (apt.pacienteId) await recalcularFrequencia(apt.pacienteId, apt.date.substring(0, 7));
-
-    toast.success(
-      plano.apagarRecebimentos.length > 0
-        ? "Agendamento excluído, junto com a cobrança pendente."
-        : "Agendamento excluído."
+    // Frequência recalculada uma vez por paciente e mês afetados
+    const mesesAfetados = new Set(
+      excluidos.filter((a) => a.pacienteId).map((a) => `${a.pacienteId}|${a.date.substring(0, 7)}`)
     );
-    return true;
+    for (const chave of mesesAfetados) {
+      const [pacienteId, mes] = chave.split("|");
+      await recalcularFrequencia(pacienteId, mes);
+    }
+
+    const dataBR = (d: string) => d.split("-").reverse().slice(0, 2).join("/");
+
+    if (alvos.length === 1) {
+      if (excluidos.length === 1) {
+        if (errosCobranca > 0) {
+          toast.error("Agendamento excluído, mas a cobrança pendente ligada a ele continua no Financeiro. Exclua-a por lá.");
+        } else {
+          toast.success(cobrancasApagadas > 0 ? "Agendamento excluído, junto com a cobrança pendente." : "Agendamento excluído.");
+        }
+        return true;
+      }
+      if (bloqueadosPorPagamento.length > 0) {
+        toast.error(
+          "Este agendamento já tem pagamento confirmado no Financeiro. Para excluí-lo, estorne ou exclua o recebimento no Financeiro primeiro."
+        );
+      } else if (primeiroMotivo === "nao_salvo") {
+        toast.error("O agendamento ainda está sendo salvo. Aguarde um instante e tente de novo.");
+      } else if (primeiroMotivo === "erro_financeiro") {
+        toast.error("Não foi possível verificar o financeiro deste agendamento. Tente novamente.");
+      } else {
+        toast.error("Não foi possível excluir o agendamento. Tente novamente.");
+      }
+      return false;
+    }
+
+    // Série: um resumo só
+    if (excluidos.length > 0) {
+      toast.success(
+        `${excluidos.length} agendamento${excluidos.length > 1 ? "s excluídos" : " excluído"}` +
+          (cobrancasApagadas > 0 ? `, junto com ${cobrancasApagadas} cobrança${cobrancasApagadas > 1 ? "s pendentes" : " pendente"}.` : ".")
+      );
+    }
+    if (bloqueadosPorPagamento.length > 0) {
+      toast.error(
+        `Não excluídos por já terem pagamento confirmado: ${bloqueadosPorPagamento.map((a) => dataBR(a.date)).join(", ")}. Resolva no Financeiro primeiro.`
+      );
+    }
+    if (falhas > 0) {
+      toast.error(`${falhas} agendamento${falhas > 1 ? "s não puderam" : " não pôde"} ser excluído${falhas > 1 ? "s" : ""}. Tente novamente.`);
+    }
+    if (errosCobranca > 0) {
+      toast.error(`${errosCobranca} cobrança${errosCobranca > 1 ? "s pendentes continuam" : " pendente continua"} no Financeiro. Exclua por lá.`);
+    }
+    return excluidos.some((a) => a.id === apt.id);
   };
 
   // Change appointment status
@@ -1160,6 +1225,7 @@ export default function AgendaPage() {
         onSaveMultiple={handleSaveMultipleAppointments}
         onUpdate={handleUpdateAppointment}
         onDelete={handleDeleteAppointment}
+        getProximosDaSerie={getProximosDaSerie}
         appointmentToEdit={editingAppointment}
         defaultDate={dialogDefaults.date}
         defaultTime={dialogDefaults.time}

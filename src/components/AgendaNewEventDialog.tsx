@@ -132,8 +132,10 @@ interface AgendaNewEventDialogProps {
   onSave: (appointment: Appointment) => void;
   onSaveMultiple?: (appointments: Appointment[]) => void;
   onUpdate?: (appointment: Appointment) => void;
-  /** Exclui o agendamento em edição; resolve true quando excluiu */
-  onDelete?: (appointment: Appointment) => Promise<boolean>;
+  /** Exclui o agendamento em edição (e os próximos da série, se pedido); resolve true quando excluiu */
+  onDelete?: (appointment: Appointment, incluirProximos?: boolean) => Promise<boolean>;
+  /** Próximos agendamentos da mesma série semanal do agendamento em edição */
+  getProximosDaSerie?: (appointment: Appointment) => Appointment[];
   appointmentToEdit?: Appointment | null;
   defaultDate?: string;
   defaultTime?: string;
@@ -147,6 +149,7 @@ export default function AgendaNewEventDialog({
   onSaveMultiple,
   onUpdate,
   onDelete,
+  getProximosDaSerie,
   appointmentToEdit,
   defaultDate,
   defaultTime,
@@ -210,6 +213,9 @@ export default function AgendaNewEventDialog({
   const isEditing = !!appointmentToEdit;
   const [confirmandoExclusao, setConfirmandoExclusao] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
+  const [excluirProximos, setExcluirProximos] = useState(false);
+  const proximosDaSerie =
+    appointmentToEdit && getProximosDaSerie ? getProximosDaSerie(appointmentToEdit) : [];
   const TERMINAL_STATUSES: AppointmentStatus[] = ["atendido", "nao_atendido", "falta_sem_reposicao", "reposicao"];
   const isLocked = isEditing && TERMINAL_STATUSES.includes(status) && !isForceEdit;
 
@@ -901,7 +907,10 @@ export default function AgendaNewEventDialog({
 
     <ConfirmDeleteDialog
       open={confirmandoExclusao}
-      onOpenChange={setConfirmandoExclusao}
+      onOpenChange={(aberto) => {
+        setConfirmandoExclusao(aberto);
+        if (!aberto) setExcluirProximos(false);
+      }}
       titulo="Excluir agendamento"
       mensagem={
         appointmentToEdit
@@ -909,17 +918,49 @@ export default function AgendaNewEventDialog({
           : undefined
       }
       loading={excluindo}
+      confirmLabel={excluirProximos && proximosDaSerie.length > 0 ? `Excluir ${proximosDaSerie.length + 1}` : "Excluir"}
       onConfirm={async () => {
         if (!appointmentToEdit || !onDelete) return;
         setExcluindo(true);
-        const excluiu = await onDelete(appointmentToEdit);
+        const excluiu = await onDelete(appointmentToEdit, excluirProximos && proximosDaSerie.length > 0);
         setExcluindo(false);
+        setExcluirProximos(false);
         if (excluiu) {
           resetForm();
           onOpenChange(false);
         }
       }}
-    />
+    >
+      {proximosDaSerie.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-border p-3 text-sm">
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="escopo-exclusao"
+              checked={!excluirProximos}
+              onChange={() => setExcluirProximos(false)}
+              className="mt-0.5 accent-red-600"
+            />
+            <span>Somente este agendamento</span>
+          </label>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name="escopo-exclusao"
+              checked={excluirProximos}
+              onChange={() => setExcluirProximos(true)}
+              className="mt-0.5 accent-red-600"
+            />
+            <span>
+              Este e os próximos {proximosDaSerie.length} da série semanal
+              <span className="block text-xs text-muted-foreground mt-0.5">
+                {proximosDaSerie.map((a) => a.date.split("-").reverse().slice(0, 2).join("/")).join(", ")}
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
+    </ConfirmDeleteDialog>
 
     <Dialog
       open={confirmandoPagamento}

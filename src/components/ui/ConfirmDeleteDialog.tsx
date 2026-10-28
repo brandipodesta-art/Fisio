@@ -18,6 +18,10 @@ interface ConfirmDeleteDialogProps {
   titulo?: string;
   mensagem?: string;
   loading?: boolean;
+  /** Conteúdo extra entre a mensagem e os botões (ex.: opções de exclusão) */
+  children?: React.ReactNode;
+  /** Texto do botão de confirmação (padrão: "Excluir") */
+  confirmLabel?: string;
 }
 
 /**
@@ -32,6 +36,8 @@ export default function ConfirmDeleteDialog({
   titulo = "Confirmar Exclusão",
   mensagem = "Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita.",
   loading = false,
+  children,
+  confirmLabel = "Excluir",
 }: ConfirmDeleteDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,6 +55,7 @@ export default function ConfirmDeleteDialog({
             </div>
           </div>
         </DialogHeader>
+        {children}
         <DialogFooter className="mt-4">
           <Button
             variant="outline"
@@ -66,7 +73,7 @@ export default function ConfirmDeleteDialog({
             disabled={loading}
             className="gap-2"
           >
-            {loading ? "Excluindo..." : "Excluir"}
+            {loading ? "Excluindo..." : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>
